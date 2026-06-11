@@ -1,0 +1,128 @@
+"""Group-stage standings via Monte Carlo simulation.
+
+Unlike `scoring.best_prediction` (which picks the Superbru-optimal scoreline),
+this samples scorelines straight from the model's probability matrix, so the
+simulated results follow the *realistic* distribution of outcomes. Matches
+already played enter the standings with their actual result; the rest are
+simulated many times, points/goal difference tallied with the standard 3-1-0
+system, and each team's chance of finishing 1st/2nd/3rd/4th reported.
+"""
+import numpy as np
+import pandas as pd
+
+from .predict import home_side
+
+
+def derive_groups(fixtures):
+    """Infer groups as connected components of the fixture graph.
+
+    Each World Cup group plays an internal round-robin and no cross-group
+    matches in the first round, so every group of 4 is an isolated clique in
+    the fixture list. Pass the *full* group schedule (played + upcoming):
+    mid-tournament, the remaining fixtures alone no longer connect all four
+    teams. Groups are returned ordered by their first kick-off and labelled
+    A, B, C ... (inferred — the dataset carries no group column)."""
+    adj, first = {}, {}
+    for _, r in fixtures.iterrows():
+        adj.setdefault(r.home_team, set()).add(r.away_team)
+        adj.setdefault(r.away_team, set()).add(r.home_team)
+        for t in (r.home_team, r.away_team):
+            first[t] = min(first.get(t, r.date), r.date)
+    seen, comps = set(), []
+    for team in adj:
+        if team in seen:
+            continue
+        stack, comp = [team], set()
+        while stack:
+            t = stack.pop()
+            if t in comp:
+                continue
+            comp.add(t)
+            stack.extend(adj[t] - comp)
+        seen |= comp
+        comps.append(sorted(comp))
+    comps.sort(key=lambda c: min(first[t] for t in c))
+    labels = [chr(ord("A") + i) for i in range(len(comps))]
+    return dict(zip(labels, comps))
+
+
+def _sample_scores(P, n, rng):
+    """Draw n (home_goals, away_goals) pairs from a score matrix P."""
+    flat = (P / P.sum()).ravel()
+    idx = rng.choice(flat.size, size=n, p=flat)
+    return np.divmod(idx, P.shape[1])
+
+
+def simulate_group(model, teams, fixtures, n_sims=100000, rng=None,
+                   played=None):
+    """Simulate one group; return a standings DataFrame sorted best-first.
+
+    `played` rows (same fixture columns plus scores) count as fixed results,
+    so mid-tournament standings include the points already won.
+    Columns: team, P1..P4 (finish-position probabilities), qualify (top 2),
+    xPts (expected points), xGD (expected goal difference)."""
+    rng = rng or np.random.default_rng(0)
+    idx = {t: i for i, t in enumerate(teams)}
+    gf = fixtures[fixtures.home_team.isin(teams) & fixtures.away_team.isin(teams)]
+
+    n = len(teams)
+    pts = np.zeros((n_sims, n))
+    gd = np.zeros((n_sims, n))
+    gfor = np.zeros((n_sims, n))
+    if played is not None and len(played):
+        gp = played[played.home_team.isin(teams)
+                    & played.away_team.isin(teams)]
+        for _, r in gp.iterrows():
+            h, a = idx[r.home_team], idx[r.away_team]
+            hg, ag = int(r.home_score), int(r.away_score)
+            pts[:, h] += 3 * (hg > ag) + (hg == ag)
+            pts[:, a] += 3 * (ag > hg) + (hg == ag)
+            gd[:, h] += hg - ag
+            gd[:, a] += ag - hg
+            gfor[:, h] += hg
+            gfor[:, a] += ag
+    for _, r in gf.iterrows():
+        h, a = idx[r.home_team], idx[r.away_team]
+        P = model.score_matrix(
+            r.home_team, r.away_team,
+            home_side=home_side(r.home_team, r.away_team, r.country))
+        hg, ag = _sample_scores(P, n_sims, rng)
+        hw, aw, dr = hg > ag, ag > hg, hg == ag
+        pts[:, h] += 3 * hw + dr
+        pts[:, a] += 3 * aw + dr
+        gd[:, h] += hg - ag
+        gd[:, a] += ag - hg
+        gfor[:, h] += hg
+        gfor[:, a] += ag
+
+    # FIFA-style ranking: points, then GD, then goals for; ties broken at
+    # random (head-to-head is not modelled). lexsort's last key is primary.
+    tiebreak = rng.random((n_sims, n))
+    order = np.lexsort((tiebreak, gfor, gd, pts), axis=1)[:, ::-1]
+    pos = np.empty_like(order)
+    rows = np.arange(n_sims)[:, None]
+    pos[rows, order] = np.arange(n)[None, :]          # pos: 0 = 1st place
+
+    rank_prob = np.stack([(pos == k).mean(axis=0) for k in range(n)], axis=1)
+    out = pd.DataFrame({
+        "team": teams,
+        **{f"P{k+1}": rank_prob[:, k].round(3) for k in range(n)},
+        "qualify": (rank_prob[:, 0] + rank_prob[:, 1]).round(3),
+        "xPts": pts.mean(axis=0).round(2),
+        "xGD": gd.mean(axis=0).round(2),
+    })
+    return out.sort_values(["P1", "qualify", "xPts"],
+                           ascending=False).reset_index(drop=True)
+
+
+def simulate_groups(model, fixtures, n_sims=100000, seed=0, played=None):
+    """Simulate every group; return {label: standings DataFrame}.
+
+    Groups are derived from played + upcoming matches together so they stay
+    intact mid-tournament; `played` results enter the standings as-is."""
+    rng = np.random.default_rng(seed)
+    sched = fixtures
+    if played is not None and len(played):
+        sched = pd.concat([played, fixtures], ignore_index=True)
+    return {label: simulate_group(model, teams, fixtures, n_sims, rng, played)
+            for label, teams in derive_groups(sched).items()}

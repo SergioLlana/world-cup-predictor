@@ -1,0 +1,15 @@
+# Generated files: downloaded results, odds, xG, predictions, group tables.
+# Recreated on demand (`wcpred update-data`, the fetch scripts, `--out`).
+/data/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Local tooling state
+.claude/

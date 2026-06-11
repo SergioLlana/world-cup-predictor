@@ -1,0 +1,224 @@
+# wcpred — World Cup predictor optimised for Superbru
+
+Predicts FIFA World Cup 2026 scorelines and picks the prediction that
+maximises your expected points under the official
+[Superbru scoring rules](https://www.superbru.com/worldcup_predictor/how_to_play.php#tab=scoring):
+
+| Result | Points |
+|---|---|
+| Exact score | 3.0 |
+| Correct outcome + close (Closeness Index ≤ 1.5) | 1.5 |
+| Correct outcome only | 1.0 |
+
+Closeness Index = `|ΔGoalDiff| + |ΔTotalGoals| / 2` — being one goal away
+from the exact score counts as close, *if* you also got the outcome right.
+
+The key idea: the optimal pick is **not** the most likely scoreline. The model
+computes the full probability matrix of scorelines and picks the one with the
+highest expected Superbru points (e.g. 2-0 often beats 1-0 because it is
+"close" to 1-0, 2-1 and 3-0 simultaneously).
+
+## Install
+
+```bash
+pip install -e .
+wcpred update-data        # downloads data/input/results.csv (run before every session)
+```
+
+## Quick start
+
+```bash
+# 1. Pure history-based model (no external data needed)
+wcpred predict --approach history --days 3
+
+# 2. With betting odds (recommended — strongest signal available)
+wcpred predict --approach odds --odds data/input/odds.csv --days 3
+
+# 3. Everything at once
+wcpred predict --approach full --odds data/input/odds.csv --xg data/input/xg.csv \
+               --out picks.csv
+```
+
+All generated files live under `data/` (kept out of the project root): inputs in
+`data/input/` (`results.csv`, `odds.csv`, `xg.csv`), prediction
+CSVs in `data/predictions/`, group standings in `data/groups/`. A bare `--out`
+filename is placed in the right folder automatically (e.g. `--out picks.csv` →
+`data/predictions/picks.csv`); pass a path with a directory to override.
+
+**Track how picks evolve** — `scripts/generate_predictions.sh` regenerates
+predictions *and* group standings with a date-stamped filename, so daily runs
+accumulate instead of overwriting:
+
+```bash
+scripts/generate_predictions.sh                 # → data/predictions/picks_<approach>_<date>.csv
+                                                #   data/groups/groups_<approach>_<date>.csv
+scripts/generate_predictions.sh --help          # all options
+```
+
+It defaults to `--approach odds` when `data/input/odds.csv` exists (else
+`history`) and wires in the standard `data/input/` files automatically. The stamp
+is the `--as-of` date (today by default); use `--time` to also keep multiple runs
+within a day.
+
+Re-run any time during the tournament: `update-data` pulls the latest
+results (the dataset updates daily), training always uses everything played
+before `--as-of` (default: today), and `predict` covers only fixtures that
+haven't been played yet — so group-stage results automatically inform your
+knockout picks.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `wcpred update-data` | Download/refresh `results.csv` (int. results since 1872 + WC2026 fixtures) |
+| `wcpred predict` | Predict upcoming WC fixtures; `--days N` limits horizon, `--out FILE` saves CSV |
+| `wcpred ratings` | Show current attack/defence/overall ratings per team |
+| `wcpred backtest` | Score the model on past tournaments (`--tournament all` or wc2018/euro2021/copa2021/wc2022/euro2024/copa2024) |
+| `wcpred tune` | Grid-search training hyperparameters across all backtest tournaments |
+
+## Approaches (`--approach`)
+
+| Approach | Sources used | When to use |
+|---|---|---|
+| `history` | Match results only | Baseline; always works |
+| `odds` | History + market 1X2 odds | **Best accuracy.** Use whenever odds exist |
+| `xg` | History with goals blended with xG | If you have an xG dataset (see below) |
+| `full` | All of the above | Whatever files you pass get used |
+
+### How each source is integrated
+
+- **Model core**: Dixon-Coles — weighted Poisson with attack/defence rating
+  per team, time decay (half-life 2 years), home advantage for the three
+  hosts in their own country, and the rho correction for low-scoring draws.
+  Trained on ~11k internationals since 2015 (friendlies at full weight since
+  the June 2026 tuning run).
+- **Odds**: de-vigged 1X2 probabilities are converted into a market-implied
+  scoreline matrix (recalibrating the Poisson rates to match the market),
+  then blended `0.75 * market + 0.25 * model` (`--odds-weight`).
+- **xG**: training targets become `0.6*goals + 0.4*xG` where available —
+  xG is less noisy than goals, improving the underlying ratings.
+
+## Getting the data
+
+> Source coverage, historical cutoffs and gotchas are documented in
+> [`docs/data-sources.md`](docs/data-sources.md).
+
+**Refresh everything at once (incrementally):**
+
+```bash
+scripts/update_data.sh           # results + xG + odds into data/input/
+scripts/update_data.sh --help    # options: --xg-window, --full-xg, --skip-*
+```
+
+It re-downloads `results.csv`, tops up `xg.csv` (re-fetching the last ~2 weeks
+so late-finishing matches are picked up) and upserts `odds.csv` when
+`ODDS_API_KEY` is set. Each source is independent; a failure in one is reported
+but doesn't stop the others. The individual sources are described below.
+
+### Results (automatic)
+`wcpred update-data` downloads the
+[martj42/international_results](https://github.com/martj42/international_results)
+dataset (updated daily, includes the WC2026 schedule).
+
+### Odds (`data/input/odds.csv`)
+Format — American or decimal odds both work:
+
+```csv
+home_team,away_team,odds_1,odds_X,odds_2
+Mexico,South Africa,-235,+375,+800
+Brazil,Morocco,1.67,3.90,5.50
+```
+
+Two ways to fill it:
+1. **Automatic**: `python scripts/fetch_odds.py` (writes `data/input/odds.csv`)
+   using a free [The Odds API](https://the-odds-api.com) key
+   (`export ODDS_API_KEY=...`, 500 free requests/month is plenty). Takes the
+   median across bookmakers.
+2. **Manual**: copy from
+   [oddschecker](https://www.oddschecker.com/us/soccer/world-cup) —
+   ~1 minute per matchday. Odds firm up 1-2 days before each match;
+   the closer to kickoff, the sharper they are.
+
+Team names must match the dataset (`United States`, `South Korea`,
+`Czech Republic`, `Ivory Coast`, `Turkey`).
+
+### xG (`data/input/xg.csv`) — optional
+Format:
+
+```csv
+date,home_team,away_team,home_xg,away_xg
+2025-09-05,Spain,Bulgaria,2.8,0.4
+```
+
+**Automatic**: `python scripts/fetch_xg.py --from 2023-01-01 --to <today>`
+pulls international xG from [FotMob](https://www.fotmob.com)'s public JSON API
+(no key needed) — friendlies, qualifiers, continental cups and the World Cup.
+It writes `data/input/xg.csv` directly in the format above.
+
+> **Note:** [FBref](https://fbref.com) used to be the go-to source, but it lost
+> its Opta feed in January 2026 and no longer serves xG (current *or*
+> historical), so the FotMob script replaces it. FotMob runs its own xG model,
+> so numbers won't match Opta's exactly — fine here, since xG only nudges the
+> ratings and is blended with goals.
+
+Matches without xG rows simply train on goals — partial coverage is fine, so a
+narrow date range to top up before a session works too.
+
+## Validation
+
+Backtests cover six tournaments — WC 2018, Euro 2021, Copa América 2021,
+WC 2022, Euro 2024 and Copa América 2024 — under official Superbru scoring,
+re-fitting the model at every matchday exactly as the live `--as-of` workflow
+does (pass `--static` for a single pre-tournament fit). Besides points, each
+run reports the 1X2 ranked probability score (RPS) and exact-score log-loss;
+those low-variance metrics drive hyperparameter choices, with points as the
+tie-breaker (points alone are too noisy on ~64 matches).
+
+Current defaults score **295.5 pts over 290 matches** (1.02/match, 44 exact
+scores). The upset-heavy WC 2022 is the weakest tournament (58.5/64,
+53% correct outcomes — bookmaker favourites hit ~55% there).
+
+```bash
+wcpred backtest --tournament all   # or wc2018/euro2021/copa2021/wc2022/...
+wcpred tune                        # grid: GD_CAP × HALF_LIFE_DAYS × FRIENDLY_WEIGHT
+```
+
+The June 2026 tuning run set `FRIENDLY_WEIGHT = 1.0` (down-weighting
+friendlies hurt every metric) and rejected capping blowout margins
+(`GD_CAP` stays off) — details in `docs/known-limitations.md`.
+
+## Package layout
+
+```
+wcpred/
+├── config.py     # hyperparameters and scoring constants
+├── data.py       # download, loading, training-set preparation (incl. xG blend)
+├── model.py      # Dixon-Coles fit + score matrices
+├── scoring.py    # Superbru points, Closeness Index, optimal-pick search
+├── odds.py       # odds conversion, de-vig, market-implied matrices
+├── predict.py    # per-match and per-fixture-list pipelines
+├── backtest.py   # historical tournament evaluation + `tune` grid search
+└── cli.py        # the `wcpred` command
+scripts/
+├── update_data.sh        # incrementally refresh all data sources into data/input/
+├── generate_predictions.sh # date-stamped predictions + group standings
+├── fetch_odds.py         # data/input/odds.csv via The Odds API
+└── fetch_xg.py           # data/input/xg.csv via FotMob's public JSON API
+data/             # all generated files (git-ignored)
+├── input/        # results.csv, odds.csv, xg.csv
+├── predictions/  # `predict --out` CSVs
+└── groups/       # `groups --out` standings
+```
+
+## Notes & caveats
+
+- Knockout rounds: Superbru scores the 90-minute result, which is exactly
+  what the model predicts — so the default ignores extra time. For pools that
+  score the *final* knockout result, `predict --extra-time` plays the extra 30'
+  (at 1/3 the scoring rate) on top of every regulation draw, and `--shootout`
+  additionally resolves still-level ties as a penalty win. Both are **off by
+  default**; do not use them for Superbru.
+- The dataset takes a day or so to register just-played matches; predictions
+  made the same morning still include everything up to yesterday.
+- `--odds-weight 1.0` makes picks purely market-driven;
+  `0` ignores odds entirely.
