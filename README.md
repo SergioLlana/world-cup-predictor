@@ -93,8 +93,10 @@ knockout picks.
   Trained on ~11k internationals since 2015 (friendlies at full weight since
   the June 2026 tuning run).
 - **Odds**: de-vigged 1X2 probabilities are converted into a market-implied
-  scoreline matrix (recalibrating the Poisson rates to match the market),
-  then blended `0.80 * market + 0.20 * model` (`--odds-weight`).
+  scoreline matrix (recalibrating the Poisson rates to match the market).
+  By default the 1X2 marginals come **100% from the market** (`ODDS_WEIGHT =
+  1.0`); the model only shapes the scoreline distribution within each outcome
+  (odds carry no scoreline info). Use `--odds-weight` to blend the model back in.
 - **xG**: training targets become `0.6*goals + 0.4*xG` where available —
   xG is less noisy than goals, improving the underlying ratings.
 
