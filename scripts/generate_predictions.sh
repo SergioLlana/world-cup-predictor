@@ -24,7 +24,7 @@
 #   --days N         predictions: only fixtures within N days of --as-of
 #   --sims N         groups + simulation: Monte Carlo count (wcpred defaults:
 #                    groups 1000000, simulation 100000)
-#   --odds-weight W  predictions: market vs model blend (default wcpred: 0.80)
+#   --odds-weight W  predictions: market vs model blend (default wcpred: 1.0)
 #   --xg-alpha A     xG blend: alpha*goals + (1-alpha)*xG (default wcpred: 0.6)
 #   --extra-time     predictions: resolve knockout draws through extra time
 #   --shootout       predictions: also resolve ties on penalties (implies --extra-time)

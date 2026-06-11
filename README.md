@@ -37,21 +37,27 @@ wcpred predict --approach odds --odds data/input/odds.csv --days 3
 # 3. Everything at once
 wcpred predict --approach full --odds data/input/odds.csv --xg data/input/xg.csv \
                --out picks.csv
+
+# 4. Tournament-level odds: group standings and the full bracket
+wcpred groups
+wcpred simulate --approach odds --odds data/input/odds.csv
 ```
 
 All generated files live under `data/` (kept out of the project root): inputs in
-`data/input/` (`results.csv`, `odds.csv`, `xg.csv`), prediction
-CSVs in `data/predictions/`, group standings in `data/groups/`. A bare `--out`
-filename is placed in the right folder automatically (e.g. `--out picks.csv` →
-`data/predictions/picks.csv`); pass a path with a directory to override.
+`data/input/` (`results.csv`, `odds.csv`, `xg.csv`), prediction CSVs in
+`data/predictions/`, group standings in `data/groups/`, tournament simulations
+in `data/simulations/`. A bare `--out` filename is placed in the right folder
+automatically (e.g. `--out picks.csv` → `data/predictions/picks.csv`); pass a
+path with a directory to override.
 
 **Track how picks evolve** — `scripts/generate_predictions.sh` regenerates
-predictions *and* group standings with a date-stamped filename, so daily runs
-accumulate instead of overwriting:
+predictions, group standings and the full-tournament simulation with a
+date-stamped filename, so daily runs accumulate instead of overwriting:
 
 ```bash
 scripts/generate_predictions.sh                 # → data/predictions/picks_<approach>_<date>.csv
                                                 #   data/groups/groups_<approach>_<date>.csv
+                                                #   data/simulations/sim_<approach>_<date>.csv
 scripts/generate_predictions.sh --help          # all options
 ```
 
@@ -72,6 +78,8 @@ knockout picks.
 |---|---|
 | `wcpred update-data` | Download/refresh `results.csv` (int. results since 1872 + WC2026 fixtures) |
 | `wcpred predict` | Predict upcoming WC fixtures; `--days N` limits horizon, `--out FILE` saves CSV |
+| `wcpred groups` | Monte Carlo group standings; matches already played count with their real result |
+| `wcpred simulate` | Full-tournament Monte Carlo (groups → best thirds → bracket → champion), also using real results where played |
 | `wcpred ratings` | Show current attack/defence/overall ratings per team |
 | `wcpred backtest` | Score the model on past tournaments (`--tournament all` or wc2018/euro2021/copa2021/wc2022/euro2024/copa2024) |
 | `wcpred tune` | Grid-search training hyperparameters across all backtest tournaments |
@@ -92,11 +100,12 @@ knockout picks.
   hosts in their own country, and the rho correction for low-scoring draws.
   Trained on ~11k internationals since 2015 (friendlies at full weight since
   the June 2026 tuning run).
-- **Odds**: de-vigged 1X2 probabilities are converted into a market-implied
-  scoreline matrix (recalibrating the Poisson rates to match the market).
-  By default the 1X2 marginals come **100% from the market** (`ODDS_WEIGHT =
-  1.0`); the model only shapes the scoreline distribution within each outcome
-  (odds carry no scoreline info). Use `--odds-weight` to blend the model back in.
+- **Odds**: the bookmaker margin is stripped from the 1X2 odds and the clean
+  probabilities are turned into a market-implied scoreline matrix
+  (recalibrating the Poisson rates to match the market). By default the 1X2
+  probabilities come **100% from the market** (`ODDS_WEIGHT = 1.0`); the model
+  only shapes the scoreline distribution within each outcome (odds carry no
+  scoreline info). Use `--odds-weight` to blend the model back in.
 - **xG**: training targets become `0.6*goals + 0.4*xG` where available —
   xG is less noisy than goals, improving the underlying ratings.
 
@@ -193,23 +202,28 @@ friendlies hurt every metric) and rejected capping blowout margins
 
 ```
 wcpred/
-├── config.py     # hyperparameters and scoring constants
-├── data.py       # download, loading, training-set preparation (incl. xG blend)
-├── model.py      # Dixon-Coles fit + score matrices
-├── scoring.py    # Superbru points, Closeness Index, optimal-pick search
-├── odds.py       # odds conversion, de-vig, market-implied matrices
-├── predict.py    # per-match and per-fixture-list pipelines
-├── backtest.py   # historical tournament evaluation + `tune` grid search
-└── cli.py        # the `wcpred` command
+├── config.py        # hyperparameters and scoring constants
+├── data.py          # download, loading, training-set preparation (incl. xG blend)
+├── model.py         # Dixon-Coles fit + score matrices
+├── scoring.py       # Superbru points, Closeness Index, optimal-pick search
+├── odds.py          # odds conversion, margin removal, market-implied matrices
+├── predict.py       # per-match and per-fixture-list pipelines
+├── groups.py        # Monte Carlo group standings
+├── tournament.py    # full-tournament Monte Carlo (bracket through the final)
+├── thirds_table.py  # FIFA allocation of the 8 best thirds (auto-generated)
+├── backtest.py      # historical tournament evaluation + `tune` grid search
+└── cli.py           # the `wcpred` command
 scripts/
-├── update_data.sh        # incrementally refresh all data sources into data/input/
-├── generate_predictions.sh # date-stamped predictions + group standings
-├── fetch_odds.py         # data/input/odds.csv via The Odds API
-└── fetch_xg.py           # data/input/xg.csv via FotMob's public JSON API
+├── update_data.sh          # incrementally refresh all data sources into data/input/
+├── generate_predictions.sh # date-stamped predictions + standings + simulation
+├── fetch_odds.py           # data/input/odds.csv via The Odds API
+├── fetch_xg.py             # data/input/xg.csv via FotMob's public JSON API
+└── build_thirds_table.py   # regenerates wcpred/thirds_table.py
 data/             # all generated files
 ├── input/        # results.csv, odds.csv, xg.csv
 ├── predictions/  # `predict --out` CSVs
-└── groups/       # `groups --out` standings
+├── groups/       # `groups --out` standings
+└── simulations/  # `simulate --out` probability tables
 ```
 
 ## Notes & caveats
@@ -222,5 +236,8 @@ data/             # all generated files
   default**; do not use them for Superbru.
 - The dataset takes a day or so to register just-played matches; predictions
   made the same morning still include everything up to yesterday.
-- `--odds-weight 1.0` makes picks purely market-driven;
-  `0` ignores odds entirely.
+- `--odds-weight` controls the market/model mix for the 1X2 probabilities:
+  `1.0` (the default) is purely market-driven, `0` ignores odds entirely.
+- `groups` and `simulate` rank teams by points, goal difference and goals
+  scored; remaining ties are broken at random (head-to-head and disciplinary
+  records are not modelled).

@@ -16,7 +16,7 @@ date,home,away,P_1,P_X,P_2,pick,expected_points,odds_used
 2026-06-15,Spain,Cape Verde,0.874,0.098,0.028,2-0,1.359,False
 2026-06-15,Saudi Arabia,Uruguay,0.109,0.286,0.605,0-1,1.153,False
 2026-06-16,Austria,Jordan,0.669,0.211,0.121,2-0,1.112,False
-2026-06-16,Argentina,Algeria,0.615,0.261,0.124,2-0,1.098,False
+2026-06-16,Argentina,Algeria,0.615,0.261,0.124,2-0,1.099,False
 2026-06-16,France,Senegal,0.506,0.283,0.211,1-0,0.884,False
 2026-06-16,Iraq,Norway,0.098,0.216,0.686,0-2,1.187,False
 2026-06-17,Portugal,DR Congo,0.643,0.25,0.107,2-0,1.152,False
@@ -28,21 +28,21 @@ date,home,away,P_1,P_X,P_2,pick,expected_points,odds_used
 2026-06-18,Switzerland,Bosnia and Herzegovina,0.683,0.209,0.109,2-0,1.15,False
 2026-06-18,Canada,Qatar,0.757,0.163,0.08,2-0,1.206,False
 2026-06-19,Turkey,Paraguay,0.376,0.304,0.32,1-0,0.687,False
-2026-06-19,Scotland,Morocco,0.172,0.314,0.514,0-1,0.991,False
-2026-06-19,Brazil,Haiti,0.924,0.057,0.019,3-0,1.331,False
+2026-06-19,Scotland,Morocco,0.172,0.314,0.514,0-1,0.99,False
+2026-06-19,Brazil,Haiti,0.924,0.058,0.019,3-0,1.331,False
 2026-06-19,United States,Australia,0.36,0.286,0.355,2-1,0.628,False
 2026-06-20,Netherlands,Sweden,0.612,0.211,0.177,2-0,0.95,False
-2026-06-20,Tunisia,Japan,0.162,0.301,0.538,0-1,1.012,False
-2026-06-20,Germany,Ivory Coast,0.546,0.264,0.19,2-0,0.937,False
+2026-06-20,Tunisia,Japan,0.162,0.301,0.538,0-1,1.013,False
+2026-06-20,Germany,Ivory Coast,0.546,0.264,0.189,2-0,0.937,False
 2026-06-20,Ecuador,Curaçao,0.818,0.147,0.035,2-0,1.421,False
 2026-06-21,Belgium,Iran,0.535,0.262,0.202,2-0,0.909,False
 2026-06-21,New Zealand,Egypt,0.146,0.329,0.525,0-1,1.058,False
 2026-06-21,Spain,Saudi Arabia,0.837,0.125,0.038,2-0,1.366,False
-2026-06-21,Uruguay,Cape Verde,0.653,0.253,0.094,2-0,1.186,False
+2026-06-21,Uruguay,Cape Verde,0.653,0.253,0.094,2-0,1.187,False
 2026-06-22,France,Iraq,0.761,0.177,0.062,2-0,1.308,False
-2026-06-22,Norway,Senegal,0.41,0.294,0.296,1-0,0.724,False
+2026-06-22,Norway,Senegal,0.41,0.294,0.296,1-0,0.725,False
 2026-06-22,Argentina,Austria,0.578,0.285,0.137,1-0,1.071,False
-2026-06-22,Jordan,Algeria,0.132,0.21,0.658,0-2,1.075,False
+2026-06-22,Jordan,Algeria,0.132,0.21,0.658,0-2,1.074,False
 2026-06-23,Portugal,Uzbekistan,0.679,0.222,0.099,2-0,1.186,False
 2026-06-23,Colombia,DR Congo,0.611,0.268,0.121,1-0,1.104,False
 2026-06-23,England,Ghana,0.773,0.172,0.055,2-0,1.334,False
@@ -62,11 +62,11 @@ date,home,away,P_1,P_X,P_2,pick,expected_points,odds_used
 2026-06-26,Senegal,Iraq,0.59,0.281,0.13,1-0,1.088,False
 2026-06-26,Norway,France,0.262,0.267,0.471,1-2,0.789,False
 2026-06-26,Uruguay,Spain,0.186,0.299,0.516,0-1,0.952,False
-2026-06-26,New Zealand,Belgium,0.054,0.162,0.784,0-2,1.335,False
+2026-06-26,New Zealand,Belgium,0.054,0.162,0.784,0-2,1.334,False
 2026-06-26,Egypt,Iran,0.29,0.34,0.37,0-0,0.745,False
-2026-06-26,Cape Verde,Saudi Arabia,0.299,0.343,0.358,0-0,0.757,False
+2026-06-26,Cape Verde,Saudi Arabia,0.298,0.343,0.358,0-0,0.757,False
 2026-06-27,Panama,England,0.043,0.131,0.826,0-2,1.346,False
-2026-06-27,Algeria,Austria,0.326,0.303,0.371,0-1,0.677,False
+2026-06-27,Algeria,Austria,0.326,0.303,0.372,0-1,0.677,False
 2026-06-27,Jordan,Argentina,0.031,0.112,0.857,0-2,1.388,False
 2026-06-27,Colombia,Portugal,0.327,0.285,0.388,1-2,0.671,False
 2026-06-27,DR Congo,Uzbekistan,0.315,0.389,0.296,0-0,0.937,False

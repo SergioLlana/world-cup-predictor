@@ -22,9 +22,11 @@ MIN_MATCHES = 10            # drop teams with fewer matches
 MAX_GOALS = 8               # score grid 0..MAX_GOALS
 GD_CAP = None               # cap goal margin in training (e.g. 3 ⇒ 5-0 → 3-0);
                             # None = off. Counters blowout inflation vs minnows.
-
 # --- Blending weights ---
-ODDS_WEIGHT = 0.80          # market-implied matrix vs pure model (override: --odds-weight)
+ODDS_WEIGHT = 1.0           # 1X2 marginals come 100% from the market; the model
+                            # only shapes the score distribution *within* each
+                            # outcome (odds carry no scoreline info). Override
+                            # with --odds-weight to reintroduce the model.
 XG_ALPHA = 0.6              # effective_goals = a*goals + (1-a)*xG
 
 # --- Optional knockout resolution (off by default) ---
@@ -35,6 +37,3 @@ PTS_EXACT = 3.0
 PTS_CLOSE = 1.5             # correct outcome + Closeness Index <= CLOSE_MAX
 PTS_OUTCOME = 1.0
 CLOSE_MAX = 1.5
-
-# 2026 hosts get home advantage when playing in their own country
-HOSTS = ("United States", "Mexico", "Canada")

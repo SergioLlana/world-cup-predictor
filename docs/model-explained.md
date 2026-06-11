@@ -30,7 +30,7 @@ El resultado final de un partido es una **matriz de marcador**
 `P[goles_local, goles_visitante]` sobre la rejilla `0..8`
 (`score_matrix` / `matrix_from_rates`).
 
-## Cómo entran las cuatro fuentes
+## Cómo entran las tres fuentes
 
 ### 1. Resultados — entrenan el modelo (`data.prepare_training`)
 
@@ -40,7 +40,8 @@ Cada partido recibe un peso `w`:
 
 - **Decaimiento temporal**: `w = exp(-ln2/730 · días)` → el peso se reduce a la
   mitad cada 2 años (`HALF_LIFE_DAYS`).
-- **Amistosos al 50%**: `w *= FRIENDLY_WEIGHT` (0.5).
+- **Amistosos al 100%**: `FRIENDLY_WEIGHT = 1.0`. Bajarles el peso empeoró
+  todas las métricas en el grid de validación de junio de 2026.
 - Se descartan selecciones con menos de `MIN_MATCHES` (10) partidos.
 
 Ese `w` es el que multiplica la verosimilitud en `fit`.
@@ -116,7 +117,27 @@ eliminatoria existen dos opciones (ambas desactivadas por defecto):
   sigue empatada tras la prórroga se resuelve como tanda de penaltis,
   convirtiéndola en una victoria por un gol (50/50 local/visitante).
 
-Es la idea portada de `etel-euros`; no usarla con el baremo Superbru.
+No usar ninguna de las dos con el baremo Superbru.
+
+## Simulaciones Monte Carlo: `groups` y `simulate`
+
+Las dos usan la misma matriz `P` por partido, pero al revés que `predict`: en
+vez de elegir el marcador que maximiza puntos Superbru, **sortean** marcadores
+según `P`, de modo que los resultados simulados siguen la distribución
+realista. Los partidos ya jugados entran con su resultado real, así que ambos
+comandos funcionan también a mitad de torneo.
+
+- `groups` (`groups.py`): simula cada grupo muchas veces y reporta la
+  probabilidad de cada posición final. Clasificación por puntos, diferencia de
+  goles y goles a favor; los empates restantes se sortean (no se modela el
+  head-to-head). Las letras de grupo vienen del sorteo oficial
+  (`tournament.OFFICIAL_GROUPS`).
+- `simulate` (`tournament.py`): extiende lo anterior al torneo completo — los
+  8 mejores terceros (tabla oficial FIFA en `thirds_table.py`), el cuadro de
+  dieciseisavos hasta la final, y desempates por prórroga y penaltis. Las
+  eliminatorias se juegan en campo neutral (ver `docs/known-limitations.md`).
+  Devuelve, por selección, la probabilidad de ganar el grupo, cruzar cada
+  ronda y ser campeona.
 
 ## Resumen del flujo
 

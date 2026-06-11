@@ -24,7 +24,7 @@ from .data import (download_results, load_odds, load_results,
 from .groups import simulate_groups
 from .model import DixonColes
 from .predict import predict_fixtures
-from .tournament import simulate_tournament
+from .tournament import OFFICIAL_GROUPS, simulate_tournament
 
 APPROACHES = ("history", "odds", "xg", "full")
 
@@ -97,10 +97,18 @@ def cmd_groups(args):
                  "Run `wcpred update-data` first.")
     played = played_world_cup(df, year=int(fixtures["date"].dt.year.min()),
                               as_of=args.as_of)
-    tables = simulate_groups(model, fixtures, n_sims=args.sims, played=played)
+    odds_df = None
+    if args.approach in ("odds", "full"):
+        if not args.odds:
+            sys.exit("--approach odds requires --odds FILE")
+        odds_df = load_odds(args.odds)
+    tables = simulate_groups(model, fixtures, n_sims=args.sims, played=played,
+                             groups=OFFICIAL_GROUPS, odds_df=odds_df,
+                             odds_weight=args.odds_weight)
     note = f", counting {len(played)} played matches" if len(played) else ""
-    print(f"\nMonte Carlo group standings ({args.sims:,} sims{note}) — "
-          f"realistic outcomes, not Superbru-optimal picks\n")
+    blend = "market-blended" if odds_df is not None else "model-only"
+    print(f"\nMonte Carlo group standings ({args.sims:,} sims{note}, {blend}) "
+          f"— realistic outcomes, not Superbru-optimal picks\n")
     frames = []
     for label, t in tables.items():
         disp = t.copy()

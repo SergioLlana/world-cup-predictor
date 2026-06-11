@@ -70,7 +70,13 @@ extent CONMEBOL/CONCACAF/CAF) should be read with this caveat.
    (365/545/730/1095) showed 365 clearly worse and 545-1095 tied, so leaning
    on more history doesn't hurt.
 3. **Accept as a known limitation** and let home advantage + market odds (for
-   imminent fixtures) correct it in practice — the current stance.
+   imminent fixtures) correct it in practice — the current stance. Since June
+   2026 this also covers the group simulation: `groups --approach odds` blends
+   the market exactly like `predict`/`simulate` (previously `groups` was
+   model-only and silently ignored the odds flags). The effect is large where
+   the artefact bites: in Group D the model-only sim had Australia qualifying
+   at 0.49 (above Paraguay's 0.46), while the market-blended sim drops
+   Australia to 0.26 with Paraguay at 0.42.
 
 The same tuning run *did* find one improvement: `FRIENDLY_WEIGHT` 0.5 → 1.0
 improved RPS monotonically across the grid and won on all three metrics under

@@ -127,6 +127,7 @@ def _simulate_groups_joint(model, fixtures, played_group, n_sims, rng,
         gf = np.zeros((n_sims, 4))
 
         # Real group results already decided: enter them as fixed.
+        done_pairs = set()
         if played_group is not None and len(played_group):
             gp = played_group[played_group.home_team.isin(teams)
                               & played_group.away_team.isin(teams)]
@@ -139,11 +140,16 @@ def _simulate_groups_joint(model, fixtures, played_group, n_sims, rng,
                 gd[:, a] += ag - hg
                 gf[:, h] += hg
                 gf[:, a] += ag
+                done_pairs.add(frozenset((r.home_team, r.away_team)))
 
         # Remaining fixtures: sample from the (optionally odds-blended) matrix.
         gf_fix = fixtures[fixtures.home_team.isin(teams)
                           & fixtures.away_team.isin(teams)]
         for _, r in gf_fix.iterrows():
+            # each group pair meets exactly once in the group stage; a second
+            # meeting is a knockout rematch and must not count here
+            if frozenset((r.home_team, r.away_team)) in done_pairs:
+                continue
             h, a = local[r.home_team], local[r.away_team]
             odds = odds_lookup.get((r.home_team, r.away_team)) if odds_lookup else None
             P = predict_match(model, r.home_team, r.away_team,

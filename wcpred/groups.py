@@ -1,8 +1,10 @@
 """Group-stage standings via Monte Carlo simulation.
 
 Unlike `scoring.best_prediction` (which picks the Superbru-optimal scoreline),
-this samples scorelines straight from the model's probability matrix, so the
-simulated results follow the *realistic* distribution of outcomes. Matches
+this samples scorelines straight from the match probability matrix — the
+model's, or the market-blended one when odds are given (`--approach odds`),
+exactly as `predict`/`simulate` build it — so the simulated results follow
+the *realistic* distribution of outcomes. Matches
 already played enter the standings with their actual result; the rest are
 simulated many times, points/goal difference tallied with the standard 3-1-0
 system, and each team's chance of finishing 1st/2nd/3rd/4th reported.
@@ -10,7 +12,8 @@ system, and each team's chance of finishing 1st/2nd/3rd/4th reported.
 import numpy as np
 import pandas as pd
 
-from .predict import home_side
+from .config import ODDS_WEIGHT
+from .predict import home_side, predict_match
 
 
 def derive_groups(fixtures):
@@ -54,11 +57,14 @@ def _sample_scores(P, n, rng):
 
 
 def simulate_group(model, teams, fixtures, n_sims=100000, rng=None,
-                   played=None):
+                   played=None, odds_lookup=None, odds_weight=ODDS_WEIGHT):
     """Simulate one group; return a standings DataFrame sorted best-first.
 
     `played` rows (same fixture columns plus scores) count as fixed results,
     so mid-tournament standings include the points already won.
+    `odds_lookup` ({(home, away): (odds_1, odds_X, odds_2)}, dataset names)
+    blends the market into each fixture's score matrix, as in `predict`;
+    fixtures absent from it fall back to the model-only matrix.
     Columns: team, P1..P4 (finish-position probabilities), qualify (top 2),
     xPts (expected points), xGD (expected goal difference)."""
     rng = rng or np.random.default_rng(0)
@@ -69,6 +75,7 @@ def simulate_group(model, teams, fixtures, n_sims=100000, rng=None,
     pts = np.zeros((n_sims, n))
     gd = np.zeros((n_sims, n))
     gfor = np.zeros((n_sims, n))
+    done_pairs = set()
     if played is not None and len(played):
         gp = played[played.home_team.isin(teams)
                     & played.away_team.isin(teams)]
@@ -81,11 +88,18 @@ def simulate_group(model, teams, fixtures, n_sims=100000, rng=None,
             gd[:, a] += ag - hg
             gfor[:, h] += hg
             gfor[:, a] += ag
+            done_pairs.add(frozenset((r.home_team, r.away_team)))
     for _, r in gf.iterrows():
+        # each group pair meets exactly once in the group stage; a second
+        # meeting is a knockout rematch and must not count here
+        if frozenset((r.home_team, r.away_team)) in done_pairs:
+            continue
         h, a = idx[r.home_team], idx[r.away_team]
-        P = model.score_matrix(
-            r.home_team, r.away_team,
-            home_side=home_side(r.home_team, r.away_team, r.country))
+        odds = odds_lookup.get((r.home_team, r.away_team)) if odds_lookup else None
+        P = predict_match(
+            model, r.home_team, r.away_team,
+            side=home_side(r.home_team, r.away_team, r.country),
+            odds=odds, odds_weight=odds_weight)["P"]
         hg, ag = _sample_scores(P, n_sims, rng)
         hw, aw, dr = hg > ag, ag > hg, hg == ag
         pts[:, h] += 3 * hw + dr
@@ -115,14 +129,40 @@ def simulate_group(model, teams, fixtures, n_sims=100000, rng=None,
                            ascending=False).reset_index(drop=True)
 
 
-def simulate_groups(model, fixtures, n_sims=100000, seed=0, played=None):
+def simulate_groups(model, fixtures, n_sims=100000, seed=0, played=None,
+                    groups=None, odds_df=None, odds_weight=ODDS_WEIGHT):
     """Simulate every group; return {label: standings DataFrame}.
 
-    Groups are derived from played + upcoming matches together so they stay
-    intact mid-tournament; `played` results enter the standings as-is."""
+    `groups` ({label: [teams]}) overrides inference — pass the official draw
+    when known (inferred labels follow kick-off order, not FIFA's A..L).
+    Otherwise groups are derived from played + upcoming matches together so
+    they stay intact mid-tournament. `played` results enter the standings
+    as-is. `odds_df` (home_team, away_team, odds_1, odds_X, odds_2) blends
+    the market into the remaining fixtures, as in `predict`/`simulate`."""
     rng = np.random.default_rng(seed)
-    sched = fixtures
-    if played is not None and len(played):
-        sched = pd.concat([played, fixtures], ignore_index=True)
-    return {label: simulate_group(model, teams, fixtures, n_sims, rng, played)
-            for label, teams in derive_groups(sched).items()}
+    if groups is None:
+        sched = fixtures
+        if played is not None and len(played):
+            sched = pd.concat([played, fixtures], ignore_index=True)
+        groups = derive_groups(sched)
+
+    odds_lookup = None
+    if odds_df is not None:
+        from .predict import _build_odds_lookup, _norm_team
+        raw = _build_odds_lookup(odds_df)
+        # _build_odds_lookup keys on normalised names; re-key on dataset names.
+        norm = {_norm_team(t): t for ts in groups.values() for t in ts}
+        odds_lookup = {(norm[h], norm[a]): v for (h, a), v in raw.items()
+                       if h in norm and a in norm}
+        missing = sum(
+            1 for _, r in fixtures.iterrows()
+            if any(r.home_team in ts and r.away_team in ts
+                   for ts in groups.values())
+            and (r.home_team, r.away_team) not in odds_lookup)
+        if missing:
+            print(f"WARNING: {missing} group fixtures had no odds; "
+                  f"model-only matrices used for those.")
+
+    return {label: simulate_group(model, teams, fixtures, n_sims, rng, played,
+                                  odds_lookup, odds_weight)
+            for label, teams in groups.items()}
