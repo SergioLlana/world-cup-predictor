@@ -1,0 +1,40 @@
+# All available hooks: https://pre-commit.com/hooks.html
+repos:
+# --- General hooks ---
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+    -   id: check-added-large-files
+        args: ['--maxkb=5000']
+    -   id: end-of-file-fixer
+        # md prevents issues with testthat snapshots
+        exclude: '\.Rd|\.md'
+-   repo: local
+    hooks:
+    -   id: file-contents-sorter
+        name: file contents sorter
+        language: docker_image
+        files: '\.Rbuildignore$'
+        entry: alpine:3 sh -c 'for f; do sort "$f" -o "$f"; done' --
+# --- Python hooks ---
+    -   id: ruff-lint
+        name: ruff lint
+        language: docker_image
+        types: [python]
+        entry: ghcr.io/astral-sh/ruff:0.15.10 check --fix
+    -   id: ruff-format
+        name: ruff format
+        language: docker_image
+        types: [python]
+        entry: ghcr.io/astral-sh/ruff:0.15.10 format
+# --- SQL hooks ---
+    -   id: sqlfluff-lint
+        name: sqlfluff lint
+        language: docker_image
+        types: [sql]
+        entry: sqlfluff/sqlfluff:3.3.1 lint
+    -   id: sqlfluff-fix
+        name: sqlfluff fix
+        language: docker_image
+        types: [sql]
+        entry: sqlfluff/sqlfluff:3.3.1 fix

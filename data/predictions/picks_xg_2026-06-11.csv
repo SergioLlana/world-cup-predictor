@@ -1,0 +1,73 @@
+date,home,away,P_1,P_X,P_2,pick,expected_points,odds_used
+2026-06-11,Mexico,South Africa,0.643,0.234,0.123,2-0,1.116,False
+2026-06-11,South Korea,Czech Republic,0.344,0.284,0.372,1-2,0.647,False
+2026-06-12,Canada,Bosnia and Herzegovina,0.588,0.255,0.157,2-0,1.022,False
+2026-06-12,United States,Paraguay,0.369,0.296,0.335,1-0,0.666,False
+2026-06-13,Qatar,Switzerland,0.052,0.119,0.83,0-2,1.251,False
+2026-06-13,Brazil,Morocco,0.4,0.328,0.272,1-0,0.784,False
+2026-06-13,Haiti,Scotland,0.13,0.201,0.669,0-2,1.078,False
+2026-06-13,Australia,Turkey,0.345,0.289,0.366,0-1,0.647,False
+2026-06-14,Sweden,Tunisia,0.432,0.292,0.276,1-0,0.767,False
+2026-06-14,Netherlands,Japan,0.383,0.295,0.323,1-0,0.686,False
+2026-06-14,Germany,Curaçao,0.936,0.049,0.015,3-0,1.346,False
+2026-06-14,Ivory Coast,Ecuador,0.211,0.38,0.409,0-0,0.927,False
+2026-06-15,Belgium,Egypt,0.541,0.285,0.173,1-0,0.982,False
+2026-06-15,Iran,New Zealand,0.615,0.262,0.122,2-0,1.105,False
+2026-06-15,Spain,Cape Verde,0.877,0.095,0.028,2-0,1.358,False
+2026-06-15,Saudi Arabia,Uruguay,0.114,0.284,0.602,0-1,1.145,False
+2026-06-16,Austria,Jordan,0.661,0.211,0.127,2-0,1.097,False
+2026-06-16,Argentina,Algeria,0.642,0.243,0.115,2-0,1.137,False
+2026-06-16,France,Senegal,0.522,0.275,0.203,2-0,0.905,False
+2026-06-16,Iraq,Norway,0.104,0.227,0.668,0-2,1.172,False
+2026-06-17,Portugal,DR Congo,0.658,0.236,0.106,2-0,1.165,False
+2026-06-17,Uzbekistan,Colombia,0.118,0.247,0.635,0-2,1.125,False
+2026-06-17,England,Croatia,0.472,0.296,0.231,1-0,0.857,False
+2026-06-17,Ghana,Panama,0.375,0.295,0.33,1-0,0.675,False
+2026-06-18,Czech Republic,South Africa,0.524,0.277,0.199,1-0,0.913,False
+2026-06-18,Mexico,South Korea,0.499,0.271,0.23,2-0,0.85,False
+2026-06-18,Switzerland,Bosnia and Herzegovina,0.674,0.213,0.113,2-0,1.142,False
+2026-06-18,Canada,Qatar,0.756,0.162,0.082,2-0,1.202,False
+2026-06-19,Turkey,Paraguay,0.373,0.301,0.326,1-0,0.683,False
+2026-06-19,Scotland,Morocco,0.164,0.306,0.53,0-1,1.015,False
+2026-06-19,Brazil,Haiti,0.925,0.056,0.019,3-0,1.326,False
+2026-06-19,United States,Australia,0.362,0.284,0.355,2-1,0.631,False
+2026-06-20,Netherlands,Sweden,0.588,0.22,0.192,2-0,0.926,False
+2026-06-20,Tunisia,Japan,0.162,0.3,0.538,0-1,1.019,False
+2026-06-20,Germany,Ivory Coast,0.534,0.267,0.199,2-0,0.919,False
+2026-06-20,Ecuador,Curaçao,0.821,0.144,0.036,2-0,1.418,False
+2026-06-21,Belgium,Iran,0.532,0.262,0.206,2-0,0.904,False
+2026-06-21,New Zealand,Egypt,0.146,0.329,0.524,0-1,1.063,False
+2026-06-21,Spain,Saudi Arabia,0.833,0.127,0.04,2-0,1.363,False
+2026-06-21,Uruguay,Cape Verde,0.66,0.246,0.094,2-0,1.193,False
+2026-06-22,France,Iraq,0.762,0.175,0.063,2-0,1.307,False
+2026-06-22,Norway,Senegal,0.412,0.298,0.29,1-0,0.745,False
+2026-06-22,Argentina,Austria,0.59,0.275,0.135,1-0,1.078,False
+2026-06-22,Jordan,Algeria,0.149,0.215,0.636,0-2,1.037,False
+2026-06-23,Portugal,Uzbekistan,0.687,0.215,0.098,2-0,1.191,False
+2026-06-23,Colombia,DR Congo,0.606,0.268,0.126,1-0,1.099,False
+2026-06-23,England,Ghana,0.754,0.182,0.064,2-0,1.306,False
+2026-06-23,Panama,Croatia,0.097,0.181,0.722,0-2,1.171,False
+2026-06-24,Morocco,Haiti,0.801,0.151,0.048,2-0,1.357,False
+2026-06-24,Bosnia and Herzegovina,Qatar,0.492,0.271,0.237,2-0,0.837,False
+2026-06-24,Scotland,Brazil,0.115,0.194,0.691,0-2,1.122,False
+2026-06-24,South Africa,South Korea,0.208,0.29,0.501,0-1,0.903,False
+2026-06-24,Mexico,Czech Republic,0.492,0.266,0.243,2-0,0.827,False
+2026-06-24,Canada,Switzerland,0.285,0.281,0.434,0-1,0.742,False
+2026-06-25,United States,Turkey,0.368,0.247,0.385,1-2,0.653,False
+2026-06-25,Paraguay,Australia,0.316,0.346,0.338,0-0,0.772,False
+2026-06-25,Curaçao,Ivory Coast,0.068,0.188,0.744,0-2,1.295,False
+2026-06-25,Ecuador,Germany,0.307,0.316,0.377,0-1,0.719,False
+2026-06-25,Japan,Sweden,0.526,0.256,0.218,2-0,0.879,False
+2026-06-25,Tunisia,Netherlands,0.143,0.255,0.602,0-2,1.056,False
+2026-06-26,Senegal,Iraq,0.58,0.282,0.138,1-0,1.074,False
+2026-06-26,Norway,France,0.257,0.27,0.473,0-2,0.796,False
+2026-06-26,Uruguay,Spain,0.185,0.293,0.522,0-1,0.958,False
+2026-06-26,New Zealand,Belgium,0.055,0.162,0.784,0-2,1.333,False
+2026-06-26,Egypt,Iran,0.29,0.341,0.369,0-0,0.755,False
+2026-06-26,Cape Verde,Saudi Arabia,0.294,0.337,0.369,0-1,0.742,False
+2026-06-27,Panama,England,0.052,0.143,0.805,0-2,1.319,False
+2026-06-27,Algeria,Austria,0.316,0.294,0.39,0-1,0.697,False
+2026-06-27,Jordan,Argentina,0.032,0.111,0.858,0-2,1.383,False
+2026-06-27,Colombia,Portugal,0.319,0.283,0.398,0-1,0.686,False
+2026-06-27,DR Congo,Uzbekistan,0.32,0.379,0.301,0-0,0.901,False
+2026-06-27,Croatia,Ghana,0.668,0.218,0.114,2-0,1.143,False

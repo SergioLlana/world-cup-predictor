@@ -92,3 +92,80 @@ ov = {t: model.atk[i] - model.dfn[i] for t, i in model.idx.items()}
 # inspect ov["United States"] vs ov["Australia"] and each side's opponents;
 # pass friendly_weight=... to prepare_training to test sensitivity.
 ```
+
+## Blending xG into training (`XG_ALPHA`) does not help Superbru points
+
+**Symptom.** The `xg`/`full` approaches blend xG into the training goals
+(`XG_ALPHA = α·goals + (1−α)·xG`, default **0.6**), but no value of α beats
+plain goals (α=1.0) on the metric that matters — expected Superbru points.
+
+**Experiment — June 2026 (`backtest`, rolling re-fit).** FotMob xG only covers
+~mid-2022 onward, so only **euro2024** and **copa2024** (83 of the 290 matches)
+are affected; the other four tournaments are identical to history-only at every
+α. Sweeping α from 1.0 (pure goals) to 0.0 (pure xG):
+
+Pooled, all six tournaments (n=290):
+
+| α | points | pts/match | RPS | log-loss | exact |
+|-----|--------|-----------|--------|----------|-------|
+| 1.0 | 295.5 | 1.019 | 0.1890 | 2.7702 | 44 |
+| 0.8 | 295.5 | 1.019 | 0.1889 | 2.7695 | 44 |
+| 0.6 (default) | 293.0 | 1.010 | 0.1889 | 2.7689 | 43 |
+| 0.4 | 293.0 | 1.010 | 0.1889 | 2.7684 | 43 |
+| 0.2 | 293.0 | 1.010 | 0.1890 | 2.7681 | 43 |
+| 0.0 | 290.0 | 1.000 | 0.1890 | 2.7678 | 42 |
+
+**Finding — a clean monotone tension.** More xG weight (lower α) improves
+log-loss monotonically (2.7702 → 2.7678) but *worsens* Superbru points
+monotonically (295.5 → 290.0); RPS is flat. So xG calibrates the score matrix
+fractionally better while costing exact/close picks. The log-loss gain is
+~0.1% and rests entirely on 83 matches; the points loss is consistent.
+
+**Net verdict.** The default `XG_ALPHA = 0.6` is **not justified**: it already
+gives up 2.5 pooled points vs α=0.8 with no measurable RPS gain. No α beats
+pure goals on points, so for Superbru the right call is to leave xG out
+(α≈0.8–1.0). This confirms the standing decision to validate, tune and predict
+**without xG** for WC 2026 — coverage is too partial (only 2 of 6 backtest
+tournaments move) and the blend buys nothing where it matters.
+
+**How to reproduce.**
+
+```python
+from wcpred.data import load_results
+from wcpred.backtest import backtest, TOURNAMENTS
+
+df = load_results()
+for a in (1.0, 0.8, 0.6, 0.4, 0.2, 0.0):
+    res = [backtest(df, t, rolling=True, xg_path="data/input/xg.csv", xg_alpha=a)
+           for t in TOURNAMENTS]
+    n = sum(r["matches"] for r in res)
+    pts = sum(r["points"] for r in res)
+    rps = sum(r["rps"] * r["matches"] for r in res) / n
+    print(f"alpha={a}: {pts:.1f} pts ({pts/n:.3f}/match), rps {rps:.4f}")
+```
+
+## Knockout matches are simulated at a neutral venue
+
+**Scope.** `wcpred simulate` (full-tournament Monte Carlo, `tournament.py`) plays
+the knockout bracket — Round of 32 through the final — with **no home
+advantage**. Host-nation advantage is modelled *only* in the group stage.
+
+**Why.** Home advantage is applied via `predict.home_side`, which keys off the
+fixture's `country` column. Group fixtures carry that column, so the hosts
+(USA, Mexico, Canada) correctly get the boost when playing at home. The knockout
+bracket, by contrast, is **synthetic**: slots are "Winner of Group E", "best
+third assigned to match 80", etc., with no venue attached, and there is no
+stadium→slot mapping in the data. All knockout venues sit in USA/MEX/CAN, so in
+principle a host playing a knockout in its own country would have an edge, but
+without a per-slot venue we cannot know which side that is — so every knockout
+tie is played at a neutral venue (`home_side=None` when building the pairwise
+win-probability matrix `W`).
+
+**Related.** Odds feeds cover scheduled group fixtures only, so synthetic
+knockout pairings never have odds; `W` is model-only in the knockouts even under
+`--approach odds`. The group stage still blends odds where available.
+
+**Net effect.** A small, systematic under-rating of the three hosts' deep-run
+probabilities (semi-final onward) relative to a venue-aware model. Acceptable
+for v1; a future `host_boost` hook could apply `home_side="home"` in `W` rows
+where a host meets a non-host, if desired.

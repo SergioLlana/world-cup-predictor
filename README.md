@@ -94,7 +94,7 @@ knockout picks.
   the June 2026 tuning run).
 - **Odds**: de-vigged 1X2 probabilities are converted into a market-implied
   scoreline matrix (recalibrating the Poisson rates to match the market),
-  then blended `0.75 * market + 0.25 * model` (`--odds-weight`).
+  then blended `0.80 * market + 0.20 * model` (`--odds-weight`).
 - **xG**: training targets become `0.6*goals + 0.4*xG` where available —
   xG is less noisy than goals, improving the underlying ratings.
 

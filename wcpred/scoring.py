@@ -17,7 +17,9 @@ def points(pred, true):
     """Official Superbru: 3 exact / 1.5 outcome+close / 1 outcome / 0."""
     if tuple(pred) == tuple(true):
         return PTS_EXACT
-    sign = lambda d: (d > 0) - (d < 0)
+
+    def sign(d):
+        return (d > 0) - (d < 0)
     if sign(pred[0] - pred[1]) == sign(true[0] - true[1]):
         return PTS_CLOSE if closeness_index(pred, true) <= CLOSE_MAX \
             else PTS_OUTCOME
@@ -86,7 +88,7 @@ def resolve_shootout(P):
         if level[d] == 0.0:
             continue
         # at the top of the grid the winner stays at d and the loser drops
-        w, l = (d + 1, d) if d + 1 < n else (d, d - 1)
-        out[w, l] += level[d] / 2.0
-        out[l, w] += level[d] / 2.0
+        w, lo = (d + 1, d) if d + 1 < n else (d, d - 1)
+        out[w, lo] += level[d] / 2.0
+        out[lo, w] += level[d] / 2.0
     return out / out.sum()

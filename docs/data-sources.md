@@ -100,7 +100,7 @@ wcpred backtest --approach xg --xg data/input/xg.csv --xg-alpha 0    # validate 
 `scripts/fetch_odds.py` uses [The Odds API](https://the-odds-api.com) live
 endpoint (free tier, 500 req/month) for **upcoming** fixtures only. `predict.py`
 de-vigs the 1X2 prices and blends a market-implied score matrix with the model
-(`0.75·market + 0.25·model`, `--odds-weight`).
+(`0.80·market + 0.20·model`, `--odds-weight`).
 
 ### Historical (not implemented — paid / no free source)
 

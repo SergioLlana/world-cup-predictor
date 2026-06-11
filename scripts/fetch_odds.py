@@ -81,7 +81,8 @@ def fetch_rows(key):
                     else:
                         prices["X"].append(o["price"])
         if all(prices.values()):
-            med = lambda v: sorted(v)[len(v) // 2]
+            def med(v):
+                return sorted(v)[len(v) // 2]
             rows.append([home, away, med(prices["1"]),
                          med(prices["X"]), med(prices["2"])])
     return rows
