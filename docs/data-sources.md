@@ -7,9 +7,9 @@ re-check before assuming they still hold, sports-data feeds change often.
 | Input | Source | Pipeline | Coverage | Status |
 |---|---|---|---|---|
 | Results | martj42/international_results | `wcpred update-data` → `data.load_results` | Every international since 1872, all teams, daily | ✅ Complete |
-| xG | FotMob public JSON API | `scripts/fetch_xg.py` → `data/input/xg.csv` → `prepare_training` | Internationals from **~mid-2022** only | 🟡 Recent only |
+| xG | FotMob public JSON API | `scripts/fetch_xg.py` → `data/input/xg.csv` → `prepare_training` | From **~mid-2022**; **no friendlies at all**, ~28% of qualifiers | 🟡 Partial |
 | Odds (live) | The Odds API | `scripts/fetch_odds.py` → `data/input/odds.csv` → `predict.py` | Upcoming fixtures only | ✅ For prediction |
-| Odds (historical) | — | not implemented | — | 🔴 Paid / no free source |
+| Odds (historical) | SofaScore | `scripts/fetch_sofascore.py` → `data/input/odds_history.csv` | 1X2 closing, single book, back to ≥2018 | 🟡 Not consumed by pipeline yet |
 
 xG and goals feed **training** (the team ratings). Odds are applied only at
 **predict time** as a market blend — the model never trains on them, so a
@@ -30,14 +30,8 @@ participants are derivable from the dataset itself — the rows with
 
 ## xG — FotMob
 
-**Why not FBref:** FBref was the standard free xG source, but StatsPerform/Opta
-terminated its data feed on **20 January 2026**, removing xG *including all
-history*. FBref is no longer usable for xG. Understat (the other classic
-scrapeable source) only covers club leagues, never national teams.
-
-**What we use instead:** `scripts/fetch_xg.py` pulls FotMob's own xG model via
-two unauthenticated JSON endpoints (no API key, no `x-fm-req` token needed for
-these specific paths):
+`scripts/fetch_xg.py` pulls FotMob's own xG model via two unauthenticated JSON
+endpoints (no API key, no `x-fm-req` token needed for these specific paths):
 
 - `https://www.fotmob.com/api/data/matches?date=YYYYMMDD` — fixtures per day.
 - `https://www.fotmob.com/api/data/matchDetails?matchId=ID` — team xG lives at
@@ -51,21 +45,22 @@ are deliberately excluded. Use `fetch_xg.py --discover` to find ids to add.
 
 ### Coverage cutoff — important
 
-FotMob did **not** model international xG before ~mid-2022. Verified by sampling
-matchDetails directly:
+FotMob did **not** model international xG before ~mid-2022, and even after
+that the coverage is far narrower than the docstrings used to claim. Verified
+by sampling matchDetails and crossing `xg.csv` with `results.csv` (June 2026):
 
-| Period | xG present? |
+| Period / competition | xG present? |
 |---|---|
 | WC 2018, friendlies 2018, Euro Q 2019, WCQ 2021 | ❌ None |
-| Nations League June 2022 | ✅ Yes |
+| **Friendlies, any date** | ❌ **None** (0 of 1,103 since jul-2022) |
+| Qualifiers since jul-2022 | 🟡 ~28% (essentially UEFA only) |
+| Nations League June 2022 → | ✅ Yes (UEFA ~72%) |
 | World Cup 2022 (Nov) | 🟡 Partial (some matches missing) |
-| 2023 → today | ✅ Complete |
+| Euro/AFCON 2023 → today | ✅ Mostly complete |
 
-So a "since 2018" xG dataset is **not possible** from free sources. The usable
-window is ~2022→now. The model's 2-year half-life means this still carries most
-of the relevant training weight. StatsBomb open data has xG for a few isolated
-tournaments (e.g. WC 2022) but not friendlies/qualifiers, so it is not a general
-backfill.
+Overall only ~19% of internationals since jul-2022 carry FotMob xG. A "since
+2018" or all-matches xG dataset is **not possible** from free sources —
+SofaScore doesn't fix this either (see `docs/sofascore.md`).
 
 ### Gotchas
 
@@ -99,25 +94,24 @@ wcpred backtest --approach xg --xg data/input/xg.csv --xg-alpha 0    # validate 
 
 `scripts/fetch_odds.py` uses [The Odds API](https://the-odds-api.com) live
 endpoint (free tier, 500 req/month) for **upcoming** fixtures only. `predict.py`
-de-vigs the 1X2 prices and builds a market-implied score matrix. By default the
+strips the bookmaker margin from the 1X2 prices and builds a market-implied
+score matrix. By default the
 1X2 marginals come 100% from the market (`ODDS_WEIGHT = 1.0`); the model only
 shapes the scoreline distribution within each outcome. `--odds-weight` blends
 the model's 1X2 back in (e.g. `0.80` ⇒ `0.80·market + 0.20·model`).
 
-### Historical (not implemented — paid / no free source)
+### Historical (SofaScore — implemented June 2026)
 
-There is no free, clean source of historical **international** odds:
+`scripts/fetch_sofascore.py` (needs `pip install curl_cffi` to get past
+Cloudflare) backfills closing 1X2 odds into `data/input/odds_history.csv`
+(`date,home_team,away_team,odds_1,odds_X,odds_2`, decimal). Verified back to
+WC2018, friendlies included. Single featured book — not a multi-book median —
+so it complements rather than replaces The Odds API. Details and caveats:
+`docs/sofascore.md`.
 
-- The Odds API has history from **6 June 2020**, but it is **paid only**
-  (Starter ≈ $30/mo, 20k credits) and the historical endpoint costs **10 credits
-  per region × market × snapshot**. Backfilling all WCQ-team matches since 2020
-  (~2,500–3,500 games) ≈ 25k–35k credits, i.e. more than one Starter month.
-  Endpoints: `/v4/historical/sports/{sport}/events?date=` (list, 1 credit) then
-  `/v4/historical/sports/{sport}/odds?...&date=` (10 credits).
-- Free datasets (football-data.co.uk, most Kaggle sets) are **club leagues only**.
-- OddsPortal covers internationals (open + close) but has **no API**; scraping it
-  violates its terms and is anti-bot protected.
+Nothing consumes it yet (the model never trains on odds); it exists to enable
+backtesting/calibrating the market blend (`--odds-weight`).
 
-Decision (June 2026): **deferred.** Since the model does not train on odds, a
-historical-odds dataset unlocks nothing today; it would only matter for
-backtesting/calibrating the market blend or training a new market-aware model.
+Rejected alternatives: The Odds API history is paid only (~25k–35k credits for
+a 2020+ backfill); football-data.co.uk/Kaggle are club leagues only; OddsPortal
+has no API and scraping it violates its terms.

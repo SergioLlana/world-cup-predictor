@@ -77,14 +77,17 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 - `predict --extra-time`/`--shootout` resolve knockout ties (extra time at
   `EXTRA_TIME_FRACTION` of the scoring rate, then a penalty win). Both are
   **off by default** — Superbru scores the 90' result, so leave them off for it.
-- xG source is `scripts/fetch_xg.py` (FotMob public JSON API). FBref is **not**
-  an option — it lost its Opta xG feed in Jan 2026. The script writes `xg.csv`
-  in the `date,home_team,away_team,home_xg,away_xg` format `data.py` expects.
+- xG source is `scripts/fetch_xg.py` (FotMob public JSON API). It writes
+  `xg.csv` in the `date,home_team,away_team,home_xg,away_xg` format `data.py`
+  expects. FotMob has NO xG for friendlies and only ~28% of qualifiers.
+- `scripts/fetch_sofascore.py` (needs `curl_cffi` to pass Cloudflare) scrapes
+  SofaScore for historical 1X2 odds (`data/input/odds_history.csv`, back to
+  ≥2018, single book) and supplemental xG. See `docs/sofascore.md`.
 - Data-source landscape, coverage cutoffs and gotchas: `docs/data-sources.md`.
 - Known modelling limitations (e.g. ratings of teams from weakly-connected
   confederations like the AFC are schedule-inflated): `docs/known-limitations.md`.
-  Key facts: FotMob xG only goes back to ~mid-2022; historical odds have no
-  free source (The Odds API history is paid, 2020+); the model trains on
-  goals/xG but never on odds (odds are a predict-time blend only).
+  Key facts: FotMob xG only goes back to ~mid-2022 and never covers friendlies;
+  free historical odds exist only via SofaScore (single book); the model trains
+  on goals/xG but never on odds (odds are a predict-time blend only).
 
 Full usage, data sources and tuning notes live in `README.md`.

@@ -1,10 +1,10 @@
 """Fetch national-team xG into xg.csv via FotMob's public JSON API.
 
-Why this exists: FBref lost its Opta feed in January 2026, so the FBref
-route described in older docs no longer yields xG (current or historical).
-FotMob still publishes its own xG model for international matches through an
-unauthenticated JSON endpoint, covering friendlies, qualifiers, continental
-cups and the World Cup -- exactly the matches that feed the team ratings.
+FotMob publishes its own xG model for international matches through an
+unauthenticated JSON endpoint. Coverage is partial: continental cups and UEFA
+competitions mostly, ~28% of qualifiers, and NO friendlies at all (verified
+June 2026 -- see docs/data-sources.md). scripts/fetch_sofascore.py is the
+complementary source.
 
 Usage:
   python scripts/fetch_xg.py --from 2023-01-01 --to 2026-06-09
@@ -78,7 +78,6 @@ SENIOR_NT_LEAGUES = {
 NAME_MAP = {
     "USA": "United States",
     "Ireland": "Republic of Ireland",
-    "China": "China PR",
     "Czechia": "Czech Republic",
     "Turkiye": "Turkey",
     "Türkiye": "Turkey",

@@ -1,0 +1,634 @@
+date,home_team,away_team,odds_1,odds_X,odds_2
+2018-01-07,Sweden,Estonia,1.61,3.79,5.0
+2018-01-11,Indonesia,Iceland,13.0,7.0,1.14
+2018-01-11,Jordan,Finland,3.75,3.25,1.9
+2018-01-11,Sweden,Denmark,2.6,3.2,2.5
+2018-01-14,Indonesia,Iceland,23.0,11.0,1.06
+2018-01-15,Jordan,Denmark,6.5,3.7,1.5
+2018-01-27,Moldova,South Korea,5.25,3.5,1.7
+2018-01-29,United States,Bosnia and Herzegovina,1.72,3.5,5.0
+2018-01-30,Azerbaijan,Moldova,2.2,3.25,3.0
+2018-02-01,Mexico,Bosnia and Herzegovina,1.44,4.0,8.5
+2018-02-03,South Korea,Latvia,1.53,3.75,7.0
+2018-02-26,Saudi Arabia,Moldova,1.5,3.6,6.5
+2018-03-21,Antigua and Barbuda,Bermuda,1.39,4.5,6.5
+2018-03-21,Jordan,Kuwait,2.0,3.2,4.0
+2018-03-21,Liechtenstein,Andorra,1.95,3.0,4.59
+2018-03-21,South Africa,Angola,1.72,3.2,5.0
+2018-03-21,Togo,Madagascar,2.62,3.0,2.62
+2018-03-21,Zambia,Zimbabwe,1.9,3.1,4.0
+2018-03-22,Algeria,Tanzania,1.16,7.0,17.0
+2018-03-22,Bahrain,Palestine,2.29,3.0,3.39
+2018-03-22,China,Wales,6.5,3.75,1.57
+2018-03-22,Denmark,Panama,1.25,5.5,12.0
+2018-03-22,Faroe Islands,Latvia,3.29,3.29,2.2
+2018-03-22,Malaysia,Mongolia,1.1,9.0,23.0
+2018-03-22,Malta,Luxembourg,3.89,3.39,1.95
+2018-03-22,Philippines,Fiji,1.33,5.0,8.5
+2018-03-23,Argentina,Italy,2.45,3.1,3.39
+2018-03-23,Austria,Slovenia,1.8,3.6,5.25
+2018-03-23,Azerbaijan,Belarus,3.5,3.0,2.25
+2018-03-23,Bulgaria,Bosnia and Herzegovina,2.95,3.1,2.75
+2018-03-23,Cyprus,Montenegro,4.0,3.29,2.0
+2018-03-23,Finland,North Macedonia,3.1,3.1,2.6
+2018-03-23,France,Colombia,1.44,4.59,8.5
+2018-03-23,Gambia,Central African Republic,1.57,3.39,7.5
+2018-03-23,Germany,Spain,2.25,3.39,3.5
+2018-03-23,Greece,Switzerland,4.2,3.1,2.14
+2018-03-23,Hungary,Kazakhstan,1.36,4.75,9.0
+2018-03-23,Japan,Mali,1.5,4.0,8.0
+2018-03-23,Morocco,Serbia,3.89,3.2,2.2
+2018-03-23,Netherlands,England,2.6,3.25,3.0
+2018-03-23,Nicaragua,Cuba,1.39,4.5,5.75
+2018-03-23,Norway,Australia,2.45,3.2,3.25
+2018-03-23,Poland,Nigeria,1.75,3.7,5.5
+2018-03-23,Portugal,Egypt,1.5,4.2,8.0
+2018-03-23,Russia,Brazil,6.5,4.2,1.57
+2018-03-23,Scotland,Costa Rica,2.29,3.2,3.6
+2018-03-23,Senegal,Uzbekistan,1.61,3.6,6.5
+2018-03-23,Singapore,Maldives,1.44,4.33,7.5
+2018-03-23,Tunisia,Iran,2.62,3.0,3.0
+2018-03-23,Turkey,Republic of Ireland,1.9,3.39,4.75
+2018-03-23,Ukraine,Saudi Arabia,1.44,4.5,7.5
+2018-03-23,Uruguay,Czech Republic,1.53,4.0,7.0
+2018-03-24,Armenia,Estonia,1.85,3.5,4.33
+2018-03-24,Botswana,Lesotho,1.8,3.0,4.75
+2018-03-24,Canada,New Zealand,2.04,3.2,3.79
+2018-03-24,Georgia,Lithuania,1.9,3.25,4.75
+2018-03-24,Israel,Romania,3.0,3.2,2.39
+2018-03-24,Ivory Coast,Togo,1.7,3.6,5.0
+2018-03-24,Kenya,Comoros,2.04,3.0,4.0
+2018-03-24,Mexico,Iceland,1.61,3.6,6.0
+2018-03-24,Northern Ireland,South Korea,3.75,3.0,2.14
+2018-03-24,Peru,Croatia,4.0,3.2,2.0
+2018-03-24,Sweden,Chile,3.25,3.2,2.5
+2018-03-24,Uganda,São Tomé and Príncipe,1.16,5.5,15.0
+2018-03-24,Zambia,South Africa,2.5,3.0,2.75
+2018-03-25,Faroe Islands,Liechtenstein,1.64,3.6,6.0
+2018-03-25,Gibraltar,Latvia,17.0,10.0,1.1
+2018-03-25,Jamaica,Antigua and Barbuda,1.25,6.0,10.0
+2018-03-25,Kuwait,Cameroon,6.5,3.29,1.6
+2018-03-25,Nicaragua,Cuba,1.28,4.79,7.5
+2018-03-26,Albania,Norway,2.62,3.29,2.89
+2018-03-26,Bulgaria,Kazakhstan,1.64,3.89,6.0
+2018-03-26,China,Czech Republic,8.0,4.75,1.36
+2018-03-26,Finland,Malta,1.18,6.0,19.0
+2018-03-26,Portugal,Netherlands,1.9,3.6,4.5
+2018-03-26,Wales,Uruguay,3.89,3.7,2.0
+2018-03-27,Armenia,Lithuania,1.57,3.75,6.5
+2018-03-27,Australia,Colombia,10.0,4.75,1.39
+2018-03-27,Azerbaijan,North Macedonia,4.75,3.39,1.8
+2018-03-27,Belgium,Saudi Arabia,1.1,11.0,34.0
+2018-03-27,Bosnia and Herzegovina,Senegal,3.39,3.25,2.35
+2018-03-27,Denmark,Chile,3.25,3.29,2.39
+2018-03-27,England,Italy,2.04,3.2,4.5
+2018-03-27,Georgia,Estonia,1.75,3.39,5.0
+2018-03-27,Germany,Brazil,3.0,3.6,2.39
+2018-03-27,Greece,Egypt,3.1,3.0,2.7
+2018-03-27,Hungary,Scotland,2.89,3.2,2.7
+2018-03-27,Iran,Algeria,2.37,3.0,3.25
+2018-03-27,Japan,Ukraine,2.79,3.29,2.75
+2018-03-27,Kosovo,Burkina Faso,3.79,3.6,1.9
+2018-03-27,Luxembourg,Austria,12.0,5.75,1.3
+2018-03-27,Moldova,Ivory Coast,8.5,4.5,1.44
+2018-03-27,Montenegro,Turkey,3.29,3.25,2.39
+2018-03-27,Morocco,Uzbekistan,1.33,4.33,12.0
+2018-03-27,Poland,South Korea,1.57,4.0,7.0
+2018-03-27,Romania,Sweden,2.54,3.2,3.1
+2018-03-27,Russia,France,6.5,4.33,1.55
+2018-03-27,Serbia,Nigeria,2.7,3.25,2.87
+2018-03-27,Slovenia,Belarus,1.9,3.39,4.75
+2018-03-27,Spain,Argentina,1.9,3.5,4.75
+2018-03-27,Switzerland,Panama,1.36,5.0,11.0
+2018-03-27,Tunisia,Costa Rica,2.7,3.1,3.0
+2018-03-27,Uganda,Malawi,1.72,3.25,5.5
+2018-03-27,United States,Paraguay,2.45,3.2,3.29
+2018-03-28,Iceland,Peru,4.33,3.39,2.0
+2018-03-28,Mexico,Croatia,2.37,3.1,3.5
+2018-04-17,Trinidad and Tobago,Panama,2.89,3.2,2.29
+2018-05-09,Saudi Arabia,Algeria,1.7,3.79,4.2
+2018-05-11,Kuwait,Palestine,1.9,3.2,3.6
+2018-05-15,Saudi Arabia,Greece,2.7,2.87,2.89
+2018-05-19,Iran,Uzbekistan,1.2,5.0,17.0
+2018-05-20,Jordan,Cyprus,2.75,3.1,2.45
+2018-05-25,Kenya,Eswatini,2.25,3.1,3.0
+2018-05-25,Kuwait,Egypt,4.75,3.1,1.85
+2018-05-26,China,Myanmar,1.05,9.0,34.0
+2018-05-28,Bosnia and Herzegovina,Montenegro,1.7,3.4,5.0
+2018-05-28,France,Republic of Ireland,1.16,6.5,17.0
+2018-05-28,Italy,Saudi Arabia,1.2,6.0,15.0
+2018-05-28,Kenya,Equatorial Guinea,1.6,3.3,6.0
+2018-05-28,Nigeria,DR Congo,1.61,3.5,5.25
+2018-05-28,Portugal,Tunisia,1.44,4.0,8.5
+2018-05-28,South Korea,Honduras,1.5,3.75,7.5
+2018-05-28,Turkey,Iran,2.4,3.0,3.1
+2018-05-28,United States,Bolivia,1.57,4.0,5.5
+2018-05-29,Argentina,Haiti,1.02,19.0,34.0
+2018-05-29,Azerbaijan,Kyrgyzstan,1.53,4.0,6.0
+2018-05-29,Kosovo,Albania,6.5,3.6,1.57
+2018-05-29,Malta,Armenia,10.0,4.75,1.33
+2018-05-29,Mexico,Wales,1.57,3.6,6.5
+2018-05-30,Austria,Russia,2.1,3.5,3.5
+2018-05-30,Japan,Ghana,1.64,3.75,5.25
+2018-05-30,Panama,Northern Ireland,2.6,2.9,3.0
+2018-05-30,Peru,Scotland,1.44,4.2,7.5
+2018-05-31,Luxembourg,Senegal,8.0,3.8,1.5
+2018-05-31,Morocco,Ukraine,2.4,2.9,3.3
+2018-05-31,Romania,Chile,3.1,3.2,2.37
+2018-05-31,Slovakia,Netherlands,3.6,3.4,2.0
+2018-06-01,Algeria,Cape Verde,1.5,3.8,7.5
+2018-06-01,Czech Republic,Australia,2.25,3.25,3.2
+2018-06-01,Egypt,Colombia,7.5,3.6,1.53
+2018-06-01,France,Italy,1.66,3.5,5.5
+2018-06-01,Georgia,Malta,1.36,4.33,10.0
+2018-06-01,South Korea,Bosnia and Herzegovina,2.25,3.2,3.3
+2018-06-01,Turkey,Tunisia,2.7,2.9,2.87
+2018-06-02,Austria,Germany,6.0,4.33,1.5
+2018-06-02,Belgium,Portugal,1.85,3.2,4.75
+2018-06-02,England,Nigeria,1.44,4.0,8.5
+2018-06-02,Iceland,Norway,2.1,3.1,3.8
+2018-06-02,Montenegro,Slovenia,2.4,3.0,3.2
+2018-06-02,Republic of Ireland,United States,2.2,3.2,3.4
+2018-06-02,Sweden,Denmark,2.5,3.1,2.9
+2018-06-02,Thailand,China,2.45,3.0,3.1
+2018-06-03,Brazil,Croatia,1.5,3.8,7.5
+2018-06-03,Costa Rica,Northern Ireland,2.0,3.2,3.75
+2018-06-03,Mexico,Scotland,1.28,5.25,10.0
+2018-06-03,Saudi Arabia,Peru,8.0,3.5,1.53
+2018-06-03,Spain,Switzerland,1.33,4.33,12.0
+2018-06-03,Ukraine,Albania,1.66,3.4,6.0
+2018-06-04,Armenia,Moldova,1.61,3.75,5.5
+2018-06-04,Italy,Netherlands,2.04,3.3,3.6
+2018-06-04,Serbia,Chile,1.75,3.5,4.75
+2018-06-04,Slovakia,Morocco,3.0,3.0,2.5
+2018-06-05,Kazakhstan,Azerbaijan,2.3,3.0,3.5
+2018-06-05,Luxembourg,Georgia,3.8,3.2,2.04
+2018-06-05,Romania,Finland,1.66,3.5,6.0
+2018-06-05,Russia,Turkey,2.1,3.3,3.6
+2018-06-06,Belarus,Hungary,2.45,3.1,3.2
+2018-06-06,Belgium,Egypt,1.22,5.75,17.0
+2018-06-06,Czech Republic,Nigeria,3.6,3.2,2.2
+2018-06-06,Norway,Panama,1.66,3.6,6.0
+2018-06-07,England,Costa Rica,1.4,4.8,9.5
+2018-06-07,Iceland,Ghana,2.4,3.1,3.1
+2018-06-07,Portugal,Algeria,1.22,5.75,21.0
+2018-06-07,South Korea,Bolivia,1.44,4.2,8.0
+2018-06-07,Uruguay,Uzbekistan,1.1,9.0,21.0
+2018-06-08,Croatia,Senegal,1.53,3.8,7.0
+2018-06-08,Germany,Saudi Arabia,1.06,15.0,26.0
+2018-06-08,Iran,Lithuania,1.55,3.6,7.0
+2018-06-08,Poland,Chile,2.14,3.3,3.6
+2018-06-08,Switzerland,Japan,1.57,3.8,6.0
+2018-06-09,Denmark,Mexico,2.1,3.25,3.8
+2018-06-09,Estonia,Morocco,5.5,3.3,1.75
+2018-06-09,Finland,Belarus,2.37,3.1,3.3
+2018-06-09,France,United States,1.2,7.0,17.0
+2018-06-09,Hungary,Australia,3.8,3.2,2.04
+2018-06-09,Latvia,Azerbaijan,2.4,3.0,3.25
+2018-06-09,Serbia,Bolivia,1.33,4.75,10.0
+2018-06-09,Spain,Tunisia,1.22,6.0,15.0
+2018-06-09,Sweden,Peru,2.4,3.2,3.1
+2018-06-10,Austria,Brazil,6.5,4.2,1.53
+2018-06-11,Belgium,Costa Rica,1.2,6.0,15.0
+2018-06-11,South Korea,Senegal,3.5,3.1,2.25
+2018-06-12,Japan,Paraguay,3.4,3.1,2.25
+2018-06-12,Poland,Lithuania,1.16,6.5,19.0
+2018-06-14,Russia,Saudi Arabia,1.44,4.33,9.5
+2018-06-15,Egypt,Uruguay,9.0,4.0,1.5
+2018-06-15,Morocco,Iran,2.2,3.0,4.2
+2018-06-15,Portugal,Spain,4.5,3.25,2.0
+2018-06-16,Argentina,Iceland,1.33,5.5,11.0
+2018-06-16,Croatia,Nigeria,1.66,3.75,6.5
+2018-06-16,France,Australia,1.25,7.0,12.0
+2018-06-16,Peru,Denmark,3.75,3.1,2.3
+2018-06-17,Brazil,Switzerland,1.44,4.4,9.0
+2018-06-17,Costa Rica,Serbia,5.5,3.4,1.83
+2018-06-17,Germany,Mexico,1.5,4.5,7.5
+2018-06-18,Belgium,Panama,1.2,7.0,19.0
+2018-06-18,Sweden,South Korea,2.25,3.0,4.0
+2018-06-18,Tunisia,England,8.5,4.2,1.5
+2018-06-19,Colombia,Japan,1.9,3.3,5.0
+2018-06-19,Poland,Senegal,2.54,3.0,3.3
+2018-06-19,Russia,Egypt,1.95,3.5,4.33
+2018-06-20,Iran,Spain,19.0,7.0,1.2
+2018-06-20,Portugal,Morocco,1.7,3.75,5.75
+2018-06-20,Uruguay,Saudi Arabia,1.2,7.0,19.0
+2018-06-21,Argentina,Croatia,2.1,3.3,4.0
+2018-06-21,Denmark,Australia,1.95,3.4,4.5
+2018-06-21,France,Peru,1.61,3.9,6.5
+2018-06-22,Brazil,Costa Rica,1.2,6.75,21.0
+2018-06-22,Nigeria,Iceland,3.0,3.1,2.7
+2018-06-22,Serbia,Switzerland,2.8,3.0,3.0
+2018-06-23,Belgium,Tunisia,1.33,5.25,12.0
+2018-06-23,Germany,Sweden,1.44,4.75,8.0
+2018-06-23,South Korea,Mexico,5.5,3.9,1.7
+2018-06-24,England,Panama,1.22,6.5,19.0
+2018-06-24,Japan,Senegal,3.2,2.9,2.7
+2018-06-24,Poland,Colombia,3.6,3.5,2.14
+2018-06-25,Iran,Portugal,6.0,4.1,1.61
+2018-06-25,Saudi Arabia,Egypt,5.25,3.6,1.8
+2018-06-25,Spain,Morocco,1.36,5.1,10.5
+2018-06-25,Uruguay,Russia,2.8,3.1,2.9
+2018-06-26,Australia,Peru,2.87,3.6,2.5
+2018-06-26,Denmark,France,5.75,2.75,2.04
+2018-06-26,Iceland,Croatia,4.33,4.0,1.83
+2018-06-26,Nigeria,Argentina,6.0,5.25,1.5
+2018-06-27,Mexico,Sweden,2.2,3.4,3.6
+2018-06-27,Serbia,Brazil,7.75,4.75,1.44
+2018-06-27,South Korea,Germany,19.0,8.5,1.16
+2018-06-27,Switzerland,Costa Rica,1.6,3.8,7.5
+2018-06-28,England,Belgium,2.45,2.8,3.8
+2018-06-28,Japan,Poland,3.0,3.1,2.7
+2018-06-28,Panama,Tunisia,4.33,3.8,1.86
+2018-06-28,Senegal,Colombia,5.0,3.75,1.8
+2018-06-30,France,Argentina,2.45,3.1,3.4
+2018-06-30,Uruguay,Portugal,3.1,3.0,2.75
+2018-07-01,Croatia,Denmark,1.95,3.3,4.75
+2018-07-01,Spain,Russia,1.57,4.2,6.5
+2018-07-02,Belgium,Japan,1.4,4.8,9.5
+2018-07-02,Brazil,Mexico,1.5,4.4,7.5
+2018-07-03,Colombia,England,4.2,3.1,2.14
+2018-07-03,Sweden,Switzerland,3.4,2.95,2.54
+2018-07-05,Malaysia,Fiji,1.53,4.0,5.25
+2018-07-06,Brazil,Belgium,2.1,3.5,3.75
+2018-07-06,Uruguay,France,4.9,3.1,2.0
+2018-07-07,Russia,Croatia,4.0,3.2,2.14
+2018-07-07,Sweden,England,5.2,3.4,1.85
+2018-07-10,France,Belgium,2.6,3.1,3.1
+2018-07-11,Croatia,England,3.9,3.0,2.3
+2018-07-11,Sri Lanka,Lithuania,21.0,5.75,1.14
+2018-07-14,Belgium,England,2.25,3.8,3.2
+2018-07-15,France,Croatia,2.14,3.0,4.33
+2018-08-08,Italy U20,San Marino,1.16,7.0,11.0
+2018-08-18,Andorra,United Arab Emirates,6.0,5.25,1.33
+2018-08-19,Guatemala,Cuba,1.53,4.0,4.75
+2018-09-05,Fiji,Solomon Islands,2.0,3.25,3.25
+2018-09-05,Slovakia,Denmark,1.04,15.0,26.0
+2018-09-06,Armenia,Liechtenstein,1.14,7.5,26.0
+2018-09-06,Austria,Sweden,1.85,3.4,4.5
+2018-09-06,Bahrain,Philippines,1.6,3.8,5.0
+2018-09-06,Czech Republic,Ukraine,2.8,3.1,2.9
+2018-09-06,Germany,France,2.37,3.75,3.0
+2018-09-06,Gibraltar,North Macedonia,26.0,11.0,1.1
+2018-09-06,Jordan,Lebanon,1.85,3.3,4.0
+2018-09-06,Kazakhstan,Georgia,2.62,2.9,3.1
+2018-09-06,Kyrgyzstan,Palestine,3.1,3.1,2.2
+2018-09-06,Latvia,Andorra,1.25,5.25,19.0
+2018-09-06,Netherlands,Peru,1.64,3.8,6.5
+2018-09-06,Norway,Cyprus,1.28,5.5,15.0
+2018-09-06,Portugal,Croatia,2.4,3.25,3.3
+2018-09-06,Slovenia,Bulgaria,2.14,3.1,4.2
+2018-09-06,Trinidad and Tobago,United Arab Emirates,3.1,3.3,2.14
+2018-09-06,Uzbekistan,Syria,1.61,3.6,5.0
+2018-09-06,Wales,Republic of Ireland,1.8,3.25,5.5
+2018-09-07,Albania,Israel,2.8,3.1,2.9
+2018-09-07,Azerbaijan,Kosovo,2.54,3.0,3.3
+2018-09-07,Faroe Islands,Malta,1.57,3.8,8.0
+2018-09-07,Italy,Poland,1.53,4.1,7.5
+2018-09-07,Lithuania,Serbia,12.0,5.25,1.33
+2018-09-07,Qatar,China,2.37,3.1,3.1
+2018-09-07,Romania,Montenegro,1.83,3.4,5.5
+2018-09-07,Scotland,Belgium,5.5,3.9,1.7
+2018-09-07,Singapore,Mauritius,2.37,3.4,2.62
+2018-09-07,South Korea,Costa Rica,1.8,3.4,4.75
+2018-09-07,Taiwan,Malaysia,2.37,3.2,2.8
+2018-09-07,Turkey,Russia,1.9,3.6,4.5
+2018-09-08,Argentina,Guatemala,1.05,13.0,29.0
+2018-09-08,Belarus,San Marino,1.06,17.0,41.0
+2018-09-08,Ecuador,Jamaica,1.36,4.75,8.5
+2018-09-08,England,Spain,2.75,3.1,2.9
+2018-09-08,Estonia,Greece,6.5,3.3,1.75
+2018-09-08,Finland,Hungary,2.5,3.0,3.4
+2018-09-08,Luxembourg,Moldova,2.35,3.0,3.7
+2018-09-08,Mexico,Uruguay,3.4,3.1,2.25
+2018-09-08,Northern Ireland,Bosnia and Herzegovina,3.9,3.0,2.3
+2018-09-08,Switzerland,Iceland,1.5,4.33,8.0
+2018-09-08,United States,Brazil,12.0,6.0,1.28
+2018-09-08,Venezuela,Colombia,4.75,3.6,1.75
+2018-09-09,Bulgaria,Norway,3.4,3.3,2.35
+2018-09-09,Cyprus,Slovenia,3.8,3.25,2.2
+2018-09-09,Denmark,Wales,2.04,3.5,3.9
+2018-09-09,France,Netherlands,1.53,4.2,7.5
+2018-09-09,Georgia,Latvia,1.36,4.75,12.0
+2018-09-09,Germany,Peru,1.25,5.5,12.0
+2018-09-09,Liechtenstein,Gibraltar,1.75,3.5,6.0
+2018-09-09,North Macedonia,Armenia,1.8,3.6,5.25
+2018-09-09,Ukraine,Slovakia,1.85,3.4,5.25
+2018-09-10,Andorra,Kazakhstan,8.0,3.4,1.64
+2018-09-10,Bahrain,China,3.75,3.4,2.0
+2018-09-10,Cambodia,Malaysia,4.5,3.8,1.64
+2018-09-10,Kosovo,Faroe Islands,1.57,3.9,7.5
+2018-09-10,Kuwait,Iraq,3.0,3.1,2.25
+2018-09-10,Malta,Azerbaijan,5.5,3.3,1.85
+2018-09-10,Montenegro,Lithuania,1.44,4.2,10.5
+2018-09-10,Portugal,Italy,2.2,3.2,3.9
+2018-09-10,Russia,Czech Republic,2.25,3.1,3.4
+2018-09-10,Saudi Arabia,Bolivia,1.66,3.75,5.0
+2018-09-10,Scotland,Albania,1.66,3.6,6.5
+2018-09-10,Serbia,Romania,1.5,4.2,8.0
+2018-09-10,Sweden,Turkey,1.95,3.4,4.5
+2018-09-11,Bosnia and Herzegovina,Austria,2.9,3.25,2.7
+2018-09-11,England,Switzerland,1.9,3.4,4.75
+2018-09-11,Finland,Estonia,1.57,3.8,8.0
+2018-09-11,Hungary,Greece,3.3,3.0,2.54
+2018-09-11,Iceland,Belgium,9.5,5.25,1.36
+2018-09-11,Japan,Costa Rica,1.6,3.6,6.5
+2018-09-11,Jordan,Oman,2.3,2.9,3.2
+2018-09-11,Kenya,Malawi,1.95,3.1,3.8
+2018-09-11,Moldova,Belarus,4.5,3.25,2.0
+2018-09-11,Northern Ireland,Israel,2.37,3.1,3.5
+2018-09-11,Poland,Republic of Ireland,1.61,3.8,7.0
+2018-09-11,Qatar,Palestine,1.3,4.75,12.0
+2018-09-11,San Marino,Luxembourg,29.0,8.0,1.14
+2018-09-11,Singapore,Fiji,1.66,3.5,4.75
+2018-09-11,South Korea,Chile,2.9,3.4,2.37
+2018-09-11,Spain,Croatia,1.64,3.8,6.5
+2018-09-11,Uzbekistan,Iran,3.3,3.0,2.2
+2018-09-12,Brazil,El Salvador,1.02,21.0,34.0
+2018-09-12,Colombia,Argentina,2.87,3.2,2.5
+2018-09-12,Ecuador,Guatemala,1.18,6.5,15.0
+2018-09-12,Panama,Venezuela,3.25,2.9,2.4
+2018-09-12,United States,Mexico,2.4,3.2,3.0
+2018-10-10,Albania,Jordan,1.44,3.75,7.5
+2018-10-10,Indonesia,Myanmar,1.5,3.8,7.5
+2018-10-10,Italy,Ukraine,1.57,4.0,7.0
+2018-10-11,Argentina,Iraq,1.22,6.0,13.0
+2018-10-11,Bahrain,Syria,5.5,3.0,1.83
+2018-10-11,Faroe Islands,Azerbaijan,3.0,3.0,2.8
+2018-10-11,France,Iceland,1.2,7.5,17.0
+2018-10-11,Hong Kong,Thailand,4.33,3.5,1.83
+2018-10-11,Israel,Scotland,3.1,3.1,2.6
+2018-10-11,Kosovo,Malta,1.18,7.5,21.0
+2018-10-11,Kuwait,Lebanon,2.37,2.9,3.4
+2018-10-11,Lithuania,Romania,7.0,3.6,1.64
+2018-10-11,Montenegro,Serbia,4.2,3.5,2.0
+2018-10-11,Poland,Portugal,3.0,3.2,2.62
+2018-10-11,Russia,Sweden,2.37,3.2,3.4
+2018-10-11,Turkey,Bosnia and Herzegovina,2.25,3.2,3.7
+2018-10-11,United Arab Emirates,Honduras,3.8,3.1,2.0
+2018-10-11,United States,Colombia,4.75,3.6,1.85
+2018-10-11,Wales,Spain,7.5,4.2,1.53
+2018-10-12,Austria,Northern Ireland,1.6,3.7,7.5
+2018-10-12,Basque Country,Venezuela,1.66,4.0,4.0
+2018-10-12,Belarus,Luxembourg,1.6,4.0,6.5
+2018-10-12,Belgium,Switzerland,1.57,4.1,7.0
+2018-10-12,Cambodia,East Timor,1.4,4.5,6.25
+2018-10-12,Croatia,England,2.8,3.1,2.87
+2018-10-12,Estonia,Finland,4.2,3.1,2.14
+2018-10-12,Greece,Hungary,1.75,3.5,5.8
+2018-10-12,Japan,Panama,1.3,5.0,11.0
+2018-10-12,Mexico,Costa Rica,1.53,3.75,7.0
+2018-10-12,Moldova,San Marino,1.06,15.0,51.0
+2018-10-12,Qatar,Ecuador,3.6,3.6,2.0
+2018-10-12,Saudi Arabia,Brazil,19.0,10.0,1.1
+2018-10-12,Singapore,Mongolia,1.25,5.25,9.5
+2018-10-12,South Korea,Uruguay,3.6,3.4,2.04
+2018-10-12,Sri Lanka,Malaysia,10.0,5.5,1.22
+2018-10-13,Armenia,Gibraltar,1.07,15.0,34.0
+2018-10-13,Bulgaria,Cyprus,1.64,3.6,7.0
+2018-10-13,China,India,1.12,8.0,19.0
+2018-10-13,Georgia,Andorra,1.18,7.0,29.0
+2018-10-13,Latvia,Kazakhstan,3.4,3.1,2.45
+2018-10-13,Myanmar,Bolivia,11.0,6.5,1.18
+2018-10-13,Netherlands,Germany,3.4,3.6,2.2
+2018-10-13,North Macedonia,Liechtenstein,1.11,10.0,34.0
+2018-10-13,Norway,Slovenia,1.55,4.0,7.5
+2018-10-13,Oman,Philippines,1.7,3.6,4.33
+2018-10-13,Peru,Chile,3.3,3.3,2.37
+2018-10-13,Republic of Ireland,Denmark,3.5,3.1,2.4
+2018-10-13,Slovakia,Czech Republic,2.1,3.4,3.9
+2018-10-13,Uzbekistan,North Korea,1.57,3.6,5.5
+2018-10-14,Azerbaijan,Malta,1.28,5.5,15.0
+2018-10-14,Faroe Islands,Kosovo,5.5,3.5,1.8
+2018-10-14,Israel,Albania,1.8,3.6,5.25
+2018-10-14,Lithuania,Montenegro,3.9,3.0,2.3
+2018-10-14,Poland,Italy,3.4,3.25,2.35
+2018-10-14,Romania,Serbia,3.3,3.3,2.4
+2018-10-14,Russia,Turkey,2.25,3.3,3.6
+2018-10-14,Scotland,Portugal,4.75,3.6,1.85
+2018-10-14,Thailand,Trinidad and Tobago,2.25,3.6,3.0
+2018-10-15,Belarus,Moldova,1.61,3.7,7.5
+2018-10-15,Bosnia and Herzegovina,Northern Ireland,1.72,3.4,6.5
+2018-10-15,Croatia,Jordan,1.14,7.5,19.0
+2018-10-15,Estonia,Hungary,5.0,3.5,1.85
+2018-10-15,Finland,Greece,2.8,3.0,3.0
+2018-10-15,Iceland,Switzerland,4.5,3.6,1.9
+2018-10-15,Kuwait,Australia,7.5,4.2,1.44
+2018-10-15,Luxembourg,San Marino,1.04,23.0,51.0
+2018-10-15,Saudi Arabia,Iraq,1.8,3.4,4.75
+2018-10-15,Spain,England,1.64,4.0,6.0
+2018-10-16,Armenia,North Macedonia,3.1,3.1,2.62
+2018-10-16,Bahrain,Myanmar,1.22,5.25,11.0
+2018-10-16,Belgium,Netherlands,1.85,4.0,4.33
+2018-10-16,Brazil,Argentina,1.55,4.33,6.5
+2018-10-16,Cambodia,Singapore,4.75,4.0,1.57
+2018-10-16,China,Syria,2.04,3.2,3.75
+2018-10-16,Denmark,Austria,2.04,3.25,4.33
+2018-10-16,France,Germany,2.1,3.8,3.5
+2018-10-16,Gibraltar,Liechtenstein,3.5,3.0,2.45
+2018-10-16,Indonesia,Hong Kong,1.53,4.0,6.0
+2018-10-16,Iran,Bolivia,1.4,4.2,9.0
+2018-10-16,Japan,Uruguay,2.8,3.3,2.75
+2018-10-16,Kazakhstan,Andorra,1.28,5.5,15.0
+2018-10-16,Latvia,Georgia,5.0,3.2,1.95
+2018-10-16,Malaysia,Kyrgyzstan,3.1,3.4,2.25
+2018-10-16,Norway,Bulgaria,1.61,3.75,7.0
+2018-10-16,Oman,Ecuador,6.0,4.0,1.53
+2018-10-16,Republic of Ireland,Wales,2.3,3.0,3.9
+2018-10-16,Slovenia,Cyprus,1.66,3.9,6.0
+2018-10-16,South Korea,Panama,1.28,5.0,12.0
+2018-10-16,Sweden,Slovakia,2.04,3.25,4.33
+2018-10-16,Ukraine,Czech Republic,1.75,3.6,5.75
+2018-10-16,United Arab Emirates,Venezuela,4.5,3.3,1.85
+2018-10-16,Uzbekistan,Qatar,1.95,3.2,4.2
+2018-10-17,Colombia,Costa Rica,1.44,4.5,9.0
+2018-10-17,Mexico,Chile,2.5,3.4,3.0
+2018-10-17,United States,Peru,3.4,3.5,2.25
+2018-11-15,Andorra,Georgia,11.0,4.1,1.44
+2018-11-15,Austria,Bosnia and Herzegovina,1.9,3.5,4.6
+2018-11-15,Belgium,Iceland,1.14,9.0,23.0
+2018-11-15,Croatia,Spain,3.9,3.5,2.04
+2018-11-15,Greece,Finland,2.1,3.1,4.33
+2018-11-15,Hungary,Estonia,1.44,4.5,9.0
+2018-11-15,Kazakhstan,Latvia,1.44,4.2,9.0
+2018-11-15,Luxembourg,Belarus,3.2,3.1,2.54
+2018-11-15,San Marino,Moldova,26.0,7.0,1.18
+2018-11-16,Cyprus,Bulgaria,3.25,3.2,2.45
+2018-11-16,Gibraltar,Armenia,15.0,6.25,1.25
+2018-11-16,Liechtenstein,North Macedonia,15.0,6.25,1.25
+2018-11-16,Netherlands,France,2.9,3.3,2.62
+2018-11-16,Slovakia,Ukraine,2.3,3.25,3.5
+2018-11-16,Slovenia,Norway,3.9,3.2,2.2
+2018-11-16,Wales,Denmark,2.9,3.1,2.8
+2018-11-17,Albania,Scotland,3.2,3.1,2.54
+2018-11-17,Azerbaijan,Faroe Islands,1.5,4.2,8.0
+2018-11-17,Italy,Portugal,2.04,3.5,4.0
+2018-11-17,Malta,Kosovo,11.0,5.0,1.36
+2018-11-17,Romania,Lithuania,1.25,5.75,19.0
+2018-11-17,Serbia,Montenegro,1.36,5.0,11.0
+2018-11-17,Turkey,Sweden,2.25,3.4,3.5
+2018-12-13,Oman,Tajikistan,1.8,3.5,4.0
+2018-12-16,Oman,Tajikistan,1.66,3.6,4.5
+2018-12-20,Bahrain,Tajikistan,1.44,3.8,9.0
+2018-12-20,Jordan,Kyrgyzstan,2.14,2.87,3.8
+2018-12-25,Vietnam,North Korea,2.4,3.3,2.9
+2018-12-27,Oman,India,1.55,3.8,5.0
+2018-12-28,United Arab Emirates,Kuwait,1.64,3.5,6.0
+2018-12-30,Oman,Australia,10.0,5.0,1.3
+2018-12-31,Qatar,Iran,3.4,3.0,2.3
+2018-12-31,South Korea,Saudi Arabia,1.7,3.4,5.5
+2019-01-02,Oman,Thailand,2.6,3.25,2.37
+2019-01-05,United Arab Emirates,Bahrain,1.66,3.5,5.5
+2019-01-06,Australia,Jordan,1.4,4.5,7.5
+2019-01-06,Syria,Palestine,1.9,3.1,4.5
+2019-01-06,Thailand,India,1.61,4.0,5.5
+2019-01-07,China,Kyrgyzstan,1.45,4.0,8.0
+2019-01-07,Iran,Yemen,1.12,8.0,21.0
+2019-01-07,South Korea,Philippines,1.08,11.0,21.0
+2019-01-08,Iraq,Vietnam,1.6,3.6,6.0
+2019-01-08,Saudi Arabia,North Korea,1.72,3.5,5.0
+2019-01-08,Sweden,Finland,2.05,3.1,4.0
+2019-01-09,Japan,Turkmenistan,1.06,11.0,34.0
+2019-01-09,Qatar,Lebanon,1.61,3.4,6.5
+2019-01-09,Uzbekistan,Oman,2.35,3.0,3.3
+2019-01-10,Bahrain,Thailand,1.83,3.3,4.75
+2019-01-10,India,United Arab Emirates,8.0,4.75,1.36
+2019-01-10,Jordan,Syria,3.5,2.8,2.37
+2019-01-11,Finland,Estonia,1.72,3.4,5.25
+2019-01-11,Kyrgyzstan,South Korea,19.0,7.0,1.16
+2019-01-11,Palestine,Australia,15.0,5.5,1.22
+2019-01-11,Philippines,China,7.0,4.33,1.45
+2019-01-11,Sweden,Iceland,2.0,3.2,4.0
+2019-01-12,Lebanon,Saudi Arabia,6.5,3.75,1.57
+2019-01-12,Vietnam,Iran,13.0,6.5,1.2
+2019-01-12,Yemen,Iraq,15.0,5.5,1.22
+2019-01-13,North Korea,Qatar,9.0,4.5,1.36
+2019-01-13,Oman,Japan,12.0,5.0,1.28
+2019-01-13,Turkmenistan,Uzbekistan,8.0,3.8,1.5
+2019-01-14,India,Bahrain,3.8,3.6,1.9
+2019-01-14,United Arab Emirates,Thailand,1.55,3.75,7.0
+2019-01-15,Australia,Syria,1.5,4.2,6.25
+2019-01-15,Iceland,Estonia,2.2,3.1,3.5
+2019-01-15,Palestine,Jordan,3.6,3.3,2.05
+2019-01-16,Iran,Iraq,1.66,3.3,6.0
+2019-01-16,Kyrgyzstan,Philippines,1.9,4.0,3.5
+2019-01-16,South Korea,China,1.45,3.8,7.5
+2019-01-16,Vietnam,Yemen,1.45,4.33,7.0
+2019-01-17,Japan,Uzbekistan,1.72,3.5,5.0
+2019-01-17,Lebanon,North Korea,1.33,5.5,7.5
+2019-01-17,Oman,Turkmenistan,1.36,4.75,8.5
+2019-01-17,Saudi Arabia,Qatar,2.8,3.0,2.6
+2019-01-20,Iran,Oman,1.33,4.75,10.0
+2019-01-20,Jordan,Vietnam,1.8,3.4,4.75
+2019-01-20,Thailand,China,5.0,3.6,1.7
+2019-01-21,Australia,Uzbekistan,1.61,3.75,5.5
+2019-01-21,Japan,Saudi Arabia,1.61,3.75,5.75
+2019-01-21,United Arab Emirates,Kyrgyzstan,1.4,4.0,9.0
+2019-01-22,Qatar,Iraq,2.2,3.1,3.5
+2019-01-22,South Korea,Bahrain,1.25,5.0,15.0
+2019-01-24,China,Iran,9.0,4.2,1.4
+2019-01-24,Vietnam,Japan,11.0,4.75,1.33
+2019-01-25,South Korea,Qatar,2.0,3.1,4.33
+2019-01-25,United Arab Emirates,Australia,6.0,3.6,1.61
+2019-01-28,Iran,Japan,2.37,2.8,3.6
+2019-01-28,United States,Panama,1.44,4.0,8.5
+2019-01-29,Qatar,United Arab Emirates,2.1,3.0,4.0
+2019-02-01,Japan,Qatar,2.1,3.0,4.0
+2019-02-02,United States,Costa Rica,1.6,3.5,6.5
+2019-02-21,Kazakhstan,Moldova,2.3,3.0,3.0
+2019-02-27,Cuba,Bermuda,1.7,3.5,4.2
+2019-03-03,Bolivia,Nicaragua,1.2,5.25,15.0
+2019-03-09,Cambodia,Bangladesh,1.53,3.8,5.5
+2019-03-20,Germany,Serbia,1.36,4.5,7.5
+2019-03-20,Iraq,Syria,2.1,3.1,3.4
+2019-03-20,Malaysia,Singapore,1.8,3.8,3.8
+2019-03-20,Oman,Afghanistan,1.25,5.25,9.5
+2019-03-20,Wales,Trinidad and Tobago,1.2,5.75,17.0
+2019-03-21,China,Thailand,1.6,3.6,6.0
+2019-03-21,Kosovo,Denmark,5.25,3.4,1.72
+2019-03-21,Kuwait,Nepal,1.12,9.0,15.0
+2019-03-21,United Arab Emirates,Saudi Arabia,2.45,3.0,3.1
+2019-03-22,Argentina,Venezuela,1.33,5.0,9.0
+2019-03-22,Japan,Colombia,2.87,3.4,2.37
+2019-03-22,South Korea,Bolivia,1.4,4.33,8.5
+2019-03-22,United States,Ecuador,2.37,3.3,2.9
+2019-03-22,Uzbekistan,Uruguay,10.0,5.0,1.3
+2019-03-23,Afghanistan,Malaysia,4.75,3.6,1.61
+2019-03-23,Brazil,Panama,1.09,9.5,23.0
+2019-03-23,Guatemala,Costa Rica,4.5,3.75,1.72
+2019-03-23,Jordan,Syria,2.62,3.1,2.8
+2019-03-23,Mexico,Chile,2.45,3.2,2.9
+2019-03-23,Oman,Singapore,1.25,5.25,9.0
+2019-03-23,Peru,Paraguay,2.4,3.1,3.1
+2019-03-25,Azerbaijan,Lithuania,1.85,3.4,4.33
+2019-03-25,Catalunya,Venezuela,1.9,3.6,3.6
+2019-03-25,China,Uzbekistan,2.9,3.1,2.5
+2019-03-25,Kuwait,Nepal,1.12,7.5,13.0
+2019-03-25,Myanmar,Indonesia,3.4,3.25,2.15
+2019-03-25,Saudi Arabia,Equatorial Guinea,1.7,3.6,4.33
+2019-03-25,Thailand,Uruguay,17.0,9.0,1.1
+2019-03-26,Algeria,Tunisia,2.15,3.0,3.8
+2019-03-26,Czech Republic,Brazil,9.0,4.5,1.36
+2019-03-26,Gibraltar,Estonia,6.5,4.0,1.5
+2019-03-26,Ivory Coast,Liberia,1.25,5.5,8.5
+2019-03-26,Japan,Bolivia,1.36,4.75,8.0
+2019-03-26,Morocco,Argentina,2.55,3.1,2.87
+2019-03-26,Nigeria,Egypt,1.95,3.0,4.5
+2019-03-26,South Korea,Colombia,3.25,3.1,2.3
+2019-03-26,United States,Chile,3.2,3.3,2.25
+2019-03-27,Costa Rica,Jamaica,1.5,4.0,6.5
+2019-03-27,Ecuador,Honduras,1.95,3.3,4.0
+2019-03-27,Mexico,Paraguay,1.83,3.2,4.75
+2019-03-27,Nicaragua,Guatemala,2.3,3.3,2.8
+2019-03-27,Peru,El Salvador,1.3,4.75,12.0
+2019-05-28,Laos,Sri Lanka,1.53,4.2,5.0
+2019-05-30,Turkey,Greece,1.85,3.3,4.5
+2019-05-31,Laos,Sri Lanka,1.45,4.5,5.5
+2019-06-02,El Salvador,Haiti,2.25,3.25,2.9
+2019-06-02,France,Bolivia,1.06,11.0,34.0
+2019-06-02,Luxembourg,Madagascar,1.85,3.4,4.5
+2019-06-02,Malaysia,Nepal,1.4,4.2,7.0
+2019-06-02,Turkey,Uzbekistan,1.4,4.2,9.0
+2019-06-02,Venezuela,Ecuador,3.25,3.2,2.2
+2019-06-03,Colombia,Panama,1.16,7.0,15.0
+2019-06-05,Japan,Trinidad and Tobago,1.18,6.5,17.0
+2019-06-05,Paraguay,Honduras,1.65,3.6,5.5
+2019-06-05,Portugal,Switzerland,1.8,3.6,5.25
+2019-06-05,United States,Jamaica,1.44,4.0,6.5
+2019-06-06,Bhutan,Guam,3.3,4.0,1.85
+2019-06-06,Brazil,Qatar,1.12,8.5,17.0
+2019-06-06,Cambodia,Pakistan,3.4,3.6,1.9
+2019-06-06,Chile,Haiti,1.08,11.0,21.0
+2019-06-06,Iran,Syria,1.36,4.33,9.5
+2019-06-06,Laos,Bangladesh,3.2,3.25,2.25
+2019-06-06,Macau,Sri Lanka,2.8,3.4,2.25
+2019-06-06,Mexico,Venezuela,1.95,3.4,4.0
+2019-06-06,Mongolia,Brunei Darussalam,1.16,6.5,12.0
+2019-06-06,Netherlands,England,3.25,3.3,2.4
+2019-06-06,Peru,Costa Rica,1.55,4.0,5.75
+2019-06-06,Taiwan,Nepal,1.57,3.6,6.5
+2019-06-07,China,Philippines,1.18,6.5,17.0
+2019-06-07,Ivory Coast,Comoros,1.2,6.0,13.0
+2019-06-07,Kenya,Madagascar,2.5,3.0,3.0
+2019-06-07,Malaysia,East Timor,1.05,11.0,21.0
+2019-06-07,Slovakia,Jordan,1.57,3.6,6.5
+2019-06-07,South Korea,Australia,1.55,4.0,5.75
+2019-06-07,Tajikistan,Afghanistan,1.53,4.0,5.75
+2019-06-07,Tunisia,Iraq,1.5,4.0,7.5
+2019-06-07,Uruguay,Panama,1.2,6.5,13.0
+2019-06-07,Uzbekistan,North Korea,1.14,6.0,15.0
+2019-06-08,Angola,Guinea-Bissau,1.85,3.4,3.6
+2019-06-08,Argentina,Nicaragua,1.02,21.0,41.0
+2019-06-08,Singapore,Solomon Islands,1.85,3.9,3.5
+2019-06-09,Brazil,Honduras,1.12,8.0,19.0
+2019-06-09,Cameroon,Zambia,1.75,3.2,5.0
+2019-06-09,DR Congo,Burkina Faso,1.9,3.1,3.8
+2019-06-09,Ghana,Namibia,1.4,3.75,7.5
+2019-06-09,Japan,El Salvador,1.36,4.6,9.0
+2019-06-09,Mexico,Ecuador,1.9,3.6,3.8
+2019-06-09,Paraguay,Guatemala,1.18,7.5,11.0
+2019-06-09,Peru,Colombia,3.2,3.0,2.37
+2019-06-09,Portugal,Netherlands,2.3,3.4,3.4
+2019-06-09,Switzerland,England,4.0,3.6,2.0
+2019-06-09,United States,Venezuela,2.15,3.3,3.4
+2019-06-10,Denmark U20,Norway U21,1.83,3.6,3.6

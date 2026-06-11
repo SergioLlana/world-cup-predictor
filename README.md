@@ -166,11 +166,9 @@ pulls international xG from [FotMob](https://www.fotmob.com)'s public JSON API
 (no key needed) — friendlies, qualifiers, continental cups and the World Cup.
 It writes `data/input/xg.csv` directly in the format above.
 
-> **Note:** [FBref](https://fbref.com) used to be the go-to source, but it lost
-> its Opta feed in January 2026 and no longer serves xG (current *or*
-> historical), so the FotMob script replaces it. FotMob runs its own xG model,
-> so numbers won't match Opta's exactly — fine here, since xG only nudges the
-> ratings and is blended with goals.
+> **Note:** FotMob runs its own xG model, so numbers won't match other
+> providers exactly — fine here, since xG only nudges the ratings and is
+> blended with goals.
 
 Matches without xG rows simply train on goals — partial coverage is fine, so a
 narrow date range to top up before a session works too.
