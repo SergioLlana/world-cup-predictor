@@ -17,6 +17,7 @@ wcpred simulate --approach odds --odds data/input/odds.csv  # full bracket → c
 wcpred backtest --tournament all      # validation: ~295 pts / 290 matches
 wcpred tune                           # hyperparameter grid search (no xG)
 wcpred ratings --top 20
+scripts/run_webapp.sh                 # local dashboard on :8026 (needs `.[web]` extra)
 ```
 
 No test suite — `backtest --tournament all` is the regression check after
@@ -59,6 +60,22 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 - `backtest.py` — six past tournaments, rolling re-fit, Superbru/RPS/log-loss
   metrics, and the `tune` hyperparameter grid search.
 - `cli.py` — argparse entry point (`main`); subcommands map to `cmd_*`.
+
+## Web app (`webapp/`)
+
+- `server.py` — FastAPI (install `.[web]`; run `scripts/run_webapp.sh`, port
+  8026). JSON API over the date-stamped CSVs in `data/` (re-read per request,
+  no cache) plus `POST /api/refresh` which runs `generate_predictions.sh
+  --refresh` for both approaches in a background thread. Owns the team →
+  flag-code/Spanish-name map (`TEAMS`); odds↔fixture matching reuses
+  `predict._norm_team` and tolerates swapped home/away (host MD3 quirk).
+  `GET /api/matrix` re-fits Dixon-Coles as of the snapshot in force on the
+  match date (lru_cached per as-of + results.csv mtime) to serve the full
+  score matrix behind a pick.
+- `static/` — vanilla JS frontend (`app.js`), no external deps; charts are
+  hand-rolled SVG; `flags/` holds the 48 country SVGs (flagcdn). The odds
+  toggle switches between the `odds`/`history` CSV variants; the calendar
+  shows each match the prediction from the latest snapshot ≤ its date.
 
 ## Conventions
 

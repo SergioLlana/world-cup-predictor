@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mundial 2026 · Predicciones</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="/flags/mx.svg">
+</head>
+<body>
+<header class="topbar">
+  <div class="title">
+    <h1>Mundial 2026 · Predicciones</h1>
+    <p class="subtitle">Modelo Dixon-Coles optimizado para Superbru · <span id="snapshot-note"></span></p>
+  </div>
+  <div class="controls">
+    <label class="switch" title="Mezclar las cuotas 1X2 del mercado en las predicciones">
+      <input type="checkbox" id="odds-toggle" checked>
+      <span class="slider"></span>
+      <span class="switch-label">Cuotas de mercado</span>
+    </label>
+    <label class="snapshot-picker">Día
+      <select id="snapshot-select"></select>
+    </label>
+    <button id="refresh-btn" class="btn">⟳ Actualizar datos</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="champion">¿Quién gana?</button>
+  <button class="tab" data-tab="evolution">Evolución</button>
+  <button class="tab" data-tab="groups">Grupos</button>
+  <button class="tab" data-tab="calendar">Calendario</button>
+</nav>
+
+<main>
+  <section id="tab-champion" class="panel active"></section>
+  <section id="tab-evolution" class="panel"></section>
+  <section id="tab-groups" class="panel"></section>
+  <section id="tab-calendar" class="panel"></section>
+</main>
+
+<div id="matrix-modal" class="modal hidden">
+  <div class="modal-box matrix-box">
+    <div id="matrix-content"></div>
+    <div class="modal-actions">
+      <button id="matrix-close" class="btn">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="refresh-modal" class="modal hidden">
+  <div class="modal-box">
+    <h2>Actualizar predicciones</h2>
+    <label class="check"><input type="checkbox" id="refresh-inputs" checked>
+      Refrescar datos de entrada (resultados + xG + cuotas)</label>
+    <label class="check">Simulaciones Monte Carlo
+      <input type="number" id="refresh-sims" placeholder="por defecto" min="1000" step="1000">
+    </label>
+    <p class="hint">Genera los CSV fechados de hoy para ambas variantes (con y sin cuotas).
+       Puede tardar varios minutos.</p>
+    <div class="modal-actions">
+      <button id="refresh-start" class="btn primary">Lanzar</button>
+      <button id="refresh-close" class="btn">Cerrar</button>
+    </div>
+    <pre id="refresh-log" class="hidden"></pre>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

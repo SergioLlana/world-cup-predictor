@@ -72,6 +72,27 @@ before `--as-of` (default: today), and `predict` covers only fixtures that
 haven't been played yet — so group-stage results automatically inform your
 knockout picks.
 
+## Web app
+
+A local 538-style dashboard over the date-stamped CSVs (Spanish UI, flags,
+odds toggle):
+
+```bash
+pip install -e '.[web]'        # or: uv sync --extra web
+scripts/run_webapp.sh          # → http://localhost:8026
+```
+
+Four views: advancement probabilities per round (full-tournament simulation),
+day-by-day evolution of those probabilities across snapshots, group-stage
+position probabilities, and a round-by-round calendar showing each match's
+prediction *as of its date*, market odds, and — once played — the real score
+graded against the pick. Clicking a match opens the full exact-score
+probability matrix (computed on demand with the model as of that date). The «Cuotas de mercado» toggle switches between the
+`odds` and `history` CSV variants, and «Actualizar datos» runs
+`generate_predictions.sh --refresh` for both variants from the browser.
+Backend: `webapp/server.py` (FastAPI); it re-reads the CSVs on every request,
+so manual `generate_predictions.sh` runs show up on reload.
+
 ## Commands
 
 | Command | What it does |
@@ -211,9 +232,13 @@ wcpred/
 ├── thirds_table.py  # FIFA allocation of the 8 best thirds (auto-generated)
 ├── backtest.py      # historical tournament evaluation + `tune` grid search
 └── cli.py           # the `wcpred` command
+webapp/
+├── server.py        # FastAPI backend (JSON API over data/ + refresh runner)
+└── static/          # frontend (vanilla JS/SVG) + flags/ (48 country SVGs)
 scripts/
 ├── update_data.sh          # incrementally refresh all data sources into data/input/
 ├── generate_predictions.sh # date-stamped predictions + standings + simulation
+├── run_webapp.sh           # serve the local web app on :8026
 ├── fetch_odds.py           # data/input/odds.csv via The Odds API
 ├── fetch_xg.py             # data/input/xg.csv via FotMob's public JSON API
 └── build_thirds_table.py   # regenerates wcpred/thirds_table.py
