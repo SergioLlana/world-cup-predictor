@@ -95,7 +95,7 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
 
 def tune(df, tournaments=None, gd_caps=(None, 3, 4),
          half_lives=(365, 545, 730, 1095), friendly_weights=(0.5, 0.75, 1.0),
-         rolling=False, verbose=True):
+         cross_conf_weights=(1.0,), rolling=False, verbose=True):
     """Grid-search training hyperparameters across tournaments (no xG).
 
     Static fit by default to keep the grid cheap; re-validate the winner
@@ -107,23 +107,27 @@ def tune(df, tournaments=None, gd_caps=(None, 3, 4),
     for cap in gd_caps:
         for hl in half_lives:
             for fw in friendly_weights:
-                res = [backtest(df, t, rolling=rolling, gd_cap=cap,
-                                half_life=hl, friendly_weight=fw)
-                       for t in tournaments]
-                n = sum(r["matches"] for r in res)
-                row = {
-                    "gd_cap": cap, "half_life": hl, "friendly_w": fw,
-                    "points": sum(r["points"] for r in res),
-                    "pts_per_match": sum(r["points"] for r in res) / n,
-                    "exact": sum(r["exact"] for r in res),
-                    "rps": sum(r["rps"] * r["matches"] for r in res) / n,
-                    "log_loss": sum(r["log_loss"] * r["matches"]
-                                    for r in res) / n,
-                }
-                rows.append(row)
-                if verbose:
-                    print(f"gd_cap={cap} half_life={hl} friendly_w={fw}: "
-                          f"{row['pts_per_match']:.3f} pts/match, "
-                          f"rps {row['rps']:.4f}, ll {row['log_loss']:.4f}")
+                for ccw in cross_conf_weights:
+                    res = [backtest(df, t, rolling=rolling, gd_cap=cap,
+                                    half_life=hl, friendly_weight=fw,
+                                    cross_conf_weight=ccw)
+                           for t in tournaments]
+                    n = sum(r["matches"] for r in res)
+                    row = {
+                        "gd_cap": cap, "half_life": hl, "friendly_w": fw,
+                        "cross_conf_w": ccw,
+                        "points": sum(r["points"] for r in res),
+                        "pts_per_match": sum(r["points"] for r in res) / n,
+                        "exact": sum(r["exact"] for r in res),
+                        "rps": sum(r["rps"] * r["matches"] for r in res) / n,
+                        "log_loss": sum(r["log_loss"] * r["matches"]
+                                        for r in res) / n,
+                    }
+                    rows.append(row)
+                    if verbose:
+                        print(f"gd_cap={cap} half_life={hl} friendly_w={fw} "
+                              f"cross_conf_w={ccw}: "
+                              f"{row['pts_per_match']:.3f} pts/match, "
+                              f"rps {row['rps']:.4f}, ll {row['log_loss']:.4f}")
     return (pd.DataFrame(rows)
             .sort_values("rps").reset_index(drop=True))

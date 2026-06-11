@@ -64,12 +64,30 @@ extent CONMEBOL/CONCACAF/CAF) should be read with this caveat.
    combination (`gd_cap=3` was the worst setting tried; `gd_cap=4` still below
    no cap). Blowout margins carry real signal that Dixon-Coles already
    discounts adequately. The knob stays available, default `GD_CAP = None`.
-2. **Confederation-strength prior**, or anchor better with more history
+2. **Upweight inter-confederation "bridge" matches** (`CROSS_CONF_WEIGHT`,
+   `config.py`/`data.prepare_training`; confederations inferred from
+   continental competitions by `confederations.py`) — **tested June 2026 and
+   rejected as default**. The idea: bridge matches (~12% of the training
+   window, mostly friendlies) are the only games anchoring confederations to
+   a common scale, so upweighting them should tighten the anchoring. Static
+   fit looked mildly promising (w=1.5: 286.5 pts vs 280.5 baseline, RPS
+   0.18849 vs 0.18871), but rolling re-fit — the live protocol — reversed it
+   monotonically: 295.5 / 292.5 / 288.5 points and log-loss 2.7702 / 2.7713 /
+   2.7735 at w = 1.0 / 1.5 / 2.0, RPS flat. The knob stays available
+   (`cross_conf_weights` in `tune`), default `CROSS_CONF_WEIGHT = 1.0`.
+   Directional side-finding: the upweight barely narrows the
+   Australia-Paraguay gap anyway (both drop ~0.05), because Paraguay's own
+   recent bridge record is genuinely poor (losses to South Korea, USA,
+   Morocco, Costa Rica since 2024) — its strength shows in CONMEBOL
+   qualifiers, which bridges by definition exclude.
+3. **Confederation-strength prior**, or anchor better with more history
    (extend `TRAIN_START` so there are more cross-confederation matches) — not
    yet implemented. Related evidence: the `HALF_LIFE_DAYS` grid
    (365/545/730/1095) showed 365 clearly worse and 545-1095 tied, so leaning
-   on more history doesn't hurt.
-3. **Accept as a known limitation** and let home advantage + market odds (for
+   on more history doesn't hurt. Note the bridge-upweight result above: a
+   hierarchical prior re-anchors *levels* without distorting per-match
+   weights, so it can still work where the blunt upweight failed.
+4. **Accept as a known limitation** and let home advantage + market odds (for
    imminent fixtures) correct it in practice — the current stance. Since June
    2026 this also covers the group simulation: `groups --approach odds` blends
    the market exactly like `predict`/`simulate` (previously `groups` was

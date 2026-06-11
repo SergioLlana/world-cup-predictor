@@ -22,6 +22,11 @@ MIN_MATCHES = 10            # drop teams with fewer matches
 MAX_GOALS = 8               # score grid 0..MAX_GOALS
 GD_CAP = None               # cap goal margin in training (e.g. 3 ⇒ 5-0 → 3-0);
                             # None = off. Counters blowout inflation vs minnows.
+CROSS_CONF_WEIGHT = 1.0     # extra weight on inter-confederation matches —
+                            # the "bridge" games anchoring AFC/OFC/... to the
+                            # global scale (docs/known-limitations.md). 1.0 =
+                            # off; sweep via `wcpred tune`.
+
 # --- Blending weights ---
 ODDS_WEIGHT = 1.0           # 1X2 marginals come 100% from the market; the model
                             # only shapes the score distribution *within* each

@@ -7,8 +7,10 @@ import urllib.request
 import numpy as np
 import pandas as pd
 
-from .config import (FRIENDLY_WEIGHT, GD_CAP, HALF_LIFE_DAYS, MIN_MATCHES,
-                     RESULTS_PATH, RESULTS_URL, TRAIN_START, XG_ALPHA)
+from .config import (CROSS_CONF_WEIGHT, FRIENDLY_WEIGHT, GD_CAP,
+                     HALF_LIFE_DAYS, MIN_MATCHES, RESULTS_PATH, RESULTS_URL,
+                     TRAIN_START, XG_ALPHA)
+from .confederations import cross_conf_mask, infer_confederations
 
 
 def _ssl_context():
@@ -59,13 +61,16 @@ def load_odds(path):
 
 def prepare_training(df, as_of, xg_path=None, xg_alpha=XG_ALPHA,
                      half_life=HALF_LIFE_DAYS, friendly_weight=FRIENDLY_WEIGHT,
-                     train_start=TRAIN_START, gd_cap=GD_CAP):
+                     train_start=TRAIN_START, gd_cap=GD_CAP,
+                     cross_conf_weight=CROSS_CONF_WEIGHT):
     """Played matches before `as_of`, with time/tournament weights.
 
     If xg_path is given (CSV: date, home_team, away_team, home_xg, away_xg),
     goals are blended with xG: g_eff = alpha*goals + (1-alpha)*xG.
     If gd_cap is set, the winner's goals are capped at loser + gd_cap so
     blowouts against minnows are not over-credited.
+    cross_conf_weight > 1 upweights inter-confederation matches — the bridge
+    games that anchor weakly-connected confederations to the global scale.
     """
     m = df.dropna(subset=["home_score", "away_score"]).copy()
     m = m[(m["date"] >= train_start) & (m["date"] < as_of)]
@@ -77,6 +82,9 @@ def prepare_training(df, as_of, xg_path=None, xg_alpha=XG_ALPHA,
     age_days = (pd.Timestamp(as_of) - m["date"]).dt.days
     m["w"] = np.exp(-np.log(2) / half_life * age_days)
     m.loc[m["tournament"] == "Friendly", "w"] *= friendly_weight
+    if cross_conf_weight != 1.0:
+        confs = infer_confederations(m)
+        m.loc[cross_conf_mask(m, confs), "w"] *= cross_conf_weight
 
     if xg_path:
         xg = pd.read_csv(xg_path, parse_dates=["date"])

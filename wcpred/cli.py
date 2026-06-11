@@ -181,7 +181,7 @@ def cmd_tune(args):
     print(table.to_string(index=False))
     b = table.iloc[0]
     print(f"\nBest by RPS: gd_cap={b.gd_cap} half_life={int(b.half_life)} "
-          f"friendly_w={b.friendly_w} "
+          f"friendly_w={b.friendly_w} cross_conf_w={b.cross_conf_w} "
           f"({b.pts_per_match:.3f} pts/match, rps {b.rps:.4f})")
     print("Re-validate the winner with `wcpred backtest --tournament all` "
           "(rolling re-fit) before changing config.py.")
