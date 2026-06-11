@@ -45,7 +45,7 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 
 ## Conventions
 
-- Generated files live under `data/` (git-ignored), never the project root:
+- Generated files live under `data/`, never the project root:
   inputs in `data/input/` (`results.csv`/`odds.csv`/`xg.csv`),
   `predict --out` in `data/predictions/`, `groups --out` in `data/groups/`.
   Paths are set in `config.py` (`INPUT_DIR`/`PREDICTIONS_DIR`/`GROUPS_DIR`,

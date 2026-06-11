@@ -204,7 +204,7 @@ scripts/
 ├── generate_predictions.sh # date-stamped predictions + group standings
 ├── fetch_odds.py         # data/input/odds.csv via The Odds API
 └── fetch_xg.py           # data/input/xg.csv via FotMob's public JSON API
-data/             # all generated files (git-ignored)
+data/             # all generated files
 ├── input/        # results.csv, odds.csv, xg.csv
 ├── predictions/  # `predict --out` CSVs
 └── groups/       # `groups --out` standings
