@@ -9,6 +9,7 @@ RESULTS_URL = (
 INPUT_DIR = "data/input"              # results.csv, odds.csv, xg.csv
 PREDICTIONS_DIR = "data/predictions"  # `predict --out`
 GROUPS_DIR = "data/groups"            # `groups --out`
+SIM_DIR = "data/simulations"          # `simulate --out`
 RESULTS_PATH = f"{INPUT_DIR}/results.csv"
 
 # --- Model hyperparameters (validated by `wcpred tune` across the six
@@ -23,7 +24,7 @@ GD_CAP = None               # cap goal margin in training (e.g. 3 ⇒ 5-0 → 3-
                             # None = off. Counters blowout inflation vs minnows.
 
 # --- Blending weights ---
-ODDS_WEIGHT = 0.75          # market-implied matrix vs pure model
+ODDS_WEIGHT = 0.80          # market-implied matrix vs pure model (override: --odds-weight)
 XG_ALPHA = 0.6              # effective_goals = a*goals + (1-a)*xG
 
 # --- Optional knockout resolution (off by default) ---

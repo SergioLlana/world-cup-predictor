@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 #
-# Regenerate Superbru predictions (and group standings) with a date-stamped
-# output filename so you can keep every run and watch how picks evolve.
+# Regenerate Superbru predictions, group standings and a full-tournament
+# simulation with a date-stamped output filename so you can keep every run and
+# watch how picks, standings and title odds evolve.
 #
 #   data/predictions/picks_<approach>_<stamp>.csv
 #   data/groups/groups_<approach>_<stamp>.csv
+#   data/simulations/sim_<approach>_<stamp>.csv
 #
 # <stamp> is the --as-of date (defaults to today, i.e. the day you generated it),
 # so daily runs never overwrite each other. Override the <approach> segment with
@@ -20,13 +22,17 @@
 #   --as-of DATE     train on matches before DATE; also the filename stamp
 #                    (default: today)
 #   --days N         predictions: only fixtures within N days of --as-of
-#   --sims N         groups: Monte Carlo simulations per group (default wcpred: 1000000)
-#   --odds-weight W  predictions: market vs model blend (default wcpred: 0.75)
+#   --sims N         groups + simulation: Monte Carlo count (wcpred defaults:
+#                    groups 1000000, simulation 100000)
+#   --odds-weight W  predictions: market vs model blend (default wcpred: 0.80)
 #   --xg-alpha A     xG blend: alpha*goals + (1-alpha)*xG (default wcpred: 0.6)
 #   --extra-time     predictions: resolve knockout draws through extra time
 #   --shootout       predictions: also resolve ties on penalties (implies --extra-time)
-#   --predict-only   only generate predictions (skip groups)
-#   --groups-only    only generate group standings (skip predictions)
+#   --refresh        refresh data/input/ (results+xG+odds) via update_data.sh first,
+#                    so already-played matches are picked up before generating
+#   --predict-only   only generate predictions
+#   --groups-only    only generate group standings
+#   --simulate-only  only generate the full-tournament simulation
 #   --label STR      filename segment instead of the approach name
 #   --time           append _HHMM to the stamp (keep multiple runs per day)
 #   -h, --help       show this help and exit
@@ -54,12 +60,15 @@ EXTRA_TIME=0
 SHOOTOUT=0
 DO_PREDICT=1
 DO_GROUPS=1
+DO_SIMULATE=1
+REFRESH=0
 LABEL=""
 WITH_TIME=0
 
 usage() {
   cat <<'EOF'
-Regenerate Superbru predictions and group standings with date-stamped outputs.
+Regenerate Superbru predictions, group standings and a full-tournament
+simulation with date-stamped outputs.
 
 Usage: scripts/generate_predictions.sh [options]
 
@@ -68,13 +77,15 @@ Options:
                    (default: odds if data/input/odds.csv exists, else history)
   --as-of DATE     train on matches before DATE; also the filename stamp (default: today)
   --days N         predictions: only fixtures within N days of --as-of
-  --sims N         groups: Monte Carlo simulations per group
+  --sims N         groups + simulation: Monte Carlo count
   --odds-weight W  predictions: market vs model blend
   --xg-alpha A     xG blend: alpha*goals + (1-alpha)*xG
   --extra-time     predictions: resolve knockout draws through extra time
   --shootout       predictions: also resolve ties on penalties (implies --extra-time)
-  --predict-only   only generate predictions (skip groups)
-  --groups-only    only generate group standings (skip predictions)
+  --refresh        refresh data/input/ (results+xG+odds) via update_data.sh first
+  --predict-only   only generate predictions
+  --groups-only    only generate group standings
+  --simulate-only  only generate the full-tournament simulation
   --label STR      filename segment instead of the approach name
   --time           append _HHMM to the stamp (keep multiple runs per day)
   -h, --help       show this help and exit
@@ -93,14 +104,26 @@ while [ $# -gt 0 ]; do
     --xg-alpha)     XG_ALPHA="$2"; shift 2 ;;
     --extra-time)   EXTRA_TIME=1; shift ;;
     --shootout)     SHOOTOUT=1; shift ;;
-    --predict-only) DO_GROUPS=0; shift ;;
-    --groups-only)  DO_PREDICT=0; shift ;;
+    --refresh)      REFRESH=1; shift ;;
+    --predict-only)  DO_GROUPS=0; DO_SIMULATE=0; shift ;;
+    --groups-only)   DO_PREDICT=0; DO_SIMULATE=0; shift ;;
+    --simulate-only) DO_PREDICT=0; DO_GROUPS=0; shift ;;
     --label)        LABEL="$2"; shift 2 ;;
     --time)         WITH_TIME=1; shift ;;
     -h|--help)      usage; exit 0 ;;
     *) echo "Unknown option: $1 (try --help)" >&2; exit 2 ;;
   esac
 done
+
+# Refresh data/input/ first so already-played matches (and fresh odds) are
+# picked up. Done before the approach default below, since that checks for
+# odds.csv. A refresh failure is a warning, not fatal: generate with what we have.
+if [ "$REFRESH" = 1 ]; then
+  printf '\n=== Refreshing data/input/ via update_data.sh ===\n'
+  if ! "$SCRIPT_DIR/update_data.sh"; then
+    printf '\n!! update_data.sh reported a failure; continuing with existing data\n' >&2
+  fi
+fi
 
 # Default approach: prefer the market signal when odds are available.
 if [ -z "$APPROACH" ]; then
@@ -145,6 +168,14 @@ if [ "$DO_GROUPS" = 1 ]; then
   [ -n "$SIMS" ] && gargs+=(--sims "$SIMS")
   gargs+=(--out "groups_${LABEL}_${STAMP}.csv")
   if ! wcpred_cli groups "${gargs[@]}"; then FAILED+=("groups"); fi
+fi
+
+if [ "$DO_SIMULATE" = 1 ]; then
+  log "Simulation — approach=$APPROACH → data/simulations/sim_${LABEL}_${STAMP}.csv"
+  sargs=("${common_args[@]}")
+  [ -n "$SIMS" ] && sargs+=(--sims "$SIMS")
+  sargs+=(--out "sim_${LABEL}_${STAMP}.csv")
+  if ! wcpred_cli simulate "${sargs[@]}"; then FAILED+=("simulate"); fi
 fi
 
 if [ "${#FAILED[@]}" -gt 0 ]; then

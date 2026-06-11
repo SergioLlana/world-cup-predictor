@@ -18,12 +18,13 @@ import pandas as pd
 
 from .backtest import TOURNAMENTS, backtest, tune
 from .config import (GROUPS_DIR, ODDS_WEIGHT, PREDICTIONS_DIR, RESULTS_PATH,
-                     XG_ALPHA)
+                     SIM_DIR, XG_ALPHA)
 from .data import (download_results, load_odds, load_results,
                    played_world_cup, prepare_training, upcoming_world_cup)
 from .groups import simulate_groups
 from .model import DixonColes
 from .predict import predict_fixtures
+from .tournament import simulate_tournament
 
 APPROACHES = ("history", "odds", "xg", "full")
 
@@ -116,6 +117,30 @@ def cmd_groups(args):
         print(f"Saved to {dest}")
 
 
+def cmd_simulate(args):
+    df = load_results(args.data)
+    model = build_model(df, args)
+    fixtures = upcoming_world_cup(df, from_date=args.as_of)
+    played = played_world_cup(df, year=2026, as_of=args.as_of)
+    if fixtures.empty and not len(played):
+        sys.exit("No World Cup fixtures found. Run `wcpred update-data` first.")
+    odds_df = None
+    if args.approach in ("odds", "full"):
+        if not args.odds:
+            sys.exit("--approach odds requires --odds FILE")
+        odds_df = load_odds(args.odds)
+    out = simulate_tournament(model, fixtures, n_sims=args.sims, played=played,
+                              odds_df=odds_df, odds_weight=args.odds_weight)
+    note = f", counting {len(played)} played matches" if len(played) else ""
+    print(f"\nFull-tournament Monte Carlo ({args.sims:,} sims{note}) — "
+          f"knockouts at a neutral venue, ties via extra time + penalties\n")
+    print(out.to_string(index=False))
+    if args.out:
+        dest = resolve_out(args.out, SIM_DIR)
+        out.to_csv(dest, index=False)
+        print(f"\nSaved to {dest}")
+
+
 def cmd_ratings(args):
     df = load_results(args.data)
     model = build_model(df, args)
@@ -199,6 +224,14 @@ def main():
     sp.add_argument("--out", help="save standings CSV here (a bare filename "
                     f"goes under {GROUPS_DIR}/)")
     sp.set_defaults(func=cmd_groups)
+
+    sp = sub.add_parser("simulate", help="simulate the full tournament bracket")
+    common(sp)
+    sp.add_argument("--sims", type=int, default=100000,
+                    help="Monte Carlo simulations (default: 100000)")
+    sp.add_argument("--out", help="save per-team probabilities CSV here (a bare "
+                    f"filename goes under {SIM_DIR}/)")
+    sp.set_defaults(func=cmd_simulate)
 
     sp = sub.add_parser("ratings", help="show team strength ratings")
     common(sp)

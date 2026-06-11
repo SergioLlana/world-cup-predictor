@@ -73,10 +73,10 @@ Las cuotas no tocan el modelo entrenado; se combinan al predecir cada partido:
 4. Se mezclan las dos matrices:
 
    ```python
-   P = 0.75·P_mercado + 0.25·P_modelo     # ODDS_WEIGHT = 0.75
+   P = 0.80·P_mercado + 0.20·P_modelo     # ODDS_WEIGHT = 0.80
    ```
 
-El mercado domina (75%) porque incorpora información que el modelo no tiene
+El mercado domina (80%) porque incorpora información que el modelo no tiene
 (incluidas lesiones, suspensiones y rotaciones, que las cuotas precian en
 minutos).
 
@@ -122,7 +122,7 @@ results.csv ─┐
 xG (α blend)─┴─→ prepare_training ──→ DixonColes.fit ──→ matriz P_modelo
                                                               │
 odds ──→ devig ──→ market_matrix ──→ P_mercado ──┐            │
-                                                 └─ 0.75·mkt + 0.25·modelo
+                                                 └─ 0.80·mkt + 0.20·modelo
                                                               │
                                                   best_prediction (max EP Superbru)
                                                               │

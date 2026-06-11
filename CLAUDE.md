@@ -12,6 +12,8 @@ wcpred update-data               # download/refresh data/input/results.csv (run 
 scripts/update_data.sh           # refresh ALL sources (results+xG+odds) incrementally
 scripts/generate_predictions.sh  # date-stamped picks + group standings (track evolution)
 wcpred predict --approach odds --odds data/input/odds.csv --days 3
+wcpred groups                         # Monte Carlo group standings
+wcpred simulate --approach odds --odds data/input/odds.csv  # full bracket → champion
 wcpred backtest --tournament all      # validation: ~295 pts / 290 matches
 wcpred tune                           # hyperparameter grid search (no xG)
 wcpred ratings --top 20
@@ -38,7 +40,16 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   Produces per-team attack/defence ratings and score-probability matrices.
 - `scoring.py` — Superbru points, Closeness Index, expected-points optimiser.
 - `odds.py` — odds → de-vigged 1X2 probs → market-implied score matrix.
-- `predict.py` — pipeline blending model + odds (`0.75*market + 0.25*model`).
+- `predict.py` — pipeline blending model + odds (`0.80*market + 0.20*model`).
+- `tournament.py` — full-tournament Monte Carlo (`simulate`): joint group sim,
+  8 best thirds, official FIFA Round-of-32 bracket through the final, extra-time
+  + penalty resolution. Uses real results (group *and* knockout) where played,
+  so it also runs mid-tournament. Knockouts are neutral-venue (see
+  `docs/known-limitations.md`). Group labels come from `OFFICIAL_GROUPS` (the
+  real A..L draw), not `groups.derive_groups`' kick-off ordering.
+- `thirds_table.py` — auto-generated FIFA Annex-C allocation of the 8 best
+  thirds to Round-of-32 slots (495 combinations); regenerate with
+  `scripts/build_thirds_table.py`.
 - `backtest.py` — six past tournaments, rolling re-fit, Superbru/RPS/log-loss
   metrics, and the `tune` hyperparameter grid search.
 - `cli.py` — argparse entry point (`main`); subcommands map to `cmd_*`.
@@ -47,10 +58,11 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 
 - Generated files live under `data/`, never the project root:
   inputs in `data/input/` (`results.csv`/`odds.csv`/`xg.csv`),
-  `predict --out` in `data/predictions/`, `groups --out` in `data/groups/`.
-  Paths are set in `config.py` (`INPUT_DIR`/`PREDICTIONS_DIR`/`GROUPS_DIR`,
-  `RESULTS_PATH`); writers `os.makedirs` their target, and `cli.resolve_out`
-  routes a bare `--out` filename into the right folder.
+  `predict --out` in `data/predictions/`, `groups --out` in `data/groups/`,
+  `simulate --out` in `data/simulations/`.
+  Paths are set in `config.py` (`INPUT_DIR`/`PREDICTIONS_DIR`/`GROUPS_DIR`/
+  `SIM_DIR`, `RESULTS_PATH`); writers `os.makedirs` their target, and
+  `cli.resolve_out` routes a bare `--out` filename into the right folder.
 - Team names must match the martj42 dataset exactly (e.g. `United States`,
   `South Korea`, `Czech Republic`, `Ivory Coast`, `Turkey`).
 - Score matrices are `P[home_goals, away_goals]` over a `0..MAX_GOALS` grid.

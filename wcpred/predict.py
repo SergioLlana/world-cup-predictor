@@ -55,18 +55,35 @@ def predict_match(model, home, away, side=None, odds=None,
             "p1": p1, "px": px, "p2": p2, "used_odds": used_odds}
 
 
+def _norm_team(name):
+    """Normalise a team name for odds matching: tolerate '&' vs 'and' and
+    stray whitespace. Fixtures follow the martj42 dataset spelling, but the
+    odds feed sometimes uses 'Bosnia & Herzegovina' etc."""
+    return " ".join(str(name).replace("&", "and").split())
+
+
+def _build_odds_lookup(odds_df):
+    """Map normalised (home, away) -> (odds_1, odds_X, odds_2). Also indexes
+    the reversed pairing with odds_1/odds_2 swapped, so a fixture listed in the
+    opposite home/away order to the odds feed still matches correctly."""
+    lookup = {}
+    for _, o in odds_df.iterrows():
+        h, a = _norm_team(o.home_team), _norm_team(o.away_team)
+        lookup[(h, a)] = (o.odds_1, o.odds_X, o.odds_2)
+        lookup.setdefault((a, h), (o.odds_2, o.odds_X, o.odds_1))
+    return lookup
+
+
 def predict_fixtures(model, fixtures, odds_df=None, odds_weight=ODDS_WEIGHT,
                      extra_time=False, shootout=False):
     """Predict a fixtures DataFrame; returns a tidy results DataFrame."""
-    odds_idx = None
-    if odds_df is not None:
-        odds_idx = odds_df.set_index(["home_team", "away_team"])
+    odds_lookup = _build_odds_lookup(odds_df) if odds_df is not None else None
     rows = []
     for _, r in fixtures.iterrows():
         odds = None
-        if odds_idx is not None and (r.home_team, r.away_team) in odds_idx.index:
-            o = odds_idx.loc[(r.home_team, r.away_team)]
-            odds = (o.odds_1, o.odds_X, o.odds_2)
+        if odds_lookup is not None:
+            odds = odds_lookup.get((_norm_team(r.home_team),
+                                    _norm_team(r.away_team)))
         res = predict_match(model, r.home_team, r.away_team,
                             side=home_side(r.home_team, r.away_team, r.country),
                             odds=odds, odds_weight=odds_weight,
