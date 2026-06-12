@@ -58,6 +58,14 @@ CONF_ANCHOR_BETA = 0.0      # two-timescale confederation re-anchoring
                             # `wcpred tune --anchor`.
 CONF_ANCHOR_HALF_LIFE_DAYS = 2920  # slow-timescale window for the level fit
                                    # (8y; bounded below by TRAIN_START)
+ELO_PRIOR_TAU = 0.0         # external Elo anchor (docs/model-robustness-plan.md
+                            # Phase 3): penalty weight pulling each team's
+                            # strength (atk − dfn) toward a + b·Elo, with a, b
+                            # profiled on the training window — only Elo's
+                            # *relative* levels anchor the model. 0 = off
+                            # (today's model); sweep via `wcpred tune --elo`.
+ELO_PATH = f"{INPUT_DIR}/elo.csv"  # dated Elo snapshots (scripts/fetch_elo.py);
+                                   # data.load_elo resolves the one ≤ as-of
 
 # --- Blending weights ---
 ODDS_WEIGHT = 1.0           # 1X2 marginals come 100% from the market; the model

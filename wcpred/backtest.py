@@ -14,10 +14,10 @@ import numpy as np
 import pandas as pd
 
 from .anchor import anchor_model
-from .config import (CONF_ANCHOR_BETA, CONF_ANCHOR_HALF_LIFE_DAYS, MAX_GOALS,
-                     SCORING_MODE)
+from .config import (CONF_ANCHOR_BETA, CONF_ANCHOR_HALF_LIFE_DAYS, ELO_PATH,
+                     ELO_PRIOR_TAU, MAX_GOALS, SCORING_MODE)
 from .confederations import infer_confederations
-from .data import prepare_training
+from .data import load_elo, prepare_training
 from .model import DixonColes
 from .predict import home_side, predict_match
 from .scoring import points
@@ -59,7 +59,8 @@ def _match_metrics(res, true, scoring=SCORING_MODE, stage="group"):
 def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              xg_alpha=None, scoring=SCORING_MODE, audit=None,
              anchor_beta=CONF_ANCHOR_BETA,
-             anchor_half_life=CONF_ANCHOR_HALF_LIFE_DAYS, **train_kw):
+             anchor_half_life=CONF_ANCHOR_HALF_LIFE_DAYS,
+             elo_tau=ELO_PRIOR_TAU, elo_path=ELO_PATH, **train_kw):
     """Score every match of a past tournament.
 
     rolling=True re-fits the model at each matchday (training on matches
@@ -78,6 +79,10 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     anchor_beta > 0 applies the Phase 2b two-timescale confederation
     re-anchoring after each (re-)fit, with the long fit's cutoff tracking the
     short fit's — the same protocol a live `--as-of` run would use.
+
+    elo_tau > 0 fits each re-fit under the Phase 3 external Elo prior, using
+    the Elo snapshot in force at that cutoff (load_elo, causal like the
+    training window).
     """
     as_of, start, end, name, n_group, n_mid = TOURNAMENTS[tournament]
     matches = df.dropna(subset=["home_score"])
@@ -99,7 +104,8 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
         cutoff = str(r["date"].date()) if rolling else as_of
         if cutoff != fitted_at:
             tm = prepare_training(df, cutoff, xg_path=xg_path, **kw)
-            model = DixonColes().fit(tm)
+            elo = load_elo(cutoff, elo_path) if elo_tau else None
+            model = DixonColes().fit(tm, elo=elo, elo_tau=elo_tau)
             if anchor_beta:
                 anchor_model(model, df, cutoff, beta=anchor_beta,
                              long_half_life=anchor_half_life,
@@ -183,7 +189,7 @@ def bridge_audit(records):
 def tune(df, tournaments=None, gd_caps=(None, 3, 4),
          half_lives=(365, 545, 730, 1095), friendly_weights=(0.5, 0.75, 1.0),
          cross_conf_weights=(1.0,), shrinkages=((None, 0.0),),
-         anchor_betas=(0.0,), rolling=False, verbose=True):
+         anchor_betas=(0.0,), elo_taus=(0.0,), rolling=False, verbose=True):
     """Grid-search training hyperparameters across tournaments (no xG).
 
     Static fit by default to keep the grid cheap; re-validate the winner
@@ -193,23 +199,26 @@ def tune(df, tournaments=None, gd_caps=(None, 3, 4),
     Phase 1 data-augmentation knobs (`wcpred tune --shrinkage`).
     `anchor_betas` sweeps the Phase 2b confederation re-anchoring blend
     (`wcpred tune --anchor`).
+    `elo_taus` sweeps the Phase 3 external Elo prior weight
+    (`wcpred tune --elo`).
     """
     tournaments = list(tournaments or TOURNAMENTS)
     rows = []
-    for cap, hl, fw, ccw, (sm, sw), ab in itertools.product(
+    for cap, hl, fw, ccw, (sm, sw), ab, et in itertools.product(
             gd_caps, half_lives, friendly_weights, cross_conf_weights,
-            shrinkages, anchor_betas):
+            shrinkages, anchor_betas, elo_taus):
         res = [backtest(df, t, rolling=rolling, gd_cap=cap,
                         half_life=hl, friendly_weight=fw,
                         cross_conf_weight=ccw,
                         shrinkage_mode=sm, shrinkage_weight=sw,
-                        anchor_beta=ab)
+                        anchor_beta=ab, elo_tau=et)
                for t in tournaments]
         n = sum(r["matches"] for r in res)
         row = {
             "gd_cap": cap, "half_life": hl, "friendly_w": fw,
             "cross_conf_w": ccw,
             "shrink_mode": sm, "shrink_w": sw, "anchor_beta": ab,
+            "elo_tau": et,
             "points": sum(r["points"] for r in res),
             "pts_per_match": sum(r["points"] for r in res) / n,
             "exact": sum(r["exact"] for r in res),
@@ -221,7 +230,7 @@ def tune(df, tournaments=None, gd_caps=(None, 3, 4),
         if verbose:
             print(f"gd_cap={cap} half_life={hl} "
                   f"friendly_w={fw} cross_conf_w={ccw} "
-                  f"shrinkage={sm}:{sw} anchor={ab}: "
+                  f"shrinkage={sm}:{sw} anchor={ab} elo_tau={et}: "
                   f"{row['pts_per_match']:.3f} pts/match, "
                   f"rps {row['rps']:.4f}, "
                   f"ll {row['log_loss']:.4f}")

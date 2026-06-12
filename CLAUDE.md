@@ -49,6 +49,10 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   list upcoming fixtures.
 - `model.py` — Dixon-Coles (weighted Poisson + rho low-score correction).
   Produces per-team attack/defence ratings and score-probability matrices.
+  `fit` takes an optional external Elo prior (robustness-plan Phase 3;
+  rejected as default, available via `ELO_PRIOR_TAU` / `--elo-tau` /
+  `wcpred tune --elo`; snapshots from `scripts/fetch_elo.py` →
+  `data/input/elo.csv`, resolved causally by `data.load_elo`).
 - `anchor.py` — two-timescale confederation re-anchoring (robustness-plan
   Phase 2b; rejected as default, available via `CONF_ANCHOR_BETA` /
   `--anchor-beta` / `wcpred tune --anchor`).
@@ -138,8 +142,11 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   Hard rule there: the current model must stay regenerable (new knobs
   default-off, experiment outputs outside `data/predictions|groups|simulations`,
   never regenerate past snapshots with a changed model).
+  The plan is CLOSED (June 2026): Phases 0-3 all rejected as defaults — even
+  the external Elo anchor shares the diagnosed CONMEBOL/CONCACAF-vs-UEFA bias.
   Key facts: FotMob xG only goes back to ~mid-2022 and never covers friendlies;
   free historical odds exist only via SofaScore (single book); the model trains
-  on goals/xG but never on odds (odds are a predict-time blend only).
+  on goals/xG but never on odds (odds are a predict-time blend only — the one
+  exception is the optional, default-off Elo training prior above).
 
 Full usage, data sources and tuning notes live in `README.md`.

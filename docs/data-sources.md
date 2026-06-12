@@ -10,6 +10,7 @@ re-check before assuming they still hold, sports-data feeds change often.
 | xG | FotMob public JSON API | `scripts/fetch_xg.py` → `data/input/xg.csv` → `prepare_training` | From **~mid-2022**; **no friendlies at all**, ~28% of qualifiers | 🟡 Partial |
 | Odds (live) | The Odds API | `scripts/fetch_odds.py` → `data/input/odds.csv` → `predict.py` | Upcoming fixtures only | ✅ For prediction |
 | Odds (historical) | SofaScore | `scripts/fetch_sofascore.py` → `data/input/odds_history.csv` | 1X2 closing, single book, back to ≥2018 | 🟡 Not consumed by pipeline yet |
+| Elo (historical) | eloratings.net | `scripts/fetch_elo.py` → `data/input/elo.csv` → `data.load_elo` | Year-end snapshots 2010-2025 + fetch-day, all national teams | 🟡 Optional training prior, off by default |
 
 xG and goals feed **training** (the team ratings). Odds are applied only at
 **predict time** as a market blend — the model never trains on them, so a
@@ -123,3 +124,19 @@ backtesting/calibrating the market blend (`--odds-weight`).
 Rejected alternatives: The Odds API history is paid only (~25k–35k credits for
 a 2020+ backfill); football-data.co.uk/Kaggle are club leagues only; OddsPortal
 has no API and scraping it violates its terms.
+
+## Elo — eloratings.net (implemented June 2026)
+
+`scripts/fetch_elo.py` downloads the plain-TSV data behind
+[eloratings.net](https://eloratings.net/): one file per **completed** year
+(ratings after that year's final match, stamped `<year>-12-31`) plus
+`World.tsv` (current list, stamped with the fetch date) into
+`data/input/elo.csv` (`date,team,elo`). Names are mapped to martj42 and
+verified against `results.csv`; re-runs are idempotent (rows keyed by
+date+team). Don't fetch the current year's `<year>.tsv` mid-year — it mirrors
+`World.tsv` and would be mislabelled as a year-end snapshot.
+
+Consumed only by the optional Phase 3 external Elo prior
+(`docs/model-robustness-plan.md`; `ELO_PRIOR_TAU`, default off — tested and
+rejected as default June 2026): `data.load_elo` resolves the latest snapshot
+≤ as-of at every (re-)fit, so backtests stay causal at yearly granularity.

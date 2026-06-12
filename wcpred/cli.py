@@ -18,11 +18,12 @@ import pandas as pd
 
 from .anchor import anchor_model
 from .backtest import TOURNAMENTS, backtest, bridge_audit, tune
-from .config import (CONF_ANCHOR_BETA, GROUPS_DIR, ODDS_WEIGHT,
-                     PREDICTIONS_DIR, RESULTS_PATH, SCORING_MODE, SIM_DIR,
-                     XG_ALPHA)
-from .data import (PHANTOM_TEAM, download_results, load_odds, load_results,
-                   played_world_cup, prepare_training, upcoming_world_cup)
+from .config import (CONF_ANCHOR_BETA, ELO_PATH, ELO_PRIOR_TAU, GROUPS_DIR,
+                     ODDS_WEIGHT, PREDICTIONS_DIR, RESULTS_PATH, SCORING_MODE,
+                     SIM_DIR, XG_ALPHA)
+from .data import (PHANTOM_TEAM, download_results, load_elo, load_odds,
+                   load_results, played_world_cup, prepare_training,
+                   upcoming_world_cup)
 from .groups import simulate_groups
 from .model import DixonColes
 from .predict import predict_fixtures
@@ -51,7 +52,13 @@ def build_model(df, args):
     xg = args.xg if args.approach in ("xg", "full") else None
     train = prepare_training(df, as_of=args.as_of, xg_path=xg,
                              xg_alpha=args.xg_alpha)
-    model = DixonColes().fit(train)
+    elo = load_elo(args.as_of, args.elo) if args.elo_tau else None
+    if args.elo_tau and not elo:
+        sys.exit(f"--elo-tau needs an Elo snapshot dated <= --as-of in "
+                 f"{args.elo} (run scripts/fetch_elo.py)")
+    model = DixonColes().fit(train, elo=elo, elo_tau=args.elo_tau)
+    if args.elo_tau:
+        print(f"External Elo prior applied (tau={args.elo_tau})")
     if args.anchor_beta:
         anchor_model(model, df, args.as_of, beta=args.anchor_beta,
                      xg_path=xg, xg_alpha=args.xg_alpha)
@@ -184,7 +191,8 @@ def cmd_backtest(args):
         r = backtest(df, name, rolling=not args.static,
                      xg_path=args.xg if args.approach in ("xg", "full") else None,
                      xg_alpha=args.xg_alpha, scoring=args.scoring, audit=audit,
-                     anchor_beta=args.anchor_beta)
+                     anchor_beta=args.anchor_beta,
+                     elo_tau=args.elo_tau, elo_path=args.elo)
         print(f"Backtest {r['tournament']} ({args.scoring}): "
               f"{r['points']:.1f} pts in "
               f"{r['matches']} matches ({r['points_per_match']:.2f}/match) | "
@@ -221,6 +229,13 @@ def cmd_tune(args):
         table = tune(df, rolling=args.rolling, gd_caps=(None,),
                      half_lives=(730,), friendly_weights=(1.0,),
                      anchor_betas=(0.0, 0.25, 0.5, 0.75, 1.0))
+    elif args.elo:
+        # Phase 3 grid (docs/model-robustness-plan.md): sweep the external
+        # Elo prior weight alone, other hyperparameters held at today's
+        # defaults.
+        table = tune(df, rolling=args.rolling, gd_caps=(None,),
+                     half_lives=(730,), friendly_weights=(1.0,),
+                     elo_taus=(0.0, 0.5, 1.0, 2.0, 5.0, 10.0))
     else:
         table = tune(df, rolling=args.rolling)
     print("\nGrid sorted by pooled RPS (lower is better):\n")
@@ -229,6 +244,7 @@ def cmd_tune(args):
     print(f"\nBest by RPS: gd_cap={b.gd_cap} half_life={int(b.half_life)} "
           f"friendly_w={b.friendly_w} cross_conf_w={b.cross_conf_w} "
           f"shrinkage={b.shrink_mode}:{b.shrink_w} anchor={b.anchor_beta} "
+          f"elo_tau={b.elo_tau} "
           f"({b.pts_per_match:.3f} pts/match, rps {b.rps:.4f})")
     print("Re-validate the winner with `wcpred backtest --tournament all` "
           "(rolling re-fit) before changing config.py.")
@@ -267,6 +283,12 @@ def main():
                         help="Phase 2b confederation re-anchoring blend: 0 = "
                              "off, 1 = adopt the long-window confederation "
                              "levels fully (default: %(default)s)")
+        sp.add_argument("--elo-tau", type=float, default=ELO_PRIOR_TAU,
+                        help="Phase 3 external Elo prior weight: 0 = off "
+                             "(default: %(default)s)")
+        sp.add_argument("--elo", default=ELO_PATH,
+                        help="dated Elo snapshots CSV (date,team,elo; "
+                             "default: %(default)s)")
 
     sp = sub.add_parser("predict", help="predict upcoming WC fixtures")
     common(sp)
@@ -329,6 +351,10 @@ def main():
     sp.add_argument("--anchor", action="store_true",
                     help="sweep the Phase 2b confederation re-anchoring "
                          "blend (CONF_ANCHOR_BETA) instead of the standard "
+                         "hyperparameter grid")
+    sp.add_argument("--elo", action="store_true",
+                    help="sweep the Phase 3 external Elo prior weight "
+                         "(ELO_PRIOR_TAU) instead of the standard "
                          "hyperparameter grid")
     sp.set_defaults(func=cmd_tune)
 

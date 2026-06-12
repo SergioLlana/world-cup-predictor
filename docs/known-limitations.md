@@ -112,13 +112,29 @@ extent CONMEBOL/CONCACAF/CAF) should be read with this caveat.
    log-loss (0.1890/2.7702 → 0.1887/2.7691 at β=0.75, 597 vs 594 Penka pts)
    — but it barely moves the diagnosed bias: the long and short windows
    assign nearly identical confederation levels (deltas ±0.02, regardless of
-   slow-window length), because both are anchored by the *same* thin
-   bridges. CONMEBOL–UEFA bridge bias +0.088 → +0.086; CONCACAF–UEFA grew
-   +0.113 → +0.120. The knob stays available (`wcpred tune --anchor`,
+   slow-window length — 8y ≈ 16y ≈ no decay at all), because both are
+   anchored by the *same* thin bridges. CONMEBOL–UEFA bridge bias +0.088 →
+   +0.086 (+0.084 in the no-decay limit); CONCACAF–UEFA grew +0.113 →
+   +0.120..+0.125. The knob stays available (`wcpred tune --anchor`,
    `--anchor-beta`), default `CONF_ANCHOR_BETA = 0.0`. Conclusion: the
    dataset's internal anchoring information is exhausted — only an external
    anchor (historical Elo, Phase 3 of the plan) can add more.
-5. **Accept as a known limitation** and let home advantage + market odds (for
+5. **External Elo prior** (`ELO_PRIOR_TAU`/`ELO_PATH`, `model.DixonColes.fit`;
+   eloratings.net snapshots via `scripts/fetch_elo.py` — Phase 3 of
+   [model-robustness-plan.md](model-robustness-plan.md)) — **tested June 2026
+   and rejected as default.** A penalty pulls each team's strength toward an
+   affine transform of its historical Elo rating (`a + b·elo`, profiled on the
+   training window; snapshots resolved causally per re-fit). Decades of
+   accumulated bridges do add real information — Penka points jump +14..+22
+   (594 → 608-616, exact picks 37 → 39-40) and the AFC audit pairs improve —
+   but log-loss degrades monotonically in τ (2.7702 → 2.7824 at τ=10), RPS is
+   flat-to-worse, and the two *diagnosed* bridge biases grow at every τ
+   (CONMEBOL–UEFA +0.088 → +0.095..+0.098, CONCACAF–UEFA +0.113 →
+   +0.130..+0.146): eloratings.net shares the same regional bias on those
+   pairs (consistent with the football-rankings.info regional-bias test), so
+   an Elo anchor cannot correct it. The knobs stay available (`wcpred tune
+   --elo`, `--elo-tau`), default `ELO_PRIOR_TAU = 0.0`.
+6. **Accept as a known limitation** and let home advantage + market odds (for
    imminent fixtures) correct it in practice — the current stance. Since June
    2026 this also covers the group simulation: `groups --approach odds` blends
    the market exactly like `predict`/`simulate` (previously `groups` was
