@@ -2,6 +2,10 @@
 
 ## Confederation isolation inflates ratings of teams with weak schedules
 
+*See also [connectivity.md](connectivity.md): the conf×conf bridge-weight
+matrix behind this effect (explorable in the web app's Conectividad tab) and
+the June 2026 Argentina-vs-Spain case study.*
+
 **Symptom.** The model ranks **Australia (24th, overall 1.98)** above the
 **USA (43rd, overall 1.66)** and has Australia finishing ahead in Group C, even
 though the USA is a host. This shows up in *every* variant (history-only, xG
@@ -80,14 +84,41 @@ extent CONMEBOL/CONCACAF/CAF) should be read with this caveat.
    recent bridge record is genuinely poor (losses to South Korea, USA,
    Morocco, Costa Rica since 2024) — its strength shows in CONMEBOL
    qualifiers, which bridges by definition exclude.
-3. **Confederation-strength prior**, or anchor better with more history
-   (extend `TRAIN_START` so there are more cross-confederation matches) — not
-   yet implemented. Related evidence: the `HALF_LIFE_DAYS` grid
-   (365/545/730/1095) showed 365 clearly worse and 545-1095 tied, so leaning
-   on more history doesn't hurt. Note the bridge-upweight result above: a
-   hierarchical prior re-anchors *levels* without distorting per-match
-   weights, so it can still work where the blunt upweight failed.
-4. **Accept as a known limitation** and let home advantage + market odds (for
+3. **Shrinkage via data augmentation** (`SHRINKAGE_MODE`/`SHRINKAGE_WEIGHT`,
+   `config.py`/`data.prepare_training`; the pseudo-games / phantom-player
+   scheme of arXiv 2606.03805 — Phase 1 of
+   [model-robustness-plan.md](model-robustness-plan.md)) — **tested June 2026
+   and rejected as default.** Synthetic fractional 1-1 draws (one per team vs
+   a `__phantom__` anchor, or spread over every cross-confederation pair)
+   shrink ratings toward a common center without re-weighting real matches.
+   Rolling re-fit degraded RPS and log-loss monotonically in ε for both modes
+   (baseline 0.1890 / 2.7702 → phantom ε=2: 0.1914 / 2.7851; pseudo ε=2:
+   0.1936 / 2.8039), and — the instructive part — moved the *levels* the
+   wrong way: the compression hits UEFA's elite harder than CONMEBOL's, so
+   the CONMEBOL–UEFA bridge bias grew (+0.088 → +0.104 at pseudo ε=0.5) and
+   the Australia–USA and Argentina–Spain gaps widened. Uniform shrinkage
+   toward a global center is the wrong shape of fix; what is needed is
+   per-confederation *level* correction (the level re-anchoring below). The
+   knobs stay available (`wcpred tune --shrinkage`), default
+   `SHRINKAGE_MODE = None`.
+4. **Per-confederation level re-anchoring, two-timescale**
+   (`CONF_ANCHOR_BETA`/`CONF_ANCHOR_HALF_LIFE_DAYS`, `wcpred/anchor.py` —
+   Phase 2b of [model-robustness-plan.md](model-robustness-plan.md)) —
+   **tested June 2026 and rejected as default.** Confederation levels are
+   estimated on a slow-timescale fit (8-year half-life, where bridge matches
+   are plentiful) and the short-window fit's levels are recentred toward them
+   (±β·Δ/2 on attack/defence; intra-confederation predictions exactly
+   invariant). The first intervention that *improved* rolling RPS and
+   log-loss (0.1890/2.7702 → 0.1887/2.7691 at β=0.75, 597 vs 594 Penka pts)
+   — but it barely moves the diagnosed bias: the long and short windows
+   assign nearly identical confederation levels (deltas ±0.02, regardless of
+   slow-window length), because both are anchored by the *same* thin
+   bridges. CONMEBOL–UEFA bridge bias +0.088 → +0.086; CONCACAF–UEFA grew
+   +0.113 → +0.120. The knob stays available (`wcpred tune --anchor`,
+   `--anchor-beta`), default `CONF_ANCHOR_BETA = 0.0`. Conclusion: the
+   dataset's internal anchoring information is exhausted — only an external
+   anchor (historical Elo, Phase 3 of the plan) can add more.
+5. **Accept as a known limitation** and let home advantage + market odds (for
    imminent fixtures) correct it in practice — the current stance. Since June
    2026 this also covers the group simulation: `groups --approach odds` blends
    the market exactly like `predict`/`simulate` (previously `groups` was

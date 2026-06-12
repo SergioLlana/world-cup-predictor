@@ -12,8 +12,12 @@ import pandas as pd
 from .config import (CROSS_CONF_WEIGHT, FRIENDLY_WEIGHT, GD_CAP,
                      HALF_LIFE_DAYS, MIN_MATCHES, ODDS_CUTOVER, ODDS_PATH,
                      ODDS_SNAPSHOT_DIR, RESULTS_PATH, RESULTS_URL,
-                     TRAIN_START, XG_ALPHA)
+                     SHRINKAGE_MODE, SHRINKAGE_WEIGHT, TRAIN_START, XG_ALPHA)
 from .confederations import cross_conf_mask, infer_confederations
+
+# Synthetic anchor opponent for SHRINKAGE_MODE="phantom". Never a real pick:
+# fixtures only name real teams, but `ratings` must skip it (cli.cmd_ratings).
+PHANTOM_TEAM = "__phantom__"
 
 
 def _ssl_context():
@@ -86,10 +90,50 @@ def resolve_odds_path(as_of, root=""):
     return os.path.join(snap_dir, eligible[-1]) if eligible else None
 
 
+def _shrinkage_rows(m, as_of, mode, weight):
+    """Synthetic fractional 1-1 draws that shrink the weakly-identified
+    cross-confederation rating offsets toward a common center (the
+    pseudo-game / phantom-player augmentation of arXiv 2606.03805; see
+    docs/model-robustness-plan.md Phase 1). Real matches are untouched.
+
+    "phantom": every team draws 1-1 once vs PHANTOM_TEAM at weight `weight`.
+    "pseudo": 1-1 draws between every cross-confederation team pair; each
+    pair's weight is split so every team carries ≈`weight` total (exactly so
+    when cross-pair counts are equal). Teams whose confederation cannot be
+    inferred from the window get no pseudo rows.
+    """
+    teams = np.array(sorted(set(m["home_team"]) | set(m["away_team"])))
+    if mode == "phantom":
+        rows = pd.DataFrame({"home_team": teams, "away_team": PHANTOM_TEAM,
+                             "w": weight})
+    elif mode == "pseudo":
+        confs = infer_confederations(m)
+        teams = teams[[t in confs for t in teams]]
+        conf = np.array([confs[t] for t in teams])
+        ii, jj = np.triu_indices(len(teams), k=1)
+        cross = conf[ii] != conf[jj]
+        ii, jj = ii[cross], jj[cross]
+        deg = np.zeros(len(teams))           # cross-bloc pairs per team
+        np.add.at(deg, ii, 1)
+        np.add.at(deg, jj, 1)
+        rows = pd.DataFrame({"home_team": teams[ii], "away_team": teams[jj],
+                             "w": weight * 0.5 * (1 / deg[ii] + 1 / deg[jj])})
+    else:
+        raise ValueError(f"unknown shrinkage mode: {mode!r}")
+    rows["date"] = pd.Timestamp(as_of)
+    rows["home_score"] = 1.0
+    rows["away_score"] = 1.0
+    rows["neutral"] = True
+    rows["tournament"] = "__shrinkage__"
+    return rows
+
+
 def prepare_training(df, as_of, xg_path=None, xg_alpha=XG_ALPHA,
                      half_life=HALF_LIFE_DAYS, friendly_weight=FRIENDLY_WEIGHT,
                      train_start=TRAIN_START, gd_cap=GD_CAP,
-                     cross_conf_weight=CROSS_CONF_WEIGHT):
+                     cross_conf_weight=CROSS_CONF_WEIGHT,
+                     shrinkage_mode=SHRINKAGE_MODE,
+                     shrinkage_weight=SHRINKAGE_WEIGHT):
     """Played matches before `as_of`, with time/tournament weights.
 
     If xg_path is given (CSV: date, home_team, away_team, home_xg, away_xg),
@@ -98,6 +142,9 @@ def prepare_training(df, as_of, xg_path=None, xg_alpha=XG_ALPHA,
     blowouts against minnows are not over-credited.
     cross_conf_weight > 1 upweights inter-confederation matches — the bridge
     games that anchor weakly-connected confederations to the global scale.
+    shrinkage_mode (off by default) appends the synthetic draws of
+    `_shrinkage_rows` after the MIN_MATCHES filter, so they neither rescue
+    thin teams from the filter nor count as real appearances.
     """
     m = df.dropna(subset=["home_score", "away_score"]).copy()
     m = m[(m["date"] >= train_start) & (m["date"] < as_of)]
@@ -126,6 +173,10 @@ def prepare_training(df, as_of, xg_path=None, xg_alpha=XG_ALPHA,
     counts = pd.concat([m["home_team"], m["away_team"]]).value_counts()
     keep = set(counts[counts >= MIN_MATCHES].index)
     m = m[m["home_team"].isin(keep) & m["away_team"].isin(keep)]
+    if shrinkage_mode:
+        m = pd.concat([m, _shrinkage_rows(m, as_of, shrinkage_mode,
+                                          shrinkage_weight)],
+                      ignore_index=True)
     return m.reset_index(drop=True)
 
 

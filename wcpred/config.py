@@ -37,6 +37,27 @@ CROSS_CONF_WEIGHT = 1.0     # extra weight on inter-confederation matches —
                             # the "bridge" games anchoring AFC/OFC/... to the
                             # global scale (docs/known-limitations.md). 1.0 =
                             # off; sweep via `wcpred tune`.
+SHRINKAGE_MODE = None       # regularize weakly-identified cross-confederation
+                            # offsets via data augmentation (arXiv 2606.03805,
+                            # docs/model-robustness-plan.md Phase 1). None =
+                            # off (today's model). "phantom": one synthetic
+                            # 1-1 draw per team vs a __phantom__ anchor team;
+                            # "pseudo": fractional 1-1 draws between
+                            # cross-confederation team pairs.
+SHRINKAGE_WEIGHT = 0.5      # total synthetic weight per team, in
+                            # match-equivalents (a real match today weighs 1).
+                            # Inactive while SHRINKAGE_MODE is None; sweep via
+                            # `wcpred tune --shrinkage`.
+CONF_ANCHOR_BETA = 0.0      # two-timescale confederation re-anchoring
+                            # (docs/model-robustness-plan.md Phase 2b): blend
+                            # each confederation's mean strength in the short-
+                            # window fit toward the level a long-window fit
+                            # assigns it (where bridge games are plentiful).
+                            # 0 = off (today's model); 1 = adopt the long
+                            # window's levels fully. Sweep via
+                            # `wcpred tune --anchor`.
+CONF_ANCHOR_HALF_LIFE_DAYS = 2920  # slow-timescale window for the level fit
+                                   # (8y; bounded below by TRAIN_START)
 
 # --- Blending weights ---
 ODDS_WEIGHT = 1.0           # 1X2 marginals come 100% from the market; the model

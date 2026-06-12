@@ -21,6 +21,8 @@ wcpred groups --approach odds --odds data/input/odds.csv  # MC group standings
 wcpred simulate --approach odds --odds data/input/odds.csv  # full bracket → champion
 wcpred backtest --tournament all      # validation: ~594 Penka pts / 290 matches
                                       # (--scoring superbru: ~295 pts)
+                                      # --bridge-audit: + inter-confederation
+                                      # calibration table (regional-bias test)
 wcpred tune                           # hyperparameter grid search (no xG)
 wcpred ratings --top 20
 scripts/run_webapp.sh                 # local dashboard on :8026 (needs `.[web]` extra)
@@ -47,6 +49,9 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   list upcoming fixtures.
 - `model.py` — Dixon-Coles (weighted Poisson + rho low-score correction).
   Produces per-team attack/defence ratings and score-probability matrices.
+- `anchor.py` — two-timescale confederation re-anchoring (robustness-plan
+  Phase 2b; rejected as default, available via `CONF_ANCHOR_BETA` /
+  `--anchor-beta` / `wcpred tune --anchor`).
 - `scoring.py` — Penka and Superbru points, Closeness Index, expected-points
   optimiser (`best_prediction(P, mode, stage)`).
 - `odds.py` — odds → margin-free 1X2 probs → market-implied score matrix.
@@ -80,7 +85,11 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   `predict._norm_team` and tolerates swapped home/away (host MD3 quirk).
   `GET /api/matrix` re-fits Dixon-Coles as of the snapshot in force on the
   match date (lru_cached per as-of + results.csv mtime) to serve the full
-  score matrix behind a pick.
+  score matrix behind a pick. `GET /api/connectivity` (Conectividad tab)
+  exposes the inter-confederation anchoring evidence behind
+  `docs/known-limitations.md`: the conf×conf training-weight matrix (via
+  `confederations.infer_confederations`) plus per-WC-team bridge share and
+  weighted mean opponent rating.
 - `static/` — vanilla JS frontend (`app.js`), no external deps; charts are
   hand-rolled SVG; `flags/` holds the 48 country SVGs (flagcdn). The odds
   toggle switches between the `odds`/`history` CSV variants; the calendar
@@ -121,6 +130,14 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 - Data-source landscape, coverage cutoffs and gotchas: `docs/data-sources.md`.
 - Known modelling limitations (e.g. ratings of teams from weakly-connected
   confederations like the AFC are schedule-inflated): `docs/known-limitations.md`.
+  The connectivity evidence and how to read cross-confederation comparisons
+  (Argentina-vs-Spain case study): `docs/connectivity.md`.
+- Robustness work on the confederation-anchoring problem is tracked in
+  `docs/model-robustness-plan.md` — a LIVING document: read it before touching
+  that work and update its checkboxes/status/decision-log in the same session.
+  Hard rule there: the current model must stay regenerable (new knobs
+  default-off, experiment outputs outside `data/predictions|groups|simulations`,
+  never regenerate past snapshots with a changed model).
   Key facts: FotMob xG only goes back to ~mid-2022 and never covers friendlies;
   free historical odds exist only via SofaScore (single book); the model trains
   on goals/xG but never on odds (odds are a predict-time blend only).

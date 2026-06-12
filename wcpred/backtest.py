@@ -8,10 +8,15 @@ Reported metrics per tournament:
 RPS/log-loss have far lower variance than points, so they drive tuning;
 points decide between configs the probabilistic metrics can't separate.
 """
+import itertools
+
 import numpy as np
 import pandas as pd
 
-from .config import MAX_GOALS, SCORING_MODE
+from .anchor import anchor_model
+from .config import (CONF_ANCHOR_BETA, CONF_ANCHOR_HALF_LIFE_DAYS, MAX_GOALS,
+                     SCORING_MODE)
+from .confederations import infer_confederations
 from .data import prepare_training
 from .model import DixonColes
 from .predict import home_side, predict_match
@@ -52,7 +57,9 @@ def _match_metrics(res, true, scoring=SCORING_MODE, stage="group"):
 
 
 def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
-             xg_alpha=None, scoring=SCORING_MODE, **train_kw):
+             xg_alpha=None, scoring=SCORING_MODE, audit=None,
+             anchor_beta=CONF_ANCHOR_BETA,
+             anchor_half_life=CONF_ANCHOR_HALF_LIFE_DAYS, **train_kw):
     """Score every match of a past tournament.
 
     rolling=True re-fits the model at each matchday (training on matches
@@ -62,6 +69,15 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     scoring sets the game mode: picks are optimised for it and points are
     reported in it. Extra train_kw (half_life, friendly_weight, gd_cap, ...)
     reach prepare_training.
+
+    audit, if given, is a list that collects one record per
+    inter-confederation ("bridge") match — predicted vs realised — for
+    `bridge_audit`. Confederations are inferred from each re-fit's own
+    training window, so the tagging stays causal.
+
+    anchor_beta > 0 applies the Phase 2b two-timescale confederation
+    re-anchoring after each (re-)fit, with the long fit's cutoff tracking the
+    short fit's — the same protocol a live `--as-of` run would use.
     """
     as_of, start, end, name, n_group, n_mid = TOURNAMENTS[tournament]
     matches = df.dropna(subset=["home_score"])
@@ -74,7 +90,7 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     kw.setdefault("train_start", str(
         (pd.Timestamp(as_of) - pd.DateOffset(years=TRAIN_WINDOW_YEARS)).date()))
 
-    model, fitted_at = None, None
+    model, fitted_at, confs = None, None, {}
     total, exact, outcome = 0.0, 0, 0
     lls, rpss = [], []
     for i, (_, r) in enumerate(matches.iterrows()):
@@ -82,8 +98,14 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
                  else "r32_r16" if i < n_group + n_mid else "qf_plus")
         cutoff = str(r["date"].date()) if rolling else as_of
         if cutoff != fitted_at:
-            model = DixonColes().fit(
-                prepare_training(df, cutoff, xg_path=xg_path, **kw))
+            tm = prepare_training(df, cutoff, xg_path=xg_path, **kw)
+            model = DixonColes().fit(tm)
+            if anchor_beta:
+                anchor_model(model, df, cutoff, beta=anchor_beta,
+                             long_half_life=anchor_half_life,
+                             xg_path=xg_path, **kw)
+            if audit is not None:
+                confs = infer_confederations(tm)
             fitted_at = cutoff
         side = home_side(r.home_team, r.away_team, r.country)
         res = predict_match(model, r.home_team, r.away_team, side=side,
@@ -95,6 +117,20 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
         outcome += p > 0
         lls.append(ll)
         rpss.append(rps)
+        if audit is not None:
+            hc, ac = confs.get(r.home_team), confs.get(r.away_team)
+            if hc is not None and ac is not None and hc != ac:
+                P = res["P"]
+                goals = np.arange(P.shape[0])
+                audit.append({
+                    "tournament": tournament, "date": str(r["date"].date()),
+                    "home_conf": hc, "away_conf": ac,
+                    "p_home": res["p1"], "p_draw": res["px"],
+                    "home_goals": true[0], "away_goals": true[1],
+                    "exp_home": float(P.sum(axis=1) @ goals),
+                    "exp_away": float(P.sum(axis=0) @ goals),
+                    "rps": rps,
+                })
     n = len(matches)
     return {"tournament": tournament, "matches": n, "points": total,
             "points_per_match": total / n, "exact": exact,
@@ -102,41 +138,92 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
             "rps": float(np.mean(rpss))}
 
 
+def bridge_audit(records):
+    """Aggregate bridge-match records into a per-confederation-pair table.
+
+    The regional-bias test from the Elo literature: on inter-confederation
+    matches only, compare the model's predicted match share with the realised
+    one. For each unordered pair the perspective side A is the alphabetically
+    first confederation; a match share is win + half a draw, so
+    bias = exp_share − real_share > 0 means the model overrates A against B.
+    goal_res_a/b are mean (actual − expected) goals for each side: positive
+    means that side scored more than the model expected.
+    """
+    agg = {}
+    for r in records:
+        swap = r["home_conf"] > r["away_conf"]
+        key = tuple(sorted((r["home_conf"], r["away_conf"])))
+        a = agg.setdefault(key, {"n": 0, "exp": 0.0, "real": 0.0,
+                                 "res_a": 0.0, "res_b": 0.0, "rps": 0.0})
+        exp_home = r["p_home"] + 0.5 * r["p_draw"]
+        d = r["home_goals"] - r["away_goals"]
+        real_home = 1.0 if d > 0 else 0.5 if d == 0 else 0.0
+        res_home = r["home_goals"] - r["exp_home"]
+        res_away = r["away_goals"] - r["exp_away"]
+        a["n"] += 1
+        a["exp"] += 1.0 - exp_home if swap else exp_home
+        a["real"] += 1.0 - real_home if swap else real_home
+        a["res_a"] += res_away if swap else res_home
+        a["res_b"] += res_home if swap else res_away
+        a["rps"] += r["rps"]
+    rows = []
+    for (ca, cb), a in agg.items():
+        n = a["n"]
+        rows.append({
+            "conf_a": ca, "conf_b": cb, "n": n,
+            "exp_share_a": a["exp"] / n, "real_share_a": a["real"] / n,
+            "bias_a": (a["exp"] - a["real"]) / n,
+            "goal_res_a": a["res_a"] / n, "goal_res_b": a["res_b"] / n,
+            "rps": a["rps"] / n,
+        })
+    return (pd.DataFrame(rows)
+            .sort_values("n", ascending=False).reset_index(drop=True))
+
+
 def tune(df, tournaments=None, gd_caps=(None, 3, 4),
          half_lives=(365, 545, 730, 1095), friendly_weights=(0.5, 0.75, 1.0),
-         cross_conf_weights=(1.0,), rolling=False, verbose=True):
+         cross_conf_weights=(1.0,), shrinkages=((None, 0.0),),
+         anchor_betas=(0.0,), rolling=False, verbose=True):
     """Grid-search training hyperparameters across tournaments (no xG).
 
     Static fit by default to keep the grid cheap; re-validate the winner
     with rolling=True afterwards. Returns a DataFrame sorted by pooled RPS,
     with per-match-pooled metrics across all tournaments.
+    `shrinkages` sweeps (SHRINKAGE_MODE, SHRINKAGE_WEIGHT) pairs — the
+    Phase 1 data-augmentation knobs (`wcpred tune --shrinkage`).
+    `anchor_betas` sweeps the Phase 2b confederation re-anchoring blend
+    (`wcpred tune --anchor`).
     """
     tournaments = list(tournaments or TOURNAMENTS)
     rows = []
-    for cap in gd_caps:
-        for hl in half_lives:
-            for fw in friendly_weights:
-                for ccw in cross_conf_weights:
-                    res = [backtest(df, t, rolling=rolling, gd_cap=cap,
-                                    half_life=hl, friendly_weight=fw,
-                                    cross_conf_weight=ccw)
-                           for t in tournaments]
-                    n = sum(r["matches"] for r in res)
-                    row = {
-                        "gd_cap": cap, "half_life": hl, "friendly_w": fw,
-                        "cross_conf_w": ccw,
-                        "points": sum(r["points"] for r in res),
-                        "pts_per_match": sum(r["points"] for r in res) / n,
-                        "exact": sum(r["exact"] for r in res),
-                        "rps": sum(r["rps"] * r["matches"] for r in res) / n,
-                        "log_loss": sum(r["log_loss"] * r["matches"]
-                                        for r in res) / n,
-                    }
-                    rows.append(row)
-                    if verbose:
-                        print(f"gd_cap={cap} half_life={hl} friendly_w={fw} "
-                              f"cross_conf_w={ccw}: "
-                              f"{row['pts_per_match']:.3f} pts/match, "
-                              f"rps {row['rps']:.4f}, ll {row['log_loss']:.4f}")
+    for cap, hl, fw, ccw, (sm, sw), ab in itertools.product(
+            gd_caps, half_lives, friendly_weights, cross_conf_weights,
+            shrinkages, anchor_betas):
+        res = [backtest(df, t, rolling=rolling, gd_cap=cap,
+                        half_life=hl, friendly_weight=fw,
+                        cross_conf_weight=ccw,
+                        shrinkage_mode=sm, shrinkage_weight=sw,
+                        anchor_beta=ab)
+               for t in tournaments]
+        n = sum(r["matches"] for r in res)
+        row = {
+            "gd_cap": cap, "half_life": hl, "friendly_w": fw,
+            "cross_conf_w": ccw,
+            "shrink_mode": sm, "shrink_w": sw, "anchor_beta": ab,
+            "points": sum(r["points"] for r in res),
+            "pts_per_match": sum(r["points"] for r in res) / n,
+            "exact": sum(r["exact"] for r in res),
+            "rps": sum(r["rps"] * r["matches"] for r in res) / n,
+            "log_loss": sum(r["log_loss"] * r["matches"]
+                            for r in res) / n,
+        }
+        rows.append(row)
+        if verbose:
+            print(f"gd_cap={cap} half_life={hl} "
+                  f"friendly_w={fw} cross_conf_w={ccw} "
+                  f"shrinkage={sm}:{sw} anchor={ab}: "
+                  f"{row['pts_per_match']:.3f} pts/match, "
+                  f"rps {row['rps']:.4f}, "
+                  f"ll {row['log_loss']:.4f}")
     return (pd.DataFrame(rows)
             .sort_values("rps").reset_index(drop=True))
