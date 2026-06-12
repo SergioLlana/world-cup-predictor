@@ -100,6 +100,14 @@ score matrix. By default the
 shapes the scoreline distribution within each outcome. `--odds-weight` blends
 the model's 1X2 back in (e.g. `0.80` ⇒ `0.80·market + 0.20·model`).
 
+Every fetch also writes a time-capsule snapshot
+(`data/input/odds/odds_<YYYY-MM-DDTHHMM>.csv`). `odds.csv` is mutable — each
+refresh overwrites prices and drops played fixtures — so the snapshots are the
+only record of what the market said at a given moment; regenerating a past
+`--as-of` run resolves them via `wcpred.data.resolve_odds_path` (latest stamp
+≤ as-of + `config.ODDS_CUTOVER`). Seeded June 2026 by backfilling every
+version of `odds.csv` in git history.
+
 ### Historical (SofaScore — implemented June 2026)
 
 `scripts/fetch_sofascore.py` (needs `pip install curl_cffi` to get past

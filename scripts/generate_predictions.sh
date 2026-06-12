@@ -19,7 +19,8 @@
 # Options:
 #   --approach A     history | odds | xg | full
 #                    (default: odds if data/input/odds.csv exists, else history)
-#   --as-of DATE     train on matches before DATE; also the filename stamp
+#   --as-of DATE     train on matches before DATE; also the filename stamp.
+#                    Past dates pick the matching data/input/odds/ snapshot
 #                    (default: today)
 #   --days N         predictions: only fixtures within N days of --as-of
 #   --sims N         groups + simulation: Monte Carlo count (wcpred defaults:
@@ -143,7 +144,23 @@ common_args=(--approach "$APPROACH")
 [ -n "$ODDS_WEIGHT" ] && common_args+=(--odds-weight "$ODDS_WEIGHT")
 [ -n "$XG_ALPHA" ]    && common_args+=(--xg-alpha "$XG_ALPHA")
 case "$APPROACH" in
-  odds|full)     [ -f "$ODDS_CSV" ] && common_args+=(--odds "$ODDS_CSV") ;;
+  odds|full)
+    # Time capsule: for a past --as-of, use the odds snapshot in force that
+    # morning (data/input/odds/, see wcpred.data.resolve_odds_path) so later
+    # market moves don't leak into a regenerated run.
+    ODDS_FILE="$ODDS_CSV"
+    if [ -n "$ASOF" ]; then
+      resolved="$("$PY" -c "from wcpred.data import resolve_odds_path; print(resolve_odds_path('$ASOF') or '')")"
+      if [ -n "$resolved" ]; then
+        ODDS_FILE="$resolved"
+        [ "$resolved" != "$ODDS_CSV" ] && printf 'Using odds snapshot %s for --as-of %s\n' "$resolved" "$ASOF"
+      else
+        printf 'WARNING: no odds snapshot in force for %s (see config.ODDS_CUTOVER); falling back to live %s (possible leakage)\n' \
+          "$ASOF" "$ODDS_CSV" >&2
+      fi
+    fi
+    [ -f "$ODDS_FILE" ] && common_args+=(--odds "$ODDS_FILE")
+    ;;
 esac
 case "$APPROACH" in
   xg|full)       [ -f "$XG_CSV" ]   && common_args+=(--xg "$XG_CSV") ;;

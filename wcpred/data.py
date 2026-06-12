@@ -1,14 +1,17 @@
 """Data acquisition and preparation."""
+import glob
 import os
 import shutil
 import ssl
 import urllib.request
+from datetime import date
 
 import numpy as np
 import pandas as pd
 
 from .config import (CROSS_CONF_WEIGHT, FRIENDLY_WEIGHT, GD_CAP,
-                     HALF_LIFE_DAYS, MIN_MATCHES, RESULTS_PATH, RESULTS_URL,
+                     HALF_LIFE_DAYS, MIN_MATCHES, ODDS_CUTOVER, ODDS_PATH,
+                     ODDS_SNAPSHOT_DIR, RESULTS_PATH, RESULTS_URL,
                      TRAIN_START, XG_ALPHA)
 from .confederations import cross_conf_mask, infer_confederations
 
@@ -59,6 +62,30 @@ def load_odds(path):
     return pd.read_csv(path, dtype={"odds_1": str, "odds_X": str, "odds_2": str})
 
 
+def resolve_odds_path(as_of, root=""):
+    """Odds file in force at `as_of`'s generation time — the time-capsule
+    counterpart of the training cutoff, so past runs regenerate without
+    leaking later market moves.
+
+    For an `as_of` of today or later this is the live odds.csv. For a past
+    date it is the latest snapshot in ODDS_SNAPSHOT_DIR (odds_<ts>.csv,
+    written by scripts/fetch_odds.py on every fetch) stamped no later than
+    `as_of` + ODDS_CUTOVER, the latest fetch time that still precedes every
+    kickoff of that day. Returns None when nothing qualifies. `root` prefixes
+    the config-relative paths for callers not running from the project root
+    (e.g. the webapp).
+    """
+    if str(as_of) >= str(date.today()):
+        live = os.path.join(root, ODDS_PATH)
+        return live if os.path.exists(live) else None
+    cutoff = f"odds_{as_of}T{ODDS_CUTOVER.replace(':', '')}.csv"
+    snap_dir = os.path.join(root, ODDS_SNAPSHOT_DIR)
+    snaps = sorted(os.path.basename(p) for p in
+                   glob.glob(os.path.join(snap_dir, "odds_*.csv")))
+    eligible = [s for s in snaps if s <= cutoff]   # fixed-width timestamps
+    return os.path.join(snap_dir, eligible[-1]) if eligible else None
+
+
 def prepare_training(df, as_of, xg_path=None, xg_alpha=XG_ALPHA,
                      half_life=HALF_LIFE_DAYS, friendly_weight=FRIENDLY_WEIGHT,
                      train_start=TRAIN_START, gd_cap=GD_CAP,
@@ -103,9 +130,12 @@ def prepare_training(df, as_of, xg_path=None, xg_alpha=XG_ALPHA,
 
 
 def upcoming_world_cup(df, from_date, to_date=None):
-    """World Cup fixtures not yet played, from `from_date` onward."""
+    """World Cup fixtures from `from_date` onward — the prediction targets of
+    an `--as-of = from_date` run. Matches that by now have a real result are
+    still included (the result itself is ignored): the as-of cutoff alone
+    decides what is known, so past snapshots can be regenerated retroactively
+    without leaking what happened on or after that date."""
     wc = df[(df["tournament"] == "FIFA World Cup")
-            & (df["home_score"].isna())
             & (df["date"] >= from_date)]
     if to_date:
         wc = wc[wc["date"] <= to_date]

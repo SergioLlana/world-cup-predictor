@@ -11,6 +11,17 @@ PREDICTIONS_DIR = "data/predictions"  # `predict --out`
 GROUPS_DIR = "data/groups"            # `groups --out`
 SIM_DIR = "data/simulations"          # `simulate --out`
 RESULTS_PATH = f"{INPUT_DIR}/results.csv"
+ODDS_PATH = f"{INPUT_DIR}/odds.csv"   # live odds (latest fetch)
+
+# Time-capsule odds: every fetch also lands in ODDS_SNAPSHOT_DIR as
+# odds_<YYYY-MM-DDTHHMM>.csv, so a past `--as-of` run can be reproduced with
+# the odds actually in force then (data.resolve_odds_path). ODDS_CUTOVER is
+# the latest same-day fetch time (local, Europe/Madrid) a regeneration may
+# use — anything stamped later could already reflect that day's matches. The
+# earliest WC2026 kickoff is 18:00 CEST (12:00 at the Eastern-region venues),
+# so 17:00 keeps an hour of margin before any ball rolls.
+ODDS_SNAPSHOT_DIR = f"{INPUT_DIR}/odds"
+ODDS_CUTOVER = "17:00"
 
 # --- Model hyperparameters (validated by `wcpred tune` across the six
 # backtest tournaments 2018-2024; rolling re-fit confirmation) ---

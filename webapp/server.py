@@ -24,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 from functools import lru_cache
 
 from wcpred.config import GROUPS_DIR, INPUT_DIR, PREDICTIONS_DIR, RESULTS_PATH, SIM_DIR
-from wcpred.data import load_results, prepare_training
+from wcpred.data import load_results, prepare_training, resolve_odds_path
 from wcpred.model import DixonColes
 from wcpred.predict import _norm_team, home_side, predict_match, wc2026_stage
 from wcpred.tournament import OFFICIAL_GROUPS
@@ -167,14 +167,9 @@ def sims(approach: str = "odds"):
     return _read_snapshots("simulations", approach)
 
 
-def _load_odds():
-    """{(home, away) or (date, home, away): [o1, oX, o2]} from both odds files."""
-    by_pair, by_date = {}, {}
-    cur = os.path.join(ROOT, INPUT_DIR, "odds.csv")
-    if os.path.exists(cur):
-        for r in pd.read_csv(cur).itertuples():
-            by_pair[(_norm_team(r.home_team), _norm_team(r.away_team))] = \
-                [r.odds_1, r.odds_X, r.odds_2]
+def _load_odds_history():
+    """{(date, home, away): [o1, oX, o2]} from odds_history.csv (SofaScore)."""
+    by_date = {}
     hist = os.path.join(ROOT, INPUT_DIR, "odds_history.csv")
     if os.path.exists(hist):
         df = pd.read_csv(hist)
@@ -182,7 +177,28 @@ def _load_odds():
         for r in df.itertuples():
             by_date[(r.date, _norm_team(r.home_team), _norm_team(r.away_team))] = \
                 [r.odds_1, r.odds_X, r.odds_2]
-    return by_pair, by_date
+    return by_date
+
+
+@lru_cache(maxsize=64)
+def _odds_pairs(path, mtime):
+    """{(home, away): [o1, oX, o2]} from one odds CSV. Snapshots are
+    immutable; mtime keys the cache so a refreshed live odds.csv reloads."""
+    out = {}
+    for r in pd.read_csv(path).itertuples():
+        out[(_norm_team(r.home_team), _norm_team(r.away_team))] = \
+            [r.odds_1, r.odds_X, r.odds_2]
+    return out
+
+
+def _pairs_in_force(as_of):
+    """Pair-indexed odds in force on `as_of`: the time-capsule snapshot for a
+    past date, the live odds.csv otherwise — the same file the prediction
+    pipeline would use for that day (wcpred.data.resolve_odds_path)."""
+    path = resolve_odds_path(as_of, root=ROOT)
+    if path is None:
+        return {}
+    return _odds_pairs(path, os.path.getmtime(path))
 
 
 def _match_odds(by_pair, by_date, date, home, away):
@@ -206,7 +222,7 @@ def matches():
     # Group-stage matchday: nth fixture of that group (0-1 -> J1, 2-3 -> J2 ...).
     team_group = {t: g for g, ts in OFFICIAL_GROUPS.items() for t in ts}
     seen_in_group = {}
-    by_pair, by_date = _load_odds()
+    by_date = _load_odds_history()
 
     out = []
     for r in df.itertuples():
@@ -223,7 +239,10 @@ def matches():
                 if lo <= date <= hi:
                     round_id, round_name = rid, name
                     break
-        odds, swapped = _match_odds(by_pair, by_date, date, home, away)
+        # Odds in force on the match day (snapshot for played days, live for
+        # upcoming), so past matches keep the prices their pick was based on.
+        odds, swapped = _match_odds(_pairs_in_force(date), by_date,
+                                    date, home, away)
         out.append({
             "date": date, "home": home, "away": away,
             "home_score": int(r.home_score) if played else None,
@@ -266,8 +285,9 @@ def matrix(home: str, away: str, date: str, approach: str = "odds"):
 
     odds = None
     if approach == "odds":
-        by_pair, by_date = _load_odds()
-        odds, _ = _match_odds(by_pair, by_date, date, home, away)
+        # Reproduce the pick: the odds file the pipeline used for `as_of`.
+        odds, _ = _match_odds(_pairs_in_force(as_of), _load_odds_history(),
+                              date, home, away)
 
     try:
         res = predict_match(model, home, away, side=side,

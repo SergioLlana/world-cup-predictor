@@ -99,7 +99,15 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   `South Korea`, `Czech Republic`, `Ivory Coast`, `Turkey`).
 - Score matrices are `P[home_goals, away_goals]` over a `0..MAX_GOALS` grid.
 - `--as-of` controls the train/predict cutoff — training uses only matches
-  *before* it, so past results inform future picks.
+  *before* it, so past results inform future picks. Fixtures are every WC
+  match dated on/after it **even if since played** (the result is ignored),
+  so past snapshots regenerate without leakage.
+- Time-capsule odds: every `fetch_odds.py` run also writes
+  `data/input/odds/odds_<YYYY-MM-DDTHHMM>.csv`. For a past `--as-of`,
+  `generate_predictions.sh` (via `data.resolve_odds_path`) uses the latest
+  snapshot stamped ≤ as-of + `ODDS_CUTOVER` (17:00 local — the earliest
+  WC2026 kickoff is 18:00 CEST, so later same-day quotes could already
+  reflect that day's matches); for today it uses the live `odds.csv`.
 - `predict --extra-time`/`--shootout` resolve knockout ties (extra time at
   `EXTRA_TIME_FRACTION` of the scoring rate, then a penalty win). Both are
   **off by default** — Penka and Superbru score the 90' result, so leave them

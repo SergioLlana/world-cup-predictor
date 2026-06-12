@@ -21,9 +21,11 @@ import argparse
 import csv
 import json
 import os
+import shutil
 import ssl
 import sys
 import urllib.request
+from datetime import datetime
 
 API = ("https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup/odds/"
        "?regions=eu&markets=h2h&oddsFormat=decimal&apiKey={key}")
@@ -122,6 +124,16 @@ def main():
         w = csv.writer(f)
         w.writerow(FIELDS)
         w.writerows(table.values())
+
+    # Time-capsule snapshot: keep every fetch under <out dir>/odds/ stamped
+    # with the fetch time, so past --as-of runs can be regenerated with the
+    # odds in force then (wcpred.data.resolve_odds_path; format must match).
+    snap_dir = os.path.join(os.path.dirname(args.out) or ".", "odds")
+    os.makedirs(snap_dir, exist_ok=True)
+    snap = os.path.join(
+        snap_dir, f"odds_{datetime.now().strftime('%Y-%m-%dT%H%M')}.csv")
+    shutil.copyfile(args.out, snap)
+    print(f"Snapshot saved to {snap}")
 
     if args.merge:
         print(f"Fetched {len(rows)} priced matches: {added} new, "

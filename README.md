@@ -178,6 +178,14 @@ Two ways to fill it:
 Team names must match the dataset (`United States`, `South Korea`,
 `Czech Republic`, `Ivory Coast`, `Turkey`).
 
+Every `fetch_odds.py` run also saves a time-capsule snapshot under
+`data/input/odds/odds_<YYYY-MM-DDTHHMM>.csv`. When you regenerate a past day
+(`generate_predictions.sh --as-of DATE`), the pipeline automatically uses the
+snapshot in force that day (latest stamp ≤ DATE 17:00 local, see
+`config.ODDS_CUTOVER` — every WC2026 kickoff is 18:00 CEST or later) instead
+of the live `odds.csv`, so later market moves never leak into a reconstructed
+prediction.
+
 ### xG (`data/input/xg.csv`) — optional
 Format:
 
