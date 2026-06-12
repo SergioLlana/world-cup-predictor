@@ -2,7 +2,11 @@
 #
 # Launch the local prediction web app (webapp/server.py) on http://localhost:8026
 #
-#   scripts/run_webapp.sh [--port N]
+#   scripts/run_webapp.sh [--port N] [--lan | --tailscale]
+#
+#   --lan        listen on 0.0.0.0 (reachable from the local Wi-Fi, e.g. a phone)
+#   --tailscale  bind only to the Mac's Tailscale IP (reachable from your tailnet
+#                anywhere, invisible to the LAN and the public internet)
 #
 # Needs the `web` extra: uv sync --extra web   (or pip install -e '.[web]')
 
@@ -11,11 +15,37 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
 
+tailscale_bin() {
+  if command -v tailscale >/dev/null 2>&1; then
+    echo tailscale
+  elif [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ]; then
+    # macOS App Store install does not put the CLI on PATH
+    echo /Applications/Tailscale.app/Contents/MacOS/Tailscale
+  else
+    echo "error: tailscale CLI not found (is Tailscale installed and running?)" >&2
+    return 1
+  fi
+}
+
 PORT=8026
-[ "${1:-}" = "--port" ] && PORT="$2"
+HOST=127.0.0.1
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --port) PORT="$2"; shift 2 ;;
+    --lan) HOST=0.0.0.0; shift ;;
+    --tailscale)
+      TS="$(tailscale_bin)"
+      HOST="$("$TS" ip -4)" || { echo "error: could not get Tailscale IP (logged in?)" >&2; exit 1; }
+      shift ;;
+    *) echo "usage: scripts/run_webapp.sh [--port N] [--lan | --tailscale]" >&2; exit 1 ;;
+  esac
+done
+
+echo "Serving on http://$HOST:$PORT"
 
 if command -v uv >/dev/null 2>&1; then
-  exec uv run uvicorn webapp.server:app --port "$PORT"
+  exec uv run uvicorn webapp.server:app --host "$HOST" --port "$PORT"
 else
-  exec python3 -m uvicorn webapp.server:app --port "$PORT"
+  exec python3 -m uvicorn webapp.server:app --host "$HOST" --port "$PORT"
 fi
