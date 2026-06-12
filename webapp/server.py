@@ -9,6 +9,7 @@ Run from the project root:
 The API never caches: every request re-reads the CSVs, so a refresh (or a
 manual `generate_predictions.sh` run) is picked up on the next page load.
 """
+import datetime
 import glob
 import os
 import re
@@ -25,6 +26,7 @@ from functools import lru_cache
 
 from wcpred.config import (GROUPS_DIR, INPUT_DIR, PREDICTIONS_DIR,
                            RESULTS_PATH, SIM_DIR, WC2026_KNOCKOUT_ROUNDS)
+from wcpred.confederations import infer_confederations
 from wcpred.data import load_results, prepare_training, resolve_odds_path
 from wcpred.model import DixonColes
 from wcpred.predict import _norm_team, home_side, predict_match, wc2026_stage
@@ -315,6 +317,92 @@ def matrix(home: str, away: str, date: str, approach: str = "odds"):
         "p1": round(res["p1"], 4), "px": round(res["px"], 4), "p2": round(res["p2"], 4),
         "matrix": [[round(float(p), 5) for p in r] for r in res["P"]],
     }
+
+
+# ------------------------------------------------------------- connectivity
+
+CONF_ORDER = ["UEFA", "CONMEBOL", "CONCACAF", "CAF", "AFC", "OFC"]
+
+
+@lru_cache(maxsize=4)
+def _connectivity(as_of, results_mtime):
+    """Inter-confederation connectivity of the training set.
+
+    Bridge matches (between confederations) are the only games anchoring the
+    confederations to a common rating scale; pools with few bridges drift —
+    the schedule-inflation caveat in docs/known-limitations.md. Returns the
+    conf x conf matrix of training weight (time decay included, the same `w`
+    the model fits on) plus per-WC-team bridge stats. results_mtime is only
+    part of the key so a data refresh invalidates the cache."""
+    df = load_results(os.path.join(ROOT, RESULTS_PATH))
+    m = prepare_training(df, as_of=as_of)
+    confs = infer_confederations(m)
+    model = _model_for(as_of, results_mtime)
+    overall = {t: float(model.atk[i] - model.dfn[i]) for t, i in model.idx.items()}
+
+    idx = {c: i for i, c in enumerate(CONF_ORDER)}
+    n = len(CONF_ORDER)
+    weight = [[0.0] * n for _ in range(n)]
+    count = [[0] * n for _ in range(n)]
+
+    wc_teams = {t for ts in OFFICIAL_GROUPS.values() for t in ts}
+    stats = {t: {"w": 0.0, "bridge_w": 0.0, "opp_rating_w": 0.0, "n": 0,
+                 "by_conf": dict.fromkeys(CONF_ORDER, 0.0)} for t in wc_teams}
+
+    for r in m.itertuples():
+        hc, ac = confs.get(r.home_team), confs.get(r.away_team)
+        w = float(r.w)
+        if hc in idx and ac in idx:
+            i, j = idx[hc], idx[ac]
+            weight[i][j] += w
+            count[i][j] += 1
+            if i != j:
+                weight[j][i] += w
+                count[j][i] += 1
+        for team, opp, oc in ((r.home_team, r.away_team, ac),
+                              (r.away_team, r.home_team, hc)):
+            s = stats.get(team)
+            if s is None:
+                continue
+            s["w"] += w
+            s["n"] += 1
+            # opp is always in the model: prepare_training drops matches of
+            # sub-MIN_MATCHES teams before the fit, and the fit uses this
+            # same frame
+            s["opp_rating_w"] += w * overall[opp]
+            tc = confs.get(team)
+            if oc in idx:
+                s["by_conf"][oc] += w
+                if tc is not None and oc != tc:
+                    s["bridge_w"] += w
+
+    teams = []
+    for t, s in sorted(stats.items()):
+        if not s["w"]:
+            continue
+        teams.append({
+            "team": t, "conf": confs.get(t), "matches": s["n"],
+            "rating": round(overall[t], 3),
+            "bridge_share": round(s["bridge_w"] / s["w"], 4),
+            "opp_rating": round(s["opp_rating_w"] / s["w"], 3),
+            # shares can sum to <1: opponents with no continental appearance
+            # in the window have no confederation
+            "by_conf": {c: round(v / s["w"], 4) for c, v in s["by_conf"].items()},
+        })
+    teams.sort(key=lambda x: -x["rating"])
+    return {
+        "as_of": as_of,
+        "confederations": CONF_ORDER,
+        "matrix_weight": [[round(v, 1) for v in row] for row in weight],
+        "matrix_count": count,
+        "teams": teams,
+    }
+
+
+@app.get("/api/connectivity")
+def connectivity():
+    as_of = datetime.date.today().isoformat()
+    return _connectivity(as_of, os.path.getmtime(os.path.join(ROOT, RESULTS_PATH)))
 
 
 # ------------------------------------------------------------------ refresh

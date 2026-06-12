@@ -9,6 +9,9 @@ const state = {
   meta: null,
   matches: null,
   cache: { odds: {}, history: {} },   // por approach: {sims, groups, picks}
+  connectivity: null,                  // /api/connectivity (solo modelo, sin approach)
+  connLoading: false,
+  connSelected: null,                  // equipo con el desglose abierto
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -72,6 +75,7 @@ async function loadApproach(ap) {
 
 async function reloadAll() {
   state.cache = { odds: {}, history: {} };
+  state.connectivity = null;          // un refresco puede traer resultados nuevos
   const [meta, matches] = await Promise.all([fetchJSON("/api/meta"), fetchJSON("/api/matches")]);
   state.meta = meta;
   state.matches = matches.matches;
@@ -351,6 +355,170 @@ function renderCalendar() {
     }).join("")}`;
 }
 
+// ------------------------------------------------------------ conectividad
+
+const CONF_COLORS = {
+  UEFA: "#3b6bb5", CONMEBOL: "#0f8a8a", CONCACAF: "#e8632c",
+  CAF: "#d9a514", AFC: "#c0392b", OFC: "#7d3bb5",
+};
+const CONF_UNKNOWN = "#b6b3a7";
+
+async function loadConnectivity() {
+  if (state.connLoading) return;
+  state.connLoading = true;
+  const el = $("#tab-connectivity");
+  el.innerHTML = `<p class="note">Calculando la conectividad… (la primera vez ajusta el modelo y tarda unos segundos)</p>`;
+  try {
+    state.connectivity = await fetchJSON("/api/connectivity");
+  } catch (e) {
+    el.innerHTML = `<p class="note">Error calculando la conectividad: ${e.message}</p>`;
+    return;
+  } finally {
+    state.connLoading = false;
+  }
+  renderConnectivity();
+}
+
+// dispersión: cuota de peso puente (x) frente a rating del modelo (y)
+function connScatter(d) {
+  const pts = d.teams;
+  const W = 920, H = 450, mL = 52, mR = 26, mT = 14, mB = 46;
+  const xMax = Math.max(...pts.map((t) => t.bridge_share)) * 1.1;
+  const ys = pts.map((t) => t.rating);
+  const yMin = Math.min(...ys) - 0.2, yMax = Math.max(...ys) + 0.2;
+  const X = (v) => mL + (v / xMax) * (W - mL - mR);
+  const Y = (v) => mT + (1 - (v - yMin) / (yMax - yMin)) * (H - mT - mB);
+
+  let grid = "";
+  for (let v = 0; v <= xMax; v += 0.1) {
+    grid += `<line x1="${X(v)}" y1="${mT}" x2="${X(v)}" y2="${H - mB}" stroke="#e4e2da"/>
+             <text x="${X(v)}" y="${H - mB + 16}" text-anchor="middle" font-size="11" fill="#6b6b66">${Math.round(v * 100)}%</text>`;
+  }
+  for (let v = Math.ceil(yMin * 2) / 2; v <= yMax; v += 0.5) {
+    grid += `<line x1="${mL}" y1="${Y(v)}" x2="${W - mR}" y2="${Y(v)}" stroke="#e4e2da"/>
+             <text x="${mL - 8}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="#6b6b66">${v.toFixed(1)}</text>`;
+  }
+  grid += `<text x="${(mL + W - mR) / 2}" y="${H - 6}" text-anchor="middle" font-size="11.5" fill="#6b6b66">Peso de entrenamiento contra otras confederaciones (partidos puente)</text>
+           <text transform="rotate(-90)" x="${-(mT + H - mB) / 2}" y="13" text-anchor="middle" font-size="11.5" fill="#6b6b66">Rating del modelo (ataque − defensa)</text>`;
+
+  let marks = "";
+  pts.forEach((t) => {
+    const info = teamInfo(t.team);
+    const cx = X(t.bridge_share), cy = Y(t.rating);
+    const sel = t.team === state.connSelected;
+    marks += `<g class="conn-pt${sel ? " sel" : ""}" data-team="${t.team}">
+      <circle cx="${cx}" cy="${cy}" r="13" fill="${CONF_COLORS[t.conf] || CONF_UNKNOWN}" opacity="${sel ? "0.85" : "0.3"}"/>
+      ${info.code ? `<image href="/flags/${info.code}.svg" x="${cx - 10}" y="${cy - 7}" width="20" height="14"/>` : ""}
+      <title>${teamES(t.team)} (${t.conf}) — rating ${t.rating.toFixed(2)} · puente ${pct(t.bridge_share)} · rival medio ${t.opp_rating.toFixed(2)}</title>
+    </g>`;
+  });
+  return `<svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${marks}</svg>`;
+}
+
+// desglose del equipo seleccionado: contra qué confederaciones entrena su rating
+function connDetail(d) {
+  const t = d.teams.find((x) => x.team === state.connSelected);
+  if (!t) return `<p class="note">Haz clic en una bandera del gráfico (o en una fila de la tabla)
+    para ver contra qué confederaciones ha jugado cada equipo.</p>`;
+  const known = Object.values(t.by_conf).reduce((a, b) => a + b, 0);
+  const rest = 1 - known;   // rivales sin confederación inferible en la ventana
+  const segs = d.confederations
+    .filter((c) => t.by_conf[c] > 0.001)
+    .map((c) => `<span class="seg" style="width:${t.by_conf[c] * 100}%;background:${CONF_COLORS[c]}"
+        title="${c}: ${pct(t.by_conf[c])}">${t.by_conf[c] >= 0.09 ? c : ""}</span>`)
+    .join("");
+  return `
+    <div class="conn-detail-head">${flagImg(t.team, true)} <b>${teamES(t.team)}</b>
+      <span class="group-chip" style="color:${CONF_COLORS[t.conf]};border-color:${CONF_COLORS[t.conf]}">${t.conf}</span></div>
+    <div class="conn-stats">
+      <span><b>${t.rating.toFixed(2)}</b> rating</span>
+      <span><b>${t.matches}</b> partidos en la ventana</span>
+      <span><b>${pct(t.bridge_share)}</b> del peso es puente</span>
+      <span><b>${t.opp_rating.toFixed(2)}</b> rating del rival medio</span>
+    </div>
+    <div class="prob-bar conn-bar" title="Reparto del peso de entrenamiento según la confederación del rival">
+      ${segs}${rest > 0.001 ? `<span class="seg" style="width:${rest * 100}%;background:${CONF_UNKNOWN}"
+        title="Rivales sin confederación inferida: ${pct(rest)}">${rest >= 0.09 ? "¿?" : ""}</span>` : ""}
+    </div>`;
+}
+
+// matriz conf x conf con cada fila normalizada por su peso total
+function connHeatmap(d) {
+  const confs = d.confederations;
+  const Wm = d.matrix_weight, C = d.matrix_count;
+  const tot = Wm.map((row) => row.reduce((a, b) => a + b, 0));
+  return `<table class="probs conn-heat">
+    <thead><tr><th class="team-col">Conf.</th>${confs.map((c) => `<th>${c}</th>`).join("")}</tr></thead>
+    <tbody>${confs.map((c, i) => `
+      <tr><td class="team-cell" style="color:${CONF_COLORS[c]}">${c}</td>
+        ${confs.map((c2, j) => {
+          const share = tot[i] ? Wm[i][j] / tot[i] : 0;
+          const a = Math.min(share * 1.6, 0.92);
+          return `<td class="pcell${a > 0.55 ? " dark" : ""}${i === j ? " diag" : ""}"
+              style="background:rgba(15,138,138,${a.toFixed(3)})"
+              title="${c} – ${c2}: ${C[i][j]} partidos, peso ${Wm[i][j].toFixed(0)} (${pct(share)} del peso de ${c})">${pct(share)}</td>`;
+        }).join("")}</tr>`).join("")}
+    </tbody></table>`;
+}
+
+function connTable(d) {
+  return `<table class="probs">
+    <thead><tr><th class="team-col">Equipo</th><th>Conf.</th><th>Partidos</th>
+      <th title="Fracción del peso de entrenamiento contra otras confederaciones">Peso puente</th>
+      <th title="Rating medio (ponderado) de los rivales en la ventana de entrenamiento">Rival medio</th>
+      <th>Rating</th></tr></thead>
+    <tbody>${d.teams.map((t, i) => `
+      <tr class="conn-row${t.team === state.connSelected ? " sel" : ""}" data-team="${t.team}">
+        <td class="team-cell">${i + 1}. ${flagImg(t.team)}${teamES(t.team)}</td>
+        <td style="color:${CONF_COLORS[t.conf]};font-weight:700">${t.conf}</td>
+        <td>${t.matches}</td>${pcell(t.bridge_share)}
+        <td>${t.opp_rating.toFixed(2)}</td>
+        <td><b>${t.rating.toFixed(2)}</b></td></tr>`).join("")}
+    </tbody></table>`;
+}
+
+function renderConnectivity() {
+  if (!state.meta) return;            // aún sin /api/meta: render() repintará
+  const el = $("#tab-connectivity");
+  const d = state.connectivity;
+  if (!d) { loadConnectivity(); return; }
+  el.innerHTML = `
+    <h2 class="section">¿Quién ancla a quién? Conectividad entre confederaciones</h2>
+    <p class="note">El modelo solo puede comparar equipos de confederaciones distintas a través de los
+      partidos «puente» entre ellas. Donde hay pocos puentes, la escala de una confederación queda mal
+      anclada al resto y sus ratings pueden inflarse o desinflarse en bloque — la limitación documentada
+      en <code>docs/known-limitations.md</code> (p. ej. la AFC, y en menor medida la CONMEBOL). El peso es
+      el mismo del entrenamiento (decaimiento temporal con vida media de 2 años, datos hasta el
+      ${fmtDay(d.as_of)}).</p>
+    <div class="card">
+      <h3 class="conn-h3">Los 48 clasificados: ¿cuánto se apoya cada rating en partidos puente?</h3>
+      <p class="note">Cuanto más a la izquierda, más depende el rating del juego interno de su
+        confederación (y de lo bien anclada que esté). Clic en una bandera para ver el desglose.</p>
+      ${connScatter(d)}
+      <div class="evo-legend">${d.confederations.map((c) => `
+        <span class="item"><span class="swatch" style="background:${CONF_COLORS[c]};height:10px;border-radius:5px"></span>${c}</span>`).join("")}
+        <span class="item"><span class="swatch" style="background:${CONF_UNKNOWN};height:10px;border-radius:5px"></span>Sin conf. inferida</span></div>
+    </div>
+    <div class="card" id="conn-detail">${connDetail(d)}</div>
+    <div class="card">
+      <h3 class="conn-h3">Matriz de conectividad</h3>
+      <p class="note">Cada celda: fracción del peso de entrenamiento de la confederación de la fila jugada
+        contra la de la columna. La diagonal (punteada) es el juego interno; todo lo demás son puentes.</p>
+      <div style="overflow-x:auto">${connHeatmap(d)}</div>
+    </div>
+    <div class="card" style="overflow-x:auto">
+      <h3 class="conn-h3">Detalle por equipo</h3>
+      ${connTable(d)}
+    </div>`;
+
+  el.querySelectorAll(".conn-pt, .conn-row").forEach((n) =>
+    n.addEventListener("click", () => {
+      state.connSelected = n.dataset.team;
+      renderConnectivity();
+      $("#conn-detail").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }));
+}
+
 // ------------------------------------------------------------------ render
 
 function render() {
@@ -358,6 +526,9 @@ function render() {
   renderEvolution();
   renderGroups();
   renderCalendar();
+  // la conectividad no depende del approach/snapshot: solo se repinta si ya
+  // está cargada (o si es la pestaña activa tras un refresco de datos)
+  if (state.connectivity || state.tab === "connectivity") renderConnectivity();
 }
 
 // ----------------------------------------------------------- matriz marcador
@@ -485,6 +656,7 @@ function activateTab(tab) {
   document.querySelectorAll(".panel").forEach((p) =>
     p.classList.toggle("active", p.id === `tab-${tab}`));
   state.tab = tab;
+  if (tab === "connectivity" && !state.connectivity && state.meta) loadConnectivity();
 }
 
 function setupUI() {

@@ -173,6 +173,21 @@ table.matrix td.real { outline: 2.5px solid var(--ink); outline-offset: -2.5px; 
                       vertical-align: -2px; margin-right: 4px; }
 .matrix-loading { padding: 40px 0; text-align: center; color: var(--muted); }
 
+/* ---------- connectivity ---------- */
+.conn-h3 { margin: 2px 0 6px; font-size: 15px; }
+.conn-pt { cursor: pointer; }
+.conn-pt.sel circle { stroke: var(--ink); stroke-width: 2; }
+.conn-detail-head { display: flex; align-items: center; gap: 10px; font-size: 16px;
+                    margin-bottom: 8px; }
+.conn-stats { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 13px;
+              color: var(--muted); margin-bottom: 10px; }
+.conn-stats b { color: var(--ink); font-size: 14.5px; }
+.conn-bar { height: 22px; margin-top: 0; }
+table.conn-heat td.diag { outline: 1.5px dashed rgba(0,0,0,.3); outline-offset: -1.5px; }
+tr.conn-row { cursor: pointer; }
+tr.conn-row:hover td { background: #f1efe8; }
+tr.conn-row.sel td:first-child { box-shadow: inset 3px 0 0 var(--orange); }
+
 /* ---------- modal ---------- */
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45);
          display: flex; align-items: center; justify-content: center; z-index: 50; }
