@@ -87,27 +87,31 @@ marcadores). Con `--odds-weight < 1.0` se reintroduce el 1X2 del modelo (p. ej.
 ## El paso final: la elección óptima (`scoring.best_prediction`)
 
 Aquí está lo no obvio del proyecto. Teniendo la matriz `P`, **no se elige el
-marcador más probable**, sino el que **maximiza los puntos esperados de
-Superbru**:
+marcador más probable**, sino el que **maximiza los puntos esperados del
+modo de juego** (Penka por defecto; `--scoring superbru` para el antiguo):
 
 ```
 EP(marcador) = Σ  P[th,ta] · puntos(marcador, (th,ta))
 ```
 
-Con el baremo: 3 exacto / 1.5 acierto-de-signo-y-cerca / 1 acierto-de-signo / 0.
-La "cercanía" se mide con el *Closeness Index*
-(`|Δdif_goles| + |Δgoles_totales|/2 ≤ 1.5`). Por eso el pick óptimo tiende a
-marcadores "seguros" tipo 1-0 o 2-1: cubren mejor el espacio de resultados
-cercanos aunque individualmente no sean el más probable.
+Baremo Penka (exacto / diferencia-de-goles-o-empate / ganador), con puntos
+que crecen por fase: 5/3/2 en grupos, 8/5/3 en dieciseisavos y octavos, 11/7/5
+de cuartos en adelante (`config.PENKA_STAGE_POINTS`; la fase de cada partido
+sale de su fecha, `predict.wc2026_stage`). Baremo Superbru: 3 exacto /
+1.5 acierto-de-signo-y-cerca / 1 acierto-de-signo / 0, con la "cercanía"
+medida por el *Closeness Index* (`|Δdif_goles| + |Δgoles_totales|/2 ≤ 1.5`).
+En ambos casos el pick óptimo tiende a marcadores "seguros" tipo 1-0 o 2-1:
+cubren mejor el espacio de resultados que también puntúan aunque
+individualmente no sean el más probable.
 
 `best_prediction` está vectorizado: la matriz de puntos del baremo se construye
-una sola vez (`points_matrix`, cacheada por tamaño de rejilla) y el cálculo se
-reduce a `puntos · P` para todos los partidos.
+una sola vez (`points_matrix`, cacheada por (rejilla, modo, fase)) y el
+cálculo se reduce a `puntos · P` para todos los partidos.
 
 ## Opcional: prórroga y penaltis (eliminatorias)
 
-Superbru puntúa el resultado a los 90', así que **por defecto** el modelo
-ignora la prórroga. Para porras que puntúen el resultado *final* de la
+Penka y Superbru puntúan el resultado a los 90', así que **por defecto** el
+modelo ignora la prórroga. Para porras que puntúen el resultado *final* de la
 eliminatoria existen dos opciones (ambas desactivadas por defecto):
 
 - `--extra-time` (`scoring.resolve_extra_time`): cada empate de la fase
@@ -117,12 +121,12 @@ eliminatoria existen dos opciones (ambas desactivadas por defecto):
   sigue empatada tras la prórroga se resuelve como tanda de penaltis,
   convirtiéndola en una victoria por un gol (50/50 local/visitante).
 
-No usar ninguna de las dos con el baremo Superbru.
+No usar ninguna de las dos con los baremos Penka o Superbru.
 
 ## Simulaciones Monte Carlo: `groups` y `simulate`
 
 Las dos usan la misma matriz `P` por partido, pero al revés que `predict`: en
-vez de elegir el marcador que maximiza puntos Superbru, **sortean** marcadores
+vez de elegir el marcador que maximiza puntos de la porra, **sortean** marcadores
 según `P`, de modo que los resultados simulados siguen la distribución
 realista. Los partidos ya jugados entran con su resultado real, así que ambos
 comandos funcionan también a mitad de torneo.
@@ -148,7 +152,7 @@ xG (α blend)─┴─→ prepare_training ──→ DixonColes.fit ──→ ma
 odds ──→ devig ──→ market_matrix ──→ P_mercado ──┐            │
                                                  └─ 1.0·mkt (def.; --odds-weight)
                                                               │
-                                                  best_prediction (max EP Superbru)
+                                                  best_prediction (max EP Penka)
                                                               │
                                                           pick + EP
 ```

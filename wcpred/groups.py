@@ -1,6 +1,6 @@
 """Group-stage standings via Monte Carlo simulation.
 
-Unlike `scoring.best_prediction` (which picks the Superbru-optimal scoreline),
+Unlike `scoring.best_prediction` (which picks the pool-optimal scoreline),
 this samples scorelines straight from the match probability matrix — the
 model's, or the market-blended one when odds are given (`--approach odds`),
 exactly as `predict`/`simulate` build it — so the simulated results follow

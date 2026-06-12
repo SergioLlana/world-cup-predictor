@@ -1,22 +1,26 @@
-# wcpred — World Cup predictor optimised for Superbru
+# wcpred — World Cup predictor optimised for Penka
 
 Predicts FIFA World Cup 2026 scorelines and picks the prediction that
-maximises your expected points under the official
-[Superbru scoring rules](https://www.superbru.com/worldcup_predictor/how_to_play.php#tab=scoring):
+maximises your expected points under the Penka scoring rules, which pay
+three tiers — exact score / exact goal difference (any correct draw counts) /
+correct winner — with stakes that grow by stage:
 
-| Result | Points |
-|---|---|
-| Exact score | 3.0 |
-| Correct outcome + close (Closeness Index ≤ 1.5) | 1.5 |
-| Correct outcome only | 1.0 |
+| Result | Group stage | R32 & R16 | QF onwards |
+|---|---|---|---|
+| Exact score | 5 | 8 | 11 |
+| Goal difference or draw | 3 | 5 | 7 |
+| Match winner only | 2 | 3 | 5 |
 
-Closeness Index = `|ΔGoalDiff| + |ΔTotalGoals| / 2` — being one goal away
-from the exact score counts as close, *if* you also got the outcome right.
+The original Superbru mode (3 exact / 1.5 outcome+close / 1 outcome, with the
+Closeness Index `|ΔGoalDiff| + |ΔTotalGoals| / 2 ≤ 1.5` defining "close") is
+still available everywhere via `--scoring superbru`; the default lives in
+`config.SCORING_MODE`.
 
 The key idea: the optimal pick is **not** the most likely scoreline. The model
 computes the full probability matrix of scorelines and picks the one with the
-highest expected Superbru points (e.g. 2-0 often beats 1-0 because it is
-"close" to 1-0, 2-1 and 3-0 simultaneously).
+highest expected points for the game mode and stage (e.g. under Penka a 2-1
+pick collects the middle tier from 1-0 and 3-2 as well, because they share its
+goal difference).
 
 ## Install
 
@@ -197,16 +201,19 @@ narrow date range to top up before a session works too.
 ## Validation
 
 Backtests cover six tournaments — WC 2018, Euro 2021, Copa América 2021,
-WC 2022, Euro 2024 and Copa América 2024 — under official Superbru scoring,
-re-fitting the model at every matchday exactly as the live `--as-of` workflow
-does (pass `--static` for a single pre-tournament fit). Besides points, each
-run reports the 1X2 ranked probability score (RPS) and exact-score log-loss;
-those low-variance metrics drive hyperparameter choices, with points as the
-tie-breaker (points alone are too noisy on ~64 matches).
+WC 2022, Euro 2024 and Copa América 2024 — under Penka scoring by default
+(`--scoring superbru` for the old pool; each match's stage tier is derived
+from the tournament format), re-fitting the model at every matchday exactly
+as the live `--as-of` workflow does (pass `--static` for a single
+pre-tournament fit). Besides points, each run reports the 1X2 ranked
+probability score (RPS) and exact-score log-loss; those low-variance metrics
+drive hyperparameter choices, with points as the tie-breaker (points alone
+are too noisy on ~64 matches).
 
-Current defaults score **295.5 pts over 290 matches** (1.02/match, 44 exact
-scores). The upset-heavy WC 2022 is the weakest tournament (58.5/64,
-53% correct outcomes — bookmaker favourites hit ~55% there).
+Current defaults score **594 Penka pts over 290 matches** (2.05/match,
+37 exact scores; 295.5 pts at 1.02/match under Superbru). The upset-heavy
+WC 2022 is the weakest tournament (1.53 Penka pts/match, 53% correct
+outcomes — bookmaker favourites hit ~55% there).
 
 ```bash
 wcpred backtest --tournament all   # or wc2018/euro2021/copa2021/wc2022/...
@@ -224,7 +231,7 @@ wcpred/
 ├── config.py        # hyperparameters and scoring constants
 ├── data.py          # download, loading, training-set preparation (incl. xG blend)
 ├── model.py         # Dixon-Coles fit + score matrices
-├── scoring.py       # Superbru points, Closeness Index, optimal-pick search
+├── scoring.py       # Penka/Superbru points and the optimal-pick search
 ├── odds.py          # odds conversion, margin removal, market-implied matrices
 ├── predict.py       # per-match and per-fixture-list pipelines
 ├── groups.py        # Monte Carlo group standings
@@ -251,12 +258,12 @@ data/             # all generated files
 
 ## Notes & caveats
 
-- Knockout rounds: Superbru scores the 90-minute result, which is exactly
-  what the model predicts — so the default ignores extra time. For pools that
-  score the *final* knockout result, `predict --extra-time` plays the extra 30'
-  (at 1/3 the scoring rate) on top of every regulation draw, and `--shootout`
-  additionally resolves still-level ties as a penalty win. Both are **off by
-  default**; do not use them for Superbru.
+- Knockout rounds: Penka and Superbru score the 90-minute result, which is
+  exactly what the model predicts — so the default ignores extra time. For
+  pools that score the *final* knockout result, `predict --extra-time` plays
+  the extra 30' (at 1/3 the scoring rate) on top of every regulation draw, and
+  `--shootout` additionally resolves still-level ties as a penalty win. Both
+  are **off by default**; do not use them for Penka or Superbru.
 - The dataset takes a day or so to register just-played matches; predictions
   made the same morning still include everything up to yesterday.
 - `--odds-weight` controls the market/model mix for the 1X2 probabilities:

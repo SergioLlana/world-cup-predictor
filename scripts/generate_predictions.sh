@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Regenerate Superbru predictions, group standings and a full-tournament
+# Regenerate Penka predictions, group standings and a full-tournament
 # simulation with a date-stamped output filename so you can keep every run and
 # watch how picks, standings and title odds evolve.
 #
@@ -67,7 +67,7 @@ WITH_TIME=0
 
 usage() {
   cat <<'EOF'
-Regenerate Superbru predictions, group standings and a full-tournament
+Regenerate Penka predictions, group standings and a full-tournament
 simulation with date-stamped outputs.
 
 Usage: scripts/generate_predictions.sh [options]

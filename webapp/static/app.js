@@ -408,7 +408,7 @@ async function openMatrix(home, away, date) {
         `<tr><th>${h}</th>${[...Array(n)].map((_, a) => cell(h, a)).join("")}</tr>`).join("")}
     </table>
     <div class="matrix-legend">
-      <span><span class="key" style="outline:2.5px solid var(--orange); outline-offset:-2.5px"></span>predicción Superbru</span>
+      <span><span class="key" style="outline:2.5px solid var(--orange); outline-offset:-2.5px"></span>predicción Penka</span>
       ${m?.played ? `<span><span class="key" style="outline:2.5px solid var(--ink); outline-offset:-2.5px"></span>resultado real</span>` : ""}
     </div>`;
 }

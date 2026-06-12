@@ -1,10 +1,26 @@
 """High-level prediction pipeline combining model and odds."""
 import pandas as pd
 
-from .config import EXTRA_TIME_FRACTION, ODDS_WEIGHT
+from .config import EXTRA_TIME_FRACTION, ODDS_WEIGHT, SCORING_MODE
 from .odds import devig, market_matrix, to_prob
 from .scoring import (best_prediction, outcome_probs, resolve_extra_time,
                       resolve_shootout)
+
+# WC2026 calendar boundaries for the Penka stage tiers: the Round of 32 starts
+# on June 28 and the quarter-finals on July 9 (matches webapp KNOCKOUT_ROUNDS).
+WC2026_R32_START = "2026-06-28"
+WC2026_QF_START = "2026-07-09"
+
+
+def wc2026_stage(date):
+    """Penka stage tier of a WC2026 fixture date (str or Timestamp):
+    'group', 'r32_r16' (Round of 32 + Round of 16) or 'qf_plus'."""
+    d = str(date)[:10]
+    if d < WC2026_R32_START:
+        return "group"
+    if d < WC2026_QF_START:
+        return "r32_r16"
+    return "qf_plus"
 
 
 def home_side(home_team, away_team, venue_country):
@@ -23,15 +39,18 @@ def home_side(home_team, away_team, venue_country):
 
 
 def predict_match(model, home, away, side=None, odds=None,
-                  odds_weight=ODDS_WEIGHT, extra_time=False, shootout=False):
+                  odds_weight=ODDS_WEIGHT, extra_time=False, shootout=False,
+                  scoring=SCORING_MODE, stage="group"):
     """Predict one match.
 
     side: 'home', 'away' or None — which listed team is on home soil.
     odds: (odds_1, odds_X, odds_2) American or decimal, or None.
     extra_time/shootout: optional knockout resolution. Off by default because
-    Superbru scores the 90-minute result; enable only for pools that score the
-    final knockout result. shootout implies extra_time.
-    Returns dict with score matrix, optimal Superbru pick, expected points
+    Penka and Superbru score the 90-minute result; enable only for pools that
+    score the final knockout result. shootout implies extra_time.
+    scoring/stage: game mode whose expected points the pick maximises; stage
+    ('group'/'r32_r16'/'qf_plus') sets the Penka payout tier.
+    Returns dict with score matrix, optimal pick, expected points
     and 1X2 probabilities.
     """
     P = model.score_matrix(home, away, home_side=side)
@@ -49,7 +68,7 @@ def predict_match(model, home, away, side=None, odds=None,
         P = resolve_extra_time(P, P_et)
         if shootout:
             P = resolve_shootout(P)
-    pick, ep = best_prediction(P)
+    pick, ep = best_prediction(P, scoring, stage)
     p1, px, p2 = outcome_probs(P)
     return {"P": P, "pick": pick, "expected_points": ep,
             "p1": p1, "px": px, "p2": p2, "used_odds": used_odds}
@@ -75,8 +94,9 @@ def _build_odds_lookup(odds_df):
 
 
 def predict_fixtures(model, fixtures, odds_df=None, odds_weight=ODDS_WEIGHT,
-                     extra_time=False, shootout=False):
-    """Predict a fixtures DataFrame; returns a tidy results DataFrame."""
+                     extra_time=False, shootout=False, scoring=SCORING_MODE):
+    """Predict a fixtures DataFrame; returns a tidy results DataFrame.
+    Each fixture's Penka payout tier comes from its date (wc2026_stage)."""
     odds_lookup = _build_odds_lookup(odds_df) if odds_df is not None else None
     rows = []
     for _, r in fixtures.iterrows():
@@ -84,12 +104,15 @@ def predict_fixtures(model, fixtures, odds_df=None, odds_weight=ODDS_WEIGHT,
         if odds_lookup is not None:
             odds = odds_lookup.get((_norm_team(r.home_team),
                                     _norm_team(r.away_team)))
+        stage = wc2026_stage(r.date)
         res = predict_match(model, r.home_team, r.away_team,
                             side=home_side(r.home_team, r.away_team, r.country),
                             odds=odds, odds_weight=odds_weight,
-                            extra_time=extra_time, shootout=shootout)
+                            extra_time=extra_time, shootout=shootout,
+                            scoring=scoring, stage=stage)
         rows.append({
             "date": r.date.date(), "home": r.home_team, "away": r.away_team,
+            "stage": stage,
             "P_1": round(res["p1"], 3), "P_X": round(res["px"], 3),
             "P_2": round(res["p2"], 3),
             "pick": f"{res['pick'][0]}-{res['pick'][1]}",

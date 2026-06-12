@@ -1,9 +1,17 @@
-"""Superbru scoring rules and optimal-pick selection."""
+"""Game-mode scoring rules (Penka, Superbru) and optimal-pick selection."""
 from functools import lru_cache
 
 import numpy as np
 
-from .config import CLOSE_MAX, PTS_CLOSE, PTS_EXACT, PTS_OUTCOME
+from .config import (CLOSE_MAX, PENKA_STAGE_POINTS, PTS_CLOSE, PTS_EXACT,
+                     PTS_OUTCOME, SCORING_MODE)
+
+SCORING_MODES = ("penka", "superbru")
+STAGES = tuple(PENKA_STAGE_POINTS)      # group, r32_r16, qf_plus
+
+
+def _sign(d):
+    return (d > 0) - (d < 0)
 
 
 def closeness_index(pred, true):
@@ -13,38 +21,58 @@ def closeness_index(pred, true):
     return abs((ph - pa) - (th - ta)) + abs((ph + pa) - (th + ta)) / 2.0
 
 
-def points(pred, true):
+def points_superbru(pred, true):
     """Official Superbru: 3 exact / 1.5 outcome+close / 1 outcome / 0."""
     if tuple(pred) == tuple(true):
         return PTS_EXACT
-
-    def sign(d):
-        return (d > 0) - (d < 0)
-    if sign(pred[0] - pred[1]) == sign(true[0] - true[1]):
+    if _sign(pred[0] - pred[1]) == _sign(true[0] - true[1]):
         return PTS_CLOSE if closeness_index(pred, true) <= CLOSE_MAX \
             else PTS_OUTCOME
     return 0.0
 
 
-@lru_cache(maxsize=None)
-def points_matrix(n):
-    """M[p, t] = Superbru points for predicting score p when the true score is
-    t, over all n*n scorelines flattened row-major (index = goals_h*n+goals_a).
+def points_penka(pred, true, stage="group"):
+    """Penka: exact / goal-difference-or-draw / winner / 0, with the points of
+    each tier set by the stage (PENKA_STAGE_POINTS). The middle tier needs the
+    exact goal difference; a correct draw pick always has it (GD = 0)."""
+    exact, gd, winner = PENKA_STAGE_POINTS[stage]
+    if tuple(pred) == tuple(true):
+        return exact
+    if _sign(pred[0] - pred[1]) == _sign(true[0] - true[1]):
+        return gd if pred[0] - pred[1] == true[0] - true[1] else winner
+    return 0.0
 
-    Cached per grid size so it is built once and reused across every match
-    (e.g. all 64 backtest fixtures), turning best_prediction into a matvec."""
+
+def points(pred, true, mode=SCORING_MODE, stage="group"):
+    """Points for picking `pred` when the real score is `true`. `stage` only
+    matters for Penka, whose tiers pay more the deeper the round."""
+    if mode == "superbru":
+        return points_superbru(pred, true)
+    return points_penka(pred, true, stage)
+
+
+@lru_cache(maxsize=None)
+def points_matrix(n, mode=SCORING_MODE, stage="group"):
+    """M[p, t] = points for predicting score p when the true score is t,
+    over all n*n scorelines flattened row-major (index = goals_h*n+goals_a).
+
+    Cached per (grid size, mode, stage) so it is built once and reused across
+    every match (e.g. all 64 backtest fixtures), turning best_prediction into
+    a matvec."""
     scores = [(h, a) for h in range(n) for a in range(n)]
     M = np.empty((len(scores), len(scores)))
     for pi, pred in enumerate(scores):
         for ti, true in enumerate(scores):
-            M[pi, ti] = points(pred, true)
+            M[pi, ti] = points(pred, true, mode, stage)
     return M
 
 
-def best_prediction(P):
-    """Scoreline maximising expected Superbru points under matrix P."""
+def best_prediction(P, mode=SCORING_MODE, stage="group"):
+    """Scoreline maximising expected points under matrix P. Penka picks can
+    depend on the stage: the exact/GD/winner payout ratios differ slightly
+    between the three tiers (5:3:2 vs 8:5:3 vs 11:7:5)."""
     n = P.shape[0]
-    ep = points_matrix(n) @ P.ravel()
+    ep = points_matrix(n, mode, stage) @ P.ravel()
     k = int(np.argmax(ep))          # row-major flatten ⇒ same tie-break as before
     return (k // n, k % n), float(ep[k])
 
@@ -54,7 +82,8 @@ def outcome_probs(P):
     return np.tril(P, -1).sum(), np.trace(P), np.triu(P, 1).sum()
 
 
-# --- Optional knockout resolution (off by default; Superbru scores 90') -------
+# --- Optional knockout resolution (off by default; Penka and Superbru score
+# the 90-minute result) ---------------------------------------------------------
 
 def resolve_extra_time(P, P_et):
     """Turn a 90-minute score matrix into a final-result matrix by playing the

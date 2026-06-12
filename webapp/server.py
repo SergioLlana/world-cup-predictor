@@ -26,7 +26,7 @@ from functools import lru_cache
 from wcpred.config import GROUPS_DIR, INPUT_DIR, PREDICTIONS_DIR, RESULTS_PATH, SIM_DIR
 from wcpred.data import load_results, prepare_training
 from wcpred.model import DixonColes
-from wcpred.predict import _norm_team, home_side, predict_match
+from wcpred.predict import _norm_team, home_side, predict_match, wc2026_stage
 from wcpred.tournament import OFFICIAL_GROUPS
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -271,7 +271,8 @@ def matrix(home: str, away: str, date: str, approach: str = "odds"):
 
     try:
         res = predict_match(model, home, away, side=side,
-                            odds=tuple(odds) if odds else None)
+                            odds=tuple(odds) if odds else None,
+                            stage=wc2026_stage(date))
     except KeyError:
         raise HTTPException(404, f"equipo sin datos de entrenamiento: {home} / {away}")
     return {

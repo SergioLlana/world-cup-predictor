@@ -1,8 +1,13 @@
 # CLAUDE.md
 
 `wcpred`: predicts FIFA World Cup 2026 scorelines, picking the score that
-maximises **expected Superbru points** (3 exact / 1.5 outcome+close / 1 outcome).
-The optimal pick is *not* the most likely score — see `scoring.best_prediction`.
+maximises **expected Penka points** — exact / goal-difference-or-draw / winner,
+paying 5/3/2 in the group stage, 8/5/3 in the R32+R16 and 11/7/5 from the QF
+(`config.PENKA_STAGE_POINTS`; each fixture's tier comes from its date via
+`predict.wc2026_stage`). The old Superbru mode (3 / 1.5 outcome+close / 1)
+remains available everywhere via `--scoring superbru`; the default is
+`config.SCORING_MODE`. The optimal pick is *not* the most likely score — see
+`scoring.best_prediction`.
 
 ## Commands
 
@@ -14,7 +19,8 @@ scripts/generate_predictions.sh  # date-stamped picks + group standings (track e
 wcpred predict --approach odds --odds data/input/odds.csv --days 3
 wcpred groups --approach odds --odds data/input/odds.csv  # MC group standings
 wcpred simulate --approach odds --odds data/input/odds.csv  # full bracket → champion
-wcpred backtest --tournament all      # validation: ~295 pts / 290 matches
+wcpred backtest --tournament all      # validation: ~594 Penka pts / 290 matches
+                                      # (--scoring superbru: ~295 pts)
 wcpred tune                           # hyperparameter grid search (no xG)
 wcpred ratings --top 20
 scripts/run_webapp.sh                 # local dashboard on :8026 (needs `.[web]` extra)
@@ -24,7 +30,9 @@ No test suite — `backtest --tournament all` is the regression check after
 touching the model. It covers six tournaments (wc2018, euro2021, copa2021,
 wc2022, euro2024, copa2024) with a rolling per-matchday re-fit (the live
 `--as-of` protocol; `--static` for a single pre-tournament fit) and reports
-Superbru points plus 1X2 RPS and exact-score log-loss. Tune on RPS/log-loss
+Penka points (stage tiers mapped from each tournament's format in
+`backtest.TOURNAMENTS`) plus 1X2 RPS and exact-score log-loss. Tune on
+RPS/log-loss
 (low variance), use points to break ties — points alone are too noisy on
 ~64 matches per tournament.
 
@@ -39,7 +47,8 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   list upcoming fixtures.
 - `model.py` — Dixon-Coles (weighted Poisson + rho low-score correction).
   Produces per-team attack/defence ratings and score-probability matrices.
-- `scoring.py` — Superbru points, Closeness Index, expected-points optimiser.
+- `scoring.py` — Penka and Superbru points, Closeness Index, expected-points
+  optimiser (`best_prediction(P, mode, stage)`).
 - `odds.py` — odds → margin-free 1X2 probs → market-implied score matrix.
 - `predict.py` — pipeline blending model + odds. `ODDS_WEIGHT = 1.0`: the 1X2
   comes fully from the market; the model only shapes scorelines within each
@@ -93,7 +102,8 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   *before* it, so past results inform future picks.
 - `predict --extra-time`/`--shootout` resolve knockout ties (extra time at
   `EXTRA_TIME_FRACTION` of the scoring rate, then a penalty win). Both are
-  **off by default** — Superbru scores the 90' result, so leave them off for it.
+  **off by default** — Penka and Superbru score the 90' result, so leave them
+  off for both.
 - xG source is `scripts/fetch_xg.py` (FotMob public JSON API). It writes
   `xg.csv` in the `date,home_team,away_team,home_xg,away_xg` format `data.py`
   expects. FotMob has NO xG for friendlies and only ~28% of qualifiers.

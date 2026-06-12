@@ -37,7 +37,21 @@ XG_ALPHA = 0.6              # effective_goals = a*goals + (1-a)*xG
 # --- Optional knockout resolution (off by default) ---
 EXTRA_TIME_FRACTION = 1 / 3  # extra time ≈ 30 min vs 90 regulation
 
-# --- Superbru scoring ---
+# --- Game-mode scoring ---
+SCORING_MODE = "penka"      # default pool: picks maximise expected Penka
+                            # points. "superbru" restores the old behaviour
+                            # (CLI: --scoring superbru).
+
+# Penka: exact score / goal-difference-or-draw / winner, with stage-dependent
+# points (exact, gd_or_draw, winner). The middle tier is a correct outcome
+# with the exact goal difference; any correct draw pick qualifies (GD = 0).
+PENKA_STAGE_POINTS = {
+    "group":   (5.0, 3.0, 2.0),
+    "r32_r16": (8.0, 5.0, 3.0),    # Round of 32 and Round of 16
+    "qf_plus": (11.0, 7.0, 5.0),   # quarter-finals onwards
+}
+
+# Superbru scoring
 PTS_EXACT = 3.0
 PTS_CLOSE = 1.5             # correct outcome + Closeness Index <= CLOSE_MAX
 PTS_OUTCOME = 1.0

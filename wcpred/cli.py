@@ -18,7 +18,7 @@ import pandas as pd
 
 from .backtest import TOURNAMENTS, backtest, tune
 from .config import (GROUPS_DIR, ODDS_WEIGHT, PREDICTIONS_DIR, RESULTS_PATH,
-                     SIM_DIR, XG_ALPHA)
+                     SCORING_MODE, SIM_DIR, XG_ALPHA)
 from .data import (download_results, load_odds, load_results,
                    played_world_cup, prepare_training, upcoming_world_cup)
 from .groups import simulate_groups
@@ -73,7 +73,7 @@ def cmd_predict(args):
     out = predict_fixtures(model, fixtures, odds_df,
                            odds_weight=args.odds_weight,
                            extra_time=args.extra_time or args.shootout,
-                           shootout=args.shootout)
+                           shootout=args.shootout, scoring=args.scoring)
     print()
     print(out.to_string(index=False))
     print(f"\nTotal expected points: {out.expected_points.sum():.1f}")
@@ -108,7 +108,7 @@ def cmd_groups(args):
     note = f", counting {len(played)} played matches" if len(played) else ""
     blend = "market-blended" if odds_df is not None else "model-only"
     print(f"\nMonte Carlo group standings ({args.sims:,} sims{note}, {blend}) "
-          f"— realistic outcomes, not Superbru-optimal picks\n")
+          f"— realistic outcomes, not pool-optimal picks\n")
     frames = []
     for label, t in tables.items():
         disp = t.copy()
@@ -167,8 +167,9 @@ def cmd_backtest(args):
     for name in names:
         r = backtest(df, name, rolling=not args.static,
                      xg_path=args.xg if args.approach in ("xg", "full") else None,
-                     xg_alpha=args.xg_alpha)
-        print(f"Backtest {r['tournament']}: {r['points']:.1f} pts in "
+                     xg_alpha=args.xg_alpha, scoring=args.scoring)
+        print(f"Backtest {r['tournament']} ({args.scoring}): "
+              f"{r['points']:.1f} pts in "
               f"{r['matches']} matches ({r['points_per_match']:.2f}/match) | "
               f"exact {r['exact']} | outcome correct {r['outcome_correct']} | "
               f"rps {r['rps']:.4f} | log-loss {r['log_loss']:.4f}")
@@ -189,7 +190,9 @@ def cmd_tune(args):
 
 def main():
     p = argparse.ArgumentParser(prog="wcpred",
-                                description="World Cup Superbru predictor")
+                                description="World Cup score predictor "
+                                            "(Penka by default; Superbru via "
+                                            "--scoring superbru)")
     p.add_argument("--data", default=RESULTS_PATH,
                    help=f"path to results.csv (default: {RESULTS_PATH})")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -210,6 +213,10 @@ def main():
         sp.add_argument("--xg-alpha", type=float, default=XG_ALPHA,
                         help="effective_goals = alpha*goals + (1-alpha)*xG; "
                              "0 = pure xG, 1 = pure goals (default: %(default)s)")
+        sp.add_argument("--scoring", choices=("penka", "superbru"),
+                        default=SCORING_MODE,
+                        help="game mode whose expected points the picks "
+                             "maximise (default: %(default)s)")
 
     sp = sub.add_parser("predict", help="predict upcoming WC fixtures")
     common(sp)
@@ -219,7 +226,8 @@ def main():
                     f"goes under {PREDICTIONS_DIR}/)")
     sp.add_argument("--extra-time", action="store_true",
                     help="resolve knockout draws through extra time "
-                         "(default off: Superbru scores the 90' result)")
+                         "(default off: Penka and Superbru score the "
+                         "90' result)")
     sp.add_argument("--shootout", action="store_true",
                     help="also resolve still-level ties as a penalty "
                          "shootout (implies --extra-time)")
