@@ -20,7 +20,8 @@ import numpy as np
 import pandas as pd
 
 from .config import EXTRA_TIME_FRACTION, ODDS_WEIGHT
-from .predict import home_side, predict_match
+from .groups import _group_points
+from .predict import odds_lookup_for
 from .scoring import outcome_probs, resolve_extra_time, resolve_shootout
 from .thirds_table import THIRD_PLACE_ALLOCATION
 
@@ -120,50 +121,9 @@ def _simulate_groups_joint(model, fixtures, played_group, n_sims, rng,
 
     for g, label in enumerate(GROUP_LABELS):
         teams = OFFICIAL_GROUPS[label]
-        local = {t: i for i, t in enumerate(teams)}
         ids = np.array([compact[t] for t in teams])     # local 0..3 -> compact id
-        pts = np.zeros((n_sims, 4))
-        gd = np.zeros((n_sims, 4))
-        gf = np.zeros((n_sims, 4))
-
-        # Real group results already decided: enter them as fixed.
-        done_pairs = set()
-        if played_group is not None and len(played_group):
-            gp = played_group[played_group.home_team.isin(teams)
-                              & played_group.away_team.isin(teams)]
-            for _, r in gp.iterrows():
-                h, a = local[r.home_team], local[r.away_team]
-                hg, ag = int(r.home_score), int(r.away_score)
-                pts[:, h] += 3 * (hg > ag) + (hg == ag)
-                pts[:, a] += 3 * (ag > hg) + (hg == ag)
-                gd[:, h] += hg - ag
-                gd[:, a] += ag - hg
-                gf[:, h] += hg
-                gf[:, a] += ag
-                done_pairs.add(frozenset((r.home_team, r.away_team)))
-
-        # Remaining fixtures: sample from the (optionally odds-blended) matrix.
-        gf_fix = fixtures[fixtures.home_team.isin(teams)
-                          & fixtures.away_team.isin(teams)]
-        for _, r in gf_fix.iterrows():
-            # each group pair meets exactly once in the group stage; a second
-            # meeting is a knockout rematch and must not count here
-            if frozenset((r.home_team, r.away_team)) in done_pairs:
-                continue
-            h, a = local[r.home_team], local[r.away_team]
-            odds = odds_lookup.get((r.home_team, r.away_team)) if odds_lookup else None
-            P = predict_match(model, r.home_team, r.away_team,
-                              side=home_side(r.home_team, r.away_team, r.country),
-                              odds=odds, odds_weight=odds_weight)["P"]
-            flat = (P / P.sum()).ravel()
-            draw = rng.choice(flat.size, size=n_sims, p=flat)
-            hg, ag = np.divmod(draw, P.shape[1])
-            pts[:, h] += 3 * (hg > ag) + (hg == ag)
-            pts[:, a] += 3 * (ag > hg) + (hg == ag)
-            gd[:, h] += hg - ag
-            gd[:, a] += ag - hg
-            gf[:, h] += hg
-            gf[:, a] += ag
+        pts, gd, gf = _group_points(model, teams, fixtures, played_group,
+                                    n_sims, rng, odds_lookup, odds_weight)
 
         # FIFA ranking: points, then GD, then GF; remaining ties broken at random.
         tiebreak = rng.random((n_sims, 4))
@@ -297,12 +257,7 @@ def simulate_tournament(model, fixtures, n_sims=100_000, seed=0, played=None,
 
     odds_lookup = None
     if odds_df is not None:
-        from .predict import _build_odds_lookup, _norm_team
-        raw = _build_odds_lookup(odds_df)
-        # _build_odds_lookup keys on normalised names; re-key on dataset names.
-        norm = {_norm_team(t): t for t in teams}
-        odds_lookup = {(norm[h], norm[a]): v for (h, a), v in raw.items()
-                       if h in norm and a in norm}
+        odds_lookup = odds_lookup_for(odds_df, teams)
 
     played_group, played_ko = _split_played(played, team_group)
     winner, runner, third, t_pts, t_gd, t_gf = _simulate_groups_joint(

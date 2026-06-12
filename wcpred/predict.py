@@ -1,15 +1,17 @@
 """High-level prediction pipeline combining model and odds."""
 import pandas as pd
 
-from .config import EXTRA_TIME_FRACTION, ODDS_WEIGHT, SCORING_MODE
+from .config import (EXTRA_TIME_FRACTION, ODDS_WEIGHT, SCORING_MODE,
+                     WC2026_KNOCKOUT_ROUNDS)
 from .odds import devig, market_matrix, to_prob
 from .scoring import (best_prediction, outcome_probs, resolve_extra_time,
                       resolve_shootout)
 
-# WC2026 calendar boundaries for the Penka stage tiers: the Round of 32 starts
-# on June 28 and the quarter-finals on July 9 (matches webapp KNOCKOUT_ROUNDS).
-WC2026_R32_START = "2026-06-28"
-WC2026_QF_START = "2026-07-09"
+# WC2026 calendar boundaries for the Penka stage tiers, from the official
+# knockout calendar (config.WC2026_KNOCKOUT_ROUNDS, shared with the webapp).
+_ROUND_START = {rid: lo for lo, _, rid in WC2026_KNOCKOUT_ROUNDS}
+WC2026_R32_START = _ROUND_START["r32"]
+WC2026_QF_START = _ROUND_START["qf"]
 
 
 def wc2026_stage(date):
@@ -91,6 +93,19 @@ def _build_odds_lookup(odds_df):
         lookup[(h, a)] = (o.odds_1, o.odds_X, o.odds_2)
         lookup.setdefault((a, h), (o.odds_2, o.odds_X, o.odds_1))
     return lookup
+
+
+def odds_lookup_for(odds_df, teams):
+    """Odds lookup keyed on dataset team names, restricted to `teams`.
+
+    _build_odds_lookup keys on normalised names (the odds feed's spelling may
+    differ from the dataset's); the simulators match fixtures by their martj42
+    dataset names, so re-key the lookup accordingly. Both home/away orders are
+    indexed, as in _build_odds_lookup."""
+    raw = _build_odds_lookup(odds_df)
+    norm = {_norm_team(t): t for t in teams}
+    return {(norm[h], norm[a]): v for (h, a), v in raw.items()
+            if h in norm and a in norm}
 
 
 def predict_fixtures(model, fixtures, odds_df=None, odds_weight=ODDS_WEIGHT,

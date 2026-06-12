@@ -55,21 +55,40 @@ def build_model(df, args):
     return model
 
 
-def cmd_predict(args):
+def load_run_inputs(args, to_date=None):
+    """Shared `predict`/`groups`/`simulate` preamble: results DataFrame,
+    fitted model and the World Cup fixtures from --as-of onward. Exits with a
+    clear message when a fixture team is missing from the fitted model
+    (predicting it would otherwise die on a KeyError deep in the model)."""
     df = load_results(args.data)
     model = build_model(df, args)
+    fixtures = upcoming_world_cup(df, from_date=args.as_of, to_date=to_date)
+    missing = sorted((set(fixtures["home_team"]) | set(fixtures["away_team"]))
+                     - set(model.idx))
+    if missing:
+        sys.exit("fixture teams missing from the model (misspelt, or too few "
+                 f"matches before --as-of): {', '.join(missing)}")
+    return df, model, fixtures
+
+
+def load_odds_df(args):
+    """Odds DataFrame for the market-blended approaches, or None."""
+    if args.approach not in ("odds", "full"):
+        return None
+    if not args.odds:
+        sys.exit(f"--approach {args.approach} requires --odds FILE")
+    return load_odds(args.odds)
+
+
+def cmd_predict(args):
     to_date = None
     if args.days:
         to_date = str(date.fromisoformat(args.as_of) + timedelta(days=args.days))
-    fixtures = upcoming_world_cup(df, from_date=args.as_of, to_date=to_date)
+    df, model, fixtures = load_run_inputs(args, to_date=to_date)
     if fixtures.empty:
         sys.exit("No upcoming World Cup fixtures found. "
                  "Run `wcpred update-data` first.")
-    odds_df = None
-    if args.approach in ("odds", "full"):
-        if not args.odds:
-            sys.exit("--approach odds requires --odds FILE")
-        odds_df = load_odds(args.odds)
+    odds_df = load_odds_df(args)
     out = predict_fixtures(model, fixtures, odds_df,
                            odds_weight=args.odds_weight,
                            extra_time=args.extra_time or args.shootout,
@@ -89,19 +108,13 @@ def cmd_predict(args):
 
 
 def cmd_groups(args):
-    df = load_results(args.data)
-    model = build_model(df, args)
-    fixtures = upcoming_world_cup(df, from_date=args.as_of)
+    df, model, fixtures = load_run_inputs(args)
     if fixtures.empty:
         sys.exit("No upcoming World Cup fixtures found. "
                  "Run `wcpred update-data` first.")
     played = played_world_cup(df, year=int(fixtures["date"].dt.year.min()),
                               as_of=args.as_of)
-    odds_df = None
-    if args.approach in ("odds", "full"):
-        if not args.odds:
-            sys.exit("--approach odds requires --odds FILE")
-        odds_df = load_odds(args.odds)
+    odds_df = load_odds_df(args)
     tables = simulate_groups(model, fixtures, n_sims=args.sims, played=played,
                              groups=OFFICIAL_GROUPS, odds_df=odds_df,
                              odds_weight=args.odds_weight)
@@ -126,17 +139,11 @@ def cmd_groups(args):
 
 
 def cmd_simulate(args):
-    df = load_results(args.data)
-    model = build_model(df, args)
-    fixtures = upcoming_world_cup(df, from_date=args.as_of)
+    df, model, fixtures = load_run_inputs(args)
     played = played_world_cup(df, year=2026, as_of=args.as_of)
     if fixtures.empty and not len(played):
         sys.exit("No World Cup fixtures found. Run `wcpred update-data` first.")
-    odds_df = None
-    if args.approach in ("odds", "full"):
-        if not args.odds:
-            sys.exit("--approach odds requires --odds FILE")
-        odds_df = load_odds(args.odds)
+    odds_df = load_odds_df(args)
     out = simulate_tournament(model, fixtures, n_sims=args.sims, played=played,
                               odds_df=odds_df, odds_weight=args.odds_weight)
     note = f", counting {len(played)} played matches" if len(played) else ""

@@ -48,6 +48,18 @@ XG_ALPHA = 0.6              # effective_goals = a*goals + (1-a)*xG
 # --- Optional knockout resolution (off by default) ---
 EXTRA_TIME_FRACTION = 1 / 3  # extra time ≈ 30 min vs 90 regulation
 
+# --- WC2026 knockout calendar: (first day, last day, round id) ---
+# Single source of truth for the round boundaries: predict.wc2026_stage derives
+# the Penka payout tiers from it and the webapp its round labels.
+WC2026_KNOCKOUT_ROUNDS = (
+    ("2026-06-28", "2026-07-03", "r32"),
+    ("2026-07-04", "2026-07-08", "r16"),
+    ("2026-07-09", "2026-07-12", "qf"),
+    ("2026-07-13", "2026-07-16", "sf"),
+    ("2026-07-17", "2026-07-18", "p3"),
+    ("2026-07-19", "2026-07-31", "f"),
+)
+
 # --- Game-mode scoring ---
 SCORING_MODE = "penka"      # default pool: picks maximise expected Penka
                             # points. "superbru" restores the old behaviour

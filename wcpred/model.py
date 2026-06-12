@@ -69,7 +69,14 @@ class DixonColes:
         home soil and gets the home-advantage boost (None = neutral venue).
         The boost can go to the away side, e.g. a host as the listed away team
         in a knockout tie played in its own country."""
-        i, j = self.idx[home], self.idx[away]
+        try:
+            i, j = self.idx[home], self.idx[away]
+        except KeyError as e:
+            # KeyError (not ValueError) so callers that guard unknown teams
+            # (webapp /api/matrix) keep working.
+            raise KeyError(f"team not in the fitted model (misspelt, or fewer "
+                           f"than MIN_MATCHES results before the training "
+                           f"cutoff?): {e.args[0]}") from None
         hb = self.home if home_side == "home" else 0.0
         ab = self.home if home_side == "away" else 0.0
         return (np.exp(self.atk[i] + self.dfn[j] + hb),

@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from .config import ODDS_WEIGHT
-from .predict import home_side, predict_match
+from .predict import home_side, odds_lookup_for, predict_match
 
 
 def derive_groups(fixtures):
@@ -56,6 +56,53 @@ def _sample_scores(P, n, rng):
     return np.divmod(idx, P.shape[1])
 
 
+def _group_points(model, teams, fixtures, played, n_sims, rng,
+                  odds_lookup, odds_weight):
+    """Tally one group's matches into per-sim standings arrays.
+
+    Real results in `played` enter as fixed; the remaining group fixtures are
+    sampled from the (optionally odds-blended) score matrix. Returns
+    (pts, gd, gf) arrays of shape (n_sims, len(teams)), columns in `teams`
+    order. Shared by `simulate_group` and the joint tournament simulation."""
+    idx = {t: i for i, t in enumerate(teams)}
+    n = len(teams)
+    pts = np.zeros((n_sims, n))
+    gd = np.zeros((n_sims, n))
+    gf = np.zeros((n_sims, n))
+
+    def tally(h, a, hg, ag):
+        pts[:, h] += 3 * (hg > ag) + (hg == ag)
+        pts[:, a] += 3 * (ag > hg) + (hg == ag)
+        gd[:, h] += hg - ag
+        gd[:, a] += ag - hg
+        gf[:, h] += hg
+        gf[:, a] += ag
+
+    done_pairs = set()
+    if played is not None and len(played):
+        gp = played[played.home_team.isin(teams)
+                    & played.away_team.isin(teams)]
+        for _, r in gp.iterrows():
+            tally(idx[r.home_team], idx[r.away_team],
+                  int(r.home_score), int(r.away_score))
+            done_pairs.add(frozenset((r.home_team, r.away_team)))
+    gfix = fixtures[fixtures.home_team.isin(teams)
+                    & fixtures.away_team.isin(teams)]
+    for _, r in gfix.iterrows():
+        # each group pair meets exactly once in the group stage; a second
+        # meeting is a knockout rematch and must not count here
+        if frozenset((r.home_team, r.away_team)) in done_pairs:
+            continue
+        odds = odds_lookup.get((r.home_team, r.away_team)) if odds_lookup else None
+        P = predict_match(
+            model, r.home_team, r.away_team,
+            side=home_side(r.home_team, r.away_team, r.country),
+            odds=odds, odds_weight=odds_weight)["P"]
+        hg, ag = _sample_scores(P, n_sims, rng)
+        tally(idx[r.home_team], idx[r.away_team], hg, ag)
+    return pts, gd, gf
+
+
 def simulate_group(model, teams, fixtures, n_sims=100000, rng=None,
                    played=None, odds_lookup=None, odds_weight=ODDS_WEIGHT):
     """Simulate one group; return a standings DataFrame sorted best-first.
@@ -68,46 +115,9 @@ def simulate_group(model, teams, fixtures, n_sims=100000, rng=None,
     Columns: team, P1..P4 (finish-position probabilities), qualify (top 2),
     xPts (expected points), xGD (expected goal difference)."""
     rng = rng or np.random.default_rng(0)
-    idx = {t: i for i, t in enumerate(teams)}
-    gf = fixtures[fixtures.home_team.isin(teams) & fixtures.away_team.isin(teams)]
-
     n = len(teams)
-    pts = np.zeros((n_sims, n))
-    gd = np.zeros((n_sims, n))
-    gfor = np.zeros((n_sims, n))
-    done_pairs = set()
-    if played is not None and len(played):
-        gp = played[played.home_team.isin(teams)
-                    & played.away_team.isin(teams)]
-        for _, r in gp.iterrows():
-            h, a = idx[r.home_team], idx[r.away_team]
-            hg, ag = int(r.home_score), int(r.away_score)
-            pts[:, h] += 3 * (hg > ag) + (hg == ag)
-            pts[:, a] += 3 * (ag > hg) + (hg == ag)
-            gd[:, h] += hg - ag
-            gd[:, a] += ag - hg
-            gfor[:, h] += hg
-            gfor[:, a] += ag
-            done_pairs.add(frozenset((r.home_team, r.away_team)))
-    for _, r in gf.iterrows():
-        # each group pair meets exactly once in the group stage; a second
-        # meeting is a knockout rematch and must not count here
-        if frozenset((r.home_team, r.away_team)) in done_pairs:
-            continue
-        h, a = idx[r.home_team], idx[r.away_team]
-        odds = odds_lookup.get((r.home_team, r.away_team)) if odds_lookup else None
-        P = predict_match(
-            model, r.home_team, r.away_team,
-            side=home_side(r.home_team, r.away_team, r.country),
-            odds=odds, odds_weight=odds_weight)["P"]
-        hg, ag = _sample_scores(P, n_sims, rng)
-        hw, aw, dr = hg > ag, ag > hg, hg == ag
-        pts[:, h] += 3 * hw + dr
-        pts[:, a] += 3 * aw + dr
-        gd[:, h] += hg - ag
-        gd[:, a] += ag - hg
-        gfor[:, h] += hg
-        gfor[:, a] += ag
+    pts, gd, gfor = _group_points(model, teams, fixtures, played, n_sims, rng,
+                                  odds_lookup, odds_weight)
 
     # FIFA-style ranking: points, then GD, then goals for; ties broken at
     # random (head-to-head is not modelled). lexsort's last key is primary.
@@ -148,12 +158,8 @@ def simulate_groups(model, fixtures, n_sims=100000, seed=0, played=None,
 
     odds_lookup = None
     if odds_df is not None:
-        from .predict import _build_odds_lookup, _norm_team
-        raw = _build_odds_lookup(odds_df)
-        # _build_odds_lookup keys on normalised names; re-key on dataset names.
-        norm = {_norm_team(t): t for ts in groups.values() for t in ts}
-        odds_lookup = {(norm[h], norm[a]): v for (h, a), v in raw.items()
-                       if h in norm and a in norm}
+        odds_lookup = odds_lookup_for(
+            odds_df, [t for ts in groups.values() for t in ts])
         missing = sum(
             1 for _, r in fixtures.iterrows()
             if any(r.home_team in ts and r.away_team in ts

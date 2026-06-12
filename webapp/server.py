@@ -23,7 +23,8 @@ from fastapi.staticfiles import StaticFiles
 
 from functools import lru_cache
 
-from wcpred.config import GROUPS_DIR, INPUT_DIR, PREDICTIONS_DIR, RESULTS_PATH, SIM_DIR
+from wcpred.config import (GROUPS_DIR, INPUT_DIR, PREDICTIONS_DIR,
+                           RESULTS_PATH, SIM_DIR, WC2026_KNOCKOUT_ROUNDS)
 from wcpred.data import load_results, prepare_training, resolve_odds_path
 from wcpred.model import DixonColes
 from wcpred.predict import _norm_team, home_side, predict_match, wc2026_stage
@@ -88,16 +89,21 @@ TEAMS = {
     "Panama":                 {"code": "pa",     "es": "Panamá"},
 }
 
-# Knockout rounds by date range (group-stage matchdays are derived per group
-# from the fixture order instead, which is robust to schedule quirks).
-KNOCKOUT_ROUNDS = [
-    ("2026-06-28", "2026-07-03", "r32", "Dieciseisavos de final"),
-    ("2026-07-04", "2026-07-08", "r16", "Octavos de final"),
-    ("2026-07-09", "2026-07-12", "qf",  "Cuartos de final"),
-    ("2026-07-13", "2026-07-16", "sf",  "Semifinales"),
-    ("2026-07-17", "2026-07-18", "p3",  "Tercer puesto"),
-    ("2026-07-19", "2026-07-31", "f",   "Final"),
-]
+# Knockout rounds by date range, from the shared calendar in wcpred.config —
+# the same boundaries predict.wc2026_stage maps to Penka tiers. Group-stage
+# matchdays are derived per group from the fixture order instead, which is
+# robust to schedule quirks.
+ROUND_NAMES = {
+    "r32": "Dieciseisavos de final",
+    "r16": "Octavos de final",
+    "qf":  "Cuartos de final",
+    "sf":  "Semifinales",
+    "p3":  "Tercer puesto",
+    "f":   "Final",
+}
+KNOCKOUT_ROUNDS = [(lo, hi, rid, ROUND_NAMES[rid])
+                   for lo, hi, rid in WC2026_KNOCKOUT_ROUNDS]
+KNOCKOUT_START = KNOCKOUT_ROUNDS[0][0]
 
 WC_START = "2026-06-01"
 
@@ -225,12 +231,13 @@ def matches():
     by_date = _load_odds_history()
 
     out = []
+    pairs_by_date = {}   # resolve the in-force odds file once per match day
     for r in df.itertuples():
         home, away, date = r.home_team, r.away_team, r.date
         played = pd.notna(r.home_score) and pd.notna(r.away_score)
         g = team_group.get(home)
         same_group = g is not None and team_group.get(away) == g
-        if same_group and date <= "2026-06-27":
+        if same_group and date < KNOCKOUT_START:
             n = seen_in_group[g] = seen_in_group.get(g, 0) + 1
             round_id, round_name = f"j{(n + 1) // 2}", f"Fase de grupos · Jornada {(n + 1) // 2}"
         else:
@@ -241,7 +248,9 @@ def matches():
                     break
         # Odds in force on the match day (snapshot for played days, live for
         # upcoming), so past matches keep the prices their pick was based on.
-        odds, swapped = _match_odds(_pairs_in_force(date), by_date,
+        if date not in pairs_by_date:
+            pairs_by_date[date] = _pairs_in_force(date)
+        odds, swapped = _match_odds(pairs_by_date[date], by_date,
                                     date, home, away)
         out.append({
             "date": date, "home": home, "away": away,
@@ -273,7 +282,10 @@ def matrix(home: str, away: str, date: str, approach: str = "odds"):
     date, with market odds blended in when approach=odds."""
     _check_approach(approach)
     snaps = [d for d, _ in _snapshots("predictions", approach)]
-    as_of = max((d for d in snaps if d <= date), default=snaps[0] if snaps else date)
+    # No snapshot on/before the match date → fall back to the match date
+    # itself, which is still leak-free (training uses matches strictly before
+    # it); a later snapshot would train on results from after the match.
+    as_of = max((d for d in snaps if d <= date), default=date)
 
     results_path = os.path.join(ROOT, RESULTS_PATH)
     model = _model_for(as_of, os.path.getmtime(results_path))
