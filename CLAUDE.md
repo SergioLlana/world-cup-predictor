@@ -25,6 +25,13 @@ wcpred backtest --tournament all      # validation: ~594 Penka pts / 290 matches
                                       # calibration table (regional-bias test)
 wcpred tune                           # hyperparameter grid search (no xG)
 wcpred ratings --top 20
+wcpred backtest --tournament all --static --engine bayes --bridge-audit
+                                      # Bayesian Dixon-Coles (Stan); needs the
+                                      # `.[bayes]` extra + a one-off CmdStan
+                                      # install. static only. --engine works on
+                                      # every subcommand (default `dc`). Add
+                                      # --bayes-dynamic [--bayes-block halfyear]
+                                      # for Phase B1 random-walk strengths.
 scripts/run_webapp.sh                 # local dashboard on :8026 (needs `.[web]` extra)
 ```
 
@@ -56,6 +63,23 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 - `anchor.py` — two-timescale confederation re-anchoring (robustness-plan
   Phase 2b; rejected as default, available via `CONF_ANCHOR_BETA` /
   `--anchor-beta` / `wcpred tune --anchor`).
+- `model_bayes.py` + `stan/dixon_coles.stan` — `BayesianDixonColes`, a Stan
+  (cmdstanpy) Dixon-Coles with a **hierarchical confederation-offset prior**:
+  each team's attack/defence carries an additive per-confederation offset that
+  only inter-confederation "bridge" matches can move, so intra-bloc games
+  cannot drift a whole confederation (the robustness-plan Phase 4 attempt at
+  the weak-anchoring limitation). Subclasses `DixonColes` — inherits
+  `rates`/`matrix_from_rates`/`score_matrix`, overrides only `fit` (MCMC, then
+  adopts posterior-mean atk/dfn/home/rho — Phase A; full posterior propagation
+  is Phase B2). Opt-in via `--engine bayes` (default `dc`, the regenerable
+  production model). Two time treatments: the static default (`stan/
+  dixon_coles.stan`) where time enters as the MLE decay weights (Phase A), and
+  the dynamic `stan/dixon_coles_dynamic.stan` (opt-in `--bayes-dynamic` /
+  `BAYES_DYNAMIC`, Phase B1) where each team's strength evolves as a random
+  walk over `--bayes-block` time blocks (year/halfyear/quarter, default
+  halfyear) and the most recent block is adopted — the decay weighting is then
+  dropped. Needs the `.[bayes]` extra + CmdStan. See `docs/
+  bayesian-confederation-plan.md`.
 - `scoring.py` — Penka and Superbru points, Closeness Index, expected-points
   optimiser (`best_prediction(P, mode, stage)`).
 - `odds.py` — odds → margin-free 1X2 probs → market-implied score matrix.

@@ -60,7 +60,8 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              xg_alpha=None, scoring=SCORING_MODE, audit=None,
              anchor_beta=CONF_ANCHOR_BETA,
              anchor_half_life=CONF_ANCHOR_HALF_LIFE_DAYS,
-             elo_tau=ELO_PRIOR_TAU, elo_path=ELO_PATH, **train_kw):
+             elo_tau=ELO_PRIOR_TAU, elo_path=ELO_PATH, engine="dc",
+             dynamic=False, time_block=None, **train_kw):
     """Score every match of a past tournament.
 
     rolling=True re-fits the model at each matchday (training on matches
@@ -83,7 +84,24 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     elo_tau > 0 fits each re-fit under the Phase 3 external Elo prior, using
     the Elo snapshot in force at that cutoff (load_elo, causal like the
     training window).
+
+    engine "bayes" swaps the MLE Dixon-Coles for the Stan
+    BayesianDixonColes (hierarchical confederation-offset prior). It is
+    static only (rolling=False): a per-matchday MCMC re-fit over six
+    tournaments is prohibitively slow, and the elo/anchor knobs are
+    MLE-specific. dynamic=True (Phase B1, bayes only) replaces the decay
+    weighting with a random-walk evolution of team strengths over
+    time_block-sized blocks ("year"/"halfyear"/"quarter").
     """
+    if engine == "bayes":
+        if rolling:
+            raise ValueError("engine='bayes' is static only; pass "
+                             "rolling=False (CLI: --static)")
+        if elo_tau or anchor_beta:
+            raise ValueError("elo_tau/anchor_beta are MLE-engine knobs; "
+                             "they have no effect under engine='bayes'")
+    elif dynamic:
+        raise ValueError("dynamic=True only applies to engine='bayes'")
     as_of, start, end, name, n_group, n_mid = TOURNAMENTS[tournament]
     matches = df.dropna(subset=["home_score"])
     matches = matches[matches["date"].between(start, end)
@@ -104,8 +122,13 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
         cutoff = str(r["date"].date()) if rolling else as_of
         if cutoff != fitted_at:
             tm = prepare_training(df, cutoff, xg_path=xg_path, **kw)
-            elo = load_elo(cutoff, elo_path) if elo_tau else None
-            model = DixonColes().fit(tm, elo=elo, elo_tau=elo_tau)
+            if engine == "bayes":
+                from .model_bayes import BayesianDixonColes
+                model = BayesianDixonColes().fit(tm, dynamic=dynamic,
+                                                 time_block=time_block)
+            else:
+                elo = load_elo(cutoff, elo_path) if elo_tau else None
+                model = DixonColes().fit(tm, elo=elo, elo_tau=elo_tau)
             if anchor_beta:
                 anchor_model(model, df, cutoff, beta=anchor_beta,
                              long_half_life=anchor_half_life,

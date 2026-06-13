@@ -67,6 +67,19 @@ ELO_PRIOR_TAU = 0.0         # external Elo anchor (docs/model-robustness-plan.md
 ELO_PATH = f"{INPUT_DIR}/elo.csv"  # dated Elo snapshots (scripts/fetch_elo.py);
                                    # data.load_elo resolves the one ≤ as-of
 
+# --- Bayesian engine (--engine bayes) ---
+BAYES_DYNAMIC = False        # Phase B1 (docs/bayesian-confederation-plan.md):
+                             # replace the exponential time-decay weighting with
+                             # an explicit random-walk evolution of each team's
+                             # strength over time blocks, predicting from the
+                             # most recent block. False = Phase A static (the
+                             # decay-weighted offset-prior model, the bayes
+                             # default); opt-in via --bayes-dynamic. No effect
+                             # under --engine dc.
+BAYES_TIME_BLOCK = "halfyear"  # random-walk block granularity when BAYES_DYNAMIC
+                               # is on: "year" | "halfyear" | "quarter". Finer =
+                               # more temporal resolution, slower MCMC.
+
 # --- Blending weights ---
 ODDS_WEIGHT = 1.0           # 1X2 marginals come 100% from the market; the model
                             # only shapes the score distribution *within* each
