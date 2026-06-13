@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wcpred — White paper: modelo, validación y limitaciones</title>
+<meta name="description" content="White paper técnico de wcpred: un modelo Dixon-Coles orientado a puntos esperados Penka para el Mundial 2026 — formulación, protocolo de validación y limitaciones conocidas.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:    #f7f2e7;
+  --paper-2:  #efe8d8;
+  --ink:      #1c2419;
+  --ink-soft: #4a5244;
+  --pitch:    #1c5e38;
+  --pitch-2:  #2c7a4b;
+  --clay:     #a33b2e;
+  --gold:     #b08a2e;
+  --rule:     #cdc4ae;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --serif: "Newsreader", Georgia, serif;
+  --display: "Fraunces", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(28,94,56,.06), transparent 60%),
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(28,36,25,.012) 2px 4px);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 18.5px;
+  line-height: 1.62;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- masthead ---------- */
+header.masthead {
+  border-bottom: 3px double var(--rule);
+  padding: 3.2rem 1.5rem 2.4rem;
+  text-align: center;
+  position: relative;
+}
+.kicker {
+  font-family: var(--mono);
+  font-size: .72rem;
+  letter-spacing: .32em;
+  text-transform: uppercase;
+  color: var(--pitch);
+  margin-bottom: 1.4rem;
+}
+.kicker::before, .kicker::after { content: "—"; color: var(--rule); margin: 0 .8em; }
+h1.title {
+  font-family: var(--display);
+  font-weight: 560;
+  font-size: clamp(2.1rem, 5.4vw, 3.6rem);
+  line-height: 1.08;
+  letter-spacing: -.015em;
+  margin: 0 auto .9rem;
+  max-width: 21ch;
+}
+h1.title em { font-style: italic; color: var(--pitch); }
+.subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(1.02rem, 2.4vw, 1.25rem);
+  color: var(--ink-soft);
+  max-width: 52ch;
+  margin: 0 auto 1.8rem;
+}
+.byline {
+  font-family: var(--mono);
+  font-size: .78rem;
+  color: var(--ink-soft);
+  display: flex; gap: 2.2rem; justify-content: center; flex-wrap: wrap;
+}
+.byline b { color: var(--ink); font-weight: 500; }
+
+/* ---------- layout ---------- */
+main { max-width: 47rem; margin: 0 auto; padding: 0 1.4rem 6rem; }
+section { margin-top: 4.2rem; }
+h2 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.72rem;
+  line-height: 1.18;
+  margin: 0 0 1.1rem;
+  display: flex; align-items: baseline; gap: .8rem;
+}
+h2 .secno {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: .95rem;
+  color: var(--pitch);
+  flex: none;
+}
+h3 {
+  font-family: var(--display);
+  font-weight: 560;
+  font-size: 1.18rem;
+  margin: 2.2rem 0 .6rem;
+}
+p { margin: 0 0 1.05rem; }
+a { color: var(--pitch); text-decoration-color: rgba(28,94,56,.35); text-underline-offset: 3px; }
+strong { font-weight: 640; }
+code, .mono {
+  font-family: var(--mono);
+  font-size: .82em;
+  background: var(--paper-2);
+  padding: .1em .35em;
+  border-radius: 3px;
+}
+ul, ol { padding-left: 1.4rem; margin: 0 0 1.05rem; }
+li { margin-bottom: .45rem; }
+
+/* abstract */
+.abstract {
+  margin: 3.4rem auto 0;
+  padding: 1.6rem 1.8rem;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-size: .98rem;
+}
+.abstract .lbl {
+  font-family: var(--mono); font-size: .7rem; letter-spacing: .28em;
+  text-transform: uppercase; color: var(--pitch); display: block; margin-bottom: .7rem;
+}
+.abstract p:first-of-type::first-letter {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 3.1em;
+  float: left;
+  line-height: .82;
+  padding: .06em .12em 0 0;
+  color: var(--pitch);
+}
+
+/* TOC */
+nav.toc {
+  margin-top: 2.6rem;
+  columns: 2; column-gap: 2.5rem;
+  font-size: .92rem;
+}
+nav.toc a {
+  display: flex; gap: .7rem; align-items: baseline;
+  text-decoration: none; color: var(--ink);
+  padding: .32rem 0; border-bottom: 1px dotted var(--rule);
+  break-inside: avoid;
+}
+nav.toc a:hover { color: var(--pitch); }
+nav.toc .n { font-family: var(--mono); font-size: .74rem; color: var(--pitch); flex: none; }
+@media (max-width: 600px) { nav.toc { columns: 1; } }
+
+/* tables */
+figure { margin: 1.8rem 0 2rem; }
+figure > table { margin: 0 auto; }
+figcaption {
+  font-size: .84rem; color: var(--ink-soft); margin-top: .7rem;
+  text-align: center; font-style: italic; max-width: 56ch; margin-inline: auto;
+}
+figcaption b { font-style: normal; font-family: var(--mono); font-size: .78rem; color: var(--pitch); }
+table {
+  border-collapse: collapse;
+  font-size: .88rem;
+  width: 100%;
+}
+caption { display: none; }
+th, td { padding: .42rem .7rem; text-align: left; }
+thead th {
+  font-family: var(--mono); font-size: .7rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-soft); font-weight: 500;
+  border-bottom: 2px solid var(--ink);
+}
+tbody tr { border-bottom: 1px solid var(--rule); }
+tbody tr:last-child { border-bottom: 2px solid var(--ink); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: .8rem; }
+tr.hl td { background: rgba(28,94,56,.08); }
+.tbl-scroll { overflow-x: auto; }
+
+/* connectivity heatmap */
+table.heat { width: auto; margin: 0 auto; }
+table.heat th { font-family: var(--mono); font-size: .68rem; }
+table.heat tbody th { border: 0; text-align: right; color: var(--ink); }
+table.heat td {
+  text-align: center; font-family: var(--mono); font-size: .76rem;
+  min-width: 3.4rem; border: 2px solid var(--paper);
+}
+table.heat tbody tr { border: 0; }
+table.heat td.diag { font-weight: 600; }
+
+/* callouts */
+.note, .verdict {
+  margin: 1.8rem 0;
+  padding: 1.1rem 1.4rem;
+  font-size: .95rem;
+  border-left: 4px solid var(--pitch);
+  background: linear-gradient(90deg, rgba(28,94,56,.07), transparent 70%);
+}
+.verdict { border-color: var(--clay); background: linear-gradient(90deg, rgba(163,59,46,.07), transparent 70%); }
+.note .lbl, .verdict .lbl {
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .24em;
+  text-transform: uppercase; display: block; margin-bottom: .4rem;
+}
+.note .lbl { color: var(--pitch); }
+.verdict .lbl { color: var(--clay); }
+.note p:last-child, .verdict p:last-child { margin-bottom: 0; }
+
+/* status chips for the robustness phases */
+.chip {
+  font-family: var(--mono); font-size: .66rem; letter-spacing: .1em;
+  text-transform: uppercase; padding: .14em .55em; border-radius: 99px;
+  white-space: nowrap; vertical-align: middle;
+}
+.chip.rej { background: rgba(163,59,46,.12); color: var(--clay); border: 1px solid rgba(163,59,46,.35); }
+.chip.ok  { background: rgba(28,94,56,.12); color: var(--pitch); border: 1px solid rgba(28,94,56,.35); }
+
+/* big stat band */
+.stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1px; background: var(--rule);
+  border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink);
+  margin: 2rem 0;
+}
+.stats > div { background: var(--paper); padding: 1.1rem 1rem .9rem; text-align: center; }
+.stats .v { font-family: var(--display); font-weight: 600; font-size: 1.9rem; color: var(--pitch); line-height: 1; }
+.stats .k { font-family: var(--mono); font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin-top: .5rem; }
+
+/* equation block */
+.eq {
+  font-family: var(--serif); font-style: italic; text-align: center;
+  margin: 1.6rem 0; font-size: 1.06rem; color: var(--ink);
+}
+.eq .tag { font-family: var(--mono); font-style: normal; font-size: .72rem; color: var(--ink-soft); float: right; }
+
+hr.sep {
+  border: 0; height: 1px; background: var(--rule);
+  margin: 3rem auto; width: 38%;
+  position: relative; overflow: visible;
+}
+hr.sep::after {
+  content: "⚽"; position: absolute; top: -0.72em; left: 50%; transform: translateX(-50%);
+  background: var(--paper); padding: 0 .7em; font-size: .8rem; filter: grayscale(.3);
+}
+
+footer {
+  border-top: 3px double var(--rule);
+  padding: 2.2rem 1.4rem 3.4rem;
+  text-align: center;
+  font-family: var(--mono); font-size: .74rem; color: var(--ink-soft);
+}
+
+@media print {
+  body { background: #fff; font-size: 11pt; }
+  header.masthead { padding-top: 1rem; }
+  nav.toc, hr.sep::after { display: none; }
+  section { break-inside: avoid-page; }
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="kicker">White paper · wcpred</div>
+  <h1 class="title">Un Dixon-Coles orientado a <em>puntos esperados</em> para el Mundial&nbsp;2026</h1>
+  <p class="subtitle">Formulación del modelo, protocolo de validación y limitaciones conocidas</p>
+  <div class="byline">
+    <span>Proyecto <b>wcpred</b></span>
+    <span>Junio de 2026</span>
+    <span>v. modelo <b>2026-06-12</b></span>
+  </div>
+</header>
+
+<main>
+
+<div class="abstract">
+  <span class="lbl">Resumen</span>
+  <p>wcpred predice marcadores del Mundial 2026 eligiendo, para cada partido, no el resultado más probable sino el que <strong>maximiza los puntos esperados</strong> bajo las reglas de la porra Penka. El núcleo es un modelo Dixon-Coles — Poisson ponderada con ataque y defensa por selección, decaimiento temporal y corrección rho — entrenado sobre ~11&nbsp;000 partidos internacionales desde 2015. En predicción, las probabilidades 1X2 se toman al 100&nbsp;% del mercado de apuestas y el modelo solo da forma a la distribución de marcadores dentro de cada desenlace. La validación replica el protocolo en vivo — reajuste por jornada — sobre seis torneos (290 partidos), donde la configuración por defecto anota <strong>594 puntos Penka (2,05/partido)</strong>. La principal limitación es estructural: las confederaciones débilmente conectadas quedan mal ancladas a la escala global.</p>
+</div>
+
+<nav class="toc">
+  <a href="#problema"><span class="n">§1</span> El problema: optimizar puntos, no aciertos</a>
+  <a href="#modelo"><span class="n">§2</span> El modelo Dixon-Coles</a>
+  <a href="#datos"><span class="n">§3</span> Fuentes de datos y mezcla con el mercado</a>
+  <a href="#simulacion"><span class="n">§4</span> Del partido al torneo: Monte Carlo</a>
+  <a href="#validacion"><span class="n">§5</span> Validación: backtest con reajuste continuo</a>
+  <a href="#limitaciones"><span class="n">§6</span> Limitación principal: anclaje entre confederaciones</a>
+  <a href="#robustez"><span class="n">§7</span> El estudio de robustez y por qué se cerró</a>
+  <a href="#otras"><span class="n">§8</span> Otras limitaciones</a>
+</nav>
+
+<section id="problema">
+  <h2><span class="secno">§1</span>El problema: optimizar puntos, no aciertos</h2>
+  <p>El objetivo no es pronosticar bien en abstracto, sino puntuar en una porra concreta. Penka paga en tres niveles — marcador exacto, diferencia de goles correcta (cualquier empate acertado cuenta), y ganador — con importes que crecen por fase:</p>
+  <figure>
+    <table>
+      <thead><tr><th>Resultado</th><th class="num">Grupos</th><th class="num">R32 y octavos</th><th class="num">Cuartos en adelante</th></tr></thead>
+      <tbody>
+        <tr><td>Marcador exacto</td><td class="num">5</td><td class="num">8</td><td class="num">11</td></tr>
+        <tr><td>Diferencia de goles o empate</td><td class="num">3</td><td class="num">5</td><td class="num">7</td></tr>
+        <tr><td>Solo el ganador</td><td class="num">2</td><td class="num">3</td><td class="num">5</td></tr>
+      </tbody>
+    </table>
+    <figcaption><b>Tabla 1.</b> Pagos Penka por fase (<code>config.PENKA_STAGE_POINTS</code>).</figcaption>
+  </figure>
+  <p>La consecuencia clave: <strong>la apuesta óptima no es el marcador más probable</strong>. Un 2-1 cobra el nivel intermedio también desde el 1-0 y el 3-2, porque comparten diferencia de goles; un 1-0, solo desde el 2-1 y el 3-2 entre los marcadores plausibles. El optimizador recorre la matriz completa de probabilidades de marcador <code>P[goles_local, goles_visitante]</code> (rejilla 0..8) y elige la celda con mayor valor esperado bajo el modo de puntuación y la fase del partido. Todo lo demás — modelo, cuotas, simulación — existe para estimar bien esa matriz.</p>
+</section>
+
+<section id="modelo">
+  <h2><span class="secno">§2</span>El modelo Dixon-Coles</h2>
+  <p>El núcleo es el modelo clásico de Dixon y Coles (1997): cada selección <i>i</i> tiene un parámetro de ataque α<sub>i</sub> y otro de defensa δ<sub>i</sub>, y los goles de cada equipo en un partido siguen Poissons con tasas</p>
+  <p class="eq">λ<sub>local</sub> = exp(μ + α<sub>i</sub> − δ<sub>j</sub> + γ·𝟙<sub>casa</sub>) , &nbsp; λ<sub>visitante</sub> = exp(μ + α<sub>j</sub> − δ<sub>i</sub>)</p>
+  <p>con una corrección <i>rho</i> que reajusta las celdas de marcador bajo (0-0, 1-0, 0-1, 1-1), donde la independencia Poisson falla sistemáticamente. La ventaja de campo γ se aplica solo a los tres anfitriones (EE.&nbsp;UU., México, Canadá) cuando juegan en su país. Como ataque y defensa se ajustan conjuntamente, golear a un rival débil vale menos que ganar a uno fuerte: el modelo descuenta la dificultad del calendario — con la salvedad estructural del <a href="#limitaciones">apartado 6</a>.</p>
+  <p>El modelo se ajusta sobre ~11&nbsp;000 partidos internacionales desde 2015, pero no todos cuentan igual: cada uno entra con un peso que combina tres factores:</p>
+  <figure>
+    <table>
+      <thead><tr><th>Hiperparámetro</th><th class="num">Valor</th><th>Justificación</th></tr></thead>
+      <tbody>
+        <tr><td><code>HALF_LIFE_DAYS</code></td><td class="num">730</td><td>Decaimiento exponencial: el peso de un partido se reduce a la mitad cada 2 años.</td></tr>
+        <tr><td><code>FRIENDLY_WEIGHT</code></td><td class="num">1.0</td><td>Los amistosos cuentan al completo: infraponderarlos empeoró las tres métricas en toda la rejilla (tuning de junio 2026).</td></tr>
+        <tr><td><code>TRAIN_START</code></td><td class="num">2015-01-01</td><td>Se ignoran partidos anteriores.</td></tr>
+        <tr><td><code>MIN_MATCHES</code></td><td class="num">10</td><td>Selecciones con menos partidos quedan fuera del ajuste.</td></tr>
+        <tr><td><code>GD_CAP</code></td><td class="num">off</td><td>Capar las goleadas (p.&nbsp;ej. 5-0 → 3-0) se probó y se rechazó: empeoró RPS, log-loss y puntos en toda combinación.</td></tr>
+        <tr><td><code>MAX_GOALS</code></td><td class="num">8</td><td>Rejilla de marcadores 0..8 por equipo.</td></tr>
+      </tbody>
+    </table>
+    <figcaption><b>Tabla 2.</b> Hiperparámetros vigentes, validados sobre los seis torneos del backtest con confirmación en reajuste continuo.</figcaption>
+  </figure>
+  <p>Una fecha de corte gobierna todo el pipeline: el entrenamiento usa exclusivamente partidos <em>anteriores</em> a esa fecha, de modo que cualquier instantánea pasada puede regenerarse sin fugas de información — el mismo protocolo que usa la <a href="#validacion">validación (apartado 5)</a>.</p>
+</section>
+
+<section id="datos">
+  <h2><span class="secno">§3</span>Fuentes de datos y mezcla con el mercado</h2>
+  <h3>Resultados</h3>
+  <p>El dataset <a href="https://github.com/martj42/international_results">martj42/international_results</a> (actualización diaria) aporta todos los internacionales desde 1872 más el calendario del Mundial 2026. Es la única fuente de entrenamiento: <strong>el modelo nunca entrena sobre cuotas</strong>.</p>
+  <h3>Cuotas de mercado (predicción, no entrenamiento)</h3>
+  <p>Para los partidos con cuotas 1X2 disponibles (mediana entre casas vía The Odds API), se elimina el margen del bookmaker y las probabilidades limpias se convierten en una matriz de marcadores implícita por el mercado, recalibrando las tasas Poisson para casar con el 1X2 observado. Con el valor por defecto <code>ODDS_WEIGHT = 1.0</code>, <strong>las probabilidades 1X2 vienen al 100&nbsp;% del mercado</strong>; el modelo solo decide cómo se reparten los marcadores dentro de cada desenlace (victoria local, empate o victoria visitante), que es justo lo que las cuotas no dicen. En resumen: el mercado fija quién gana y el modelo, con qué resultado.</p>
+  <p>Cada descarga de cuotas guarda además una instantánea con sello temporal (<code>data/input/odds/odds_&lt;fecha&gt;.csv</code>). Al regenerar un día pasado, el pipeline usa la instantánea vigente entonces, de modo que los movimientos posteriores del mercado nunca se filtran a una predicción reconstruida.</p>
+  <h3>xG: evaluado y descartado para 2026</h3>
+  <p>Existe un modo de mezclar el xG de FotMob en los objetivos de entrenamiento, controlado por el parámetro <code>XG_ALPHA</code>: por ejemplo, con un peso de 0,6 sobre los goles la mezcla es <code>0,6·goles + 0,4·xG</code>. Un experimento mostró un compromiso claro: cuanto más peso recibe el xG, mejor calibra el modelo (la log-loss baja de 2,7702 a 2,7678) pero peor puntúa (de 295,5 a 290,0 puntos Superbru). Además FotMob solo cubre desde ~mediados de 2022, sin amistosos y con ~28&nbsp;% de los clasificatorios.</p>
+</section>
+
+<section id="simulacion">
+  <h2><span class="secno">§4</span>Del partido al torneo: Monte Carlo</h2>
+  <p>Sobre las matrices de marcador por partido se montan dos capas de simulación:</p>
+  <ul>
+    <li><strong>Fase de grupos</strong> — un Monte Carlo de los grupos. Los partidos ya jugados entran con su resultado real; los pendientes se muestrean de sus matrices. Desempates por puntos, diferencia de goles y goles a favor; lo que reste se rompe al azar.</li>
+    <li><strong>Torneo completo</strong> — simulación conjunta de los 12 grupos, asignación de los 8 mejores terceros, cuadro oficial de dieciseisavos hasta la final, y resolución de empates de eliminatoria por prórroga (a 1/3 del ritmo anotador) y penaltis. Usa resultados reales donde ya existen — también en eliminatorias — así que sirve igualmente a mitad de torneo.</li>
+  </ul>
+  <p>El factor «1/3 del ritmo anotador» no se estima de los datos: es pura proporción de tiempo. La prórroga dura 30 minutos frente a los 90 reglamentarios (30/90 = 1/3) y, asumiendo que los goles llegan a un ritmo por minuto constante, los goles esperados de cada equipo en esa media hora son un tercio de los de un partido completo. Si tras la prórroga el empate persiste, se resuelve como victoria por un gol al 50&nbsp;% para cada lado (penaltis).</p>
+  <p>Las predicciones por partido, en cambio, puntúan el resultado de los 90 minutos — que es lo que pagan Penka y Superbru — así que la prórroga y los penaltis están <strong>desactivados por defecto</strong>.</p>
+</section>
+
+<hr class="sep">
+
+<section id="validacion">
+  <h2><span class="secno">§5</span>Validación: backtest con reajuste continuo</h2>
+  <p>No hay suite de tests: la regresión del modelo es el backtest. Cubre seis torneos — Mundial 2018, Eurocopa 2021, Copa América 2021, Mundial 2022, Eurocopa 2024 y Copa América 2024 — y por defecto replica exactamente el protocolo en vivo: <strong>reajuste continuo por jornada</strong> (<i>rolling re-fit</i>), donde el modelo se reentrena antes de cada tanda de partidos usando solo lo jugado hasta entonces (como alternativa puede compararse con un único ajuste previo al torneo). Los niveles de pago Penka se derivan del formato de cada torneo.</p>
+  <div class="stats">
+    <div><div class="v">594</div><div class="k">pts Penka / 290 partidos</div></div>
+    <div><div class="v">37</div><div class="k">marcadores exactos</div></div>
+    <div><div class="v">0,1890</div><div class="k">RPS 1X2</div></div>
+    <div><div class="v">2,7702</div><div class="k">log-loss exacto</div></div>
+  </div>
+  <p>Cada ejecución reporta, además de los puntos, dos métricas de baja varianza: el <em>ranked probability score</em> (RPS) sobre el 1X2 y la log-loss del marcador exacto. La disciplina metodológica importa aquí: <strong>se tunea sobre RPS y log-loss, y los puntos solo desempatan</strong> — sobre ~64 partidos por torneo, los puntos son demasiado ruidosos para guiar decisiones por sí solos. El torneo más difícil es el Mundial 2022, cargado de sorpresas: 1,53 pts Penka/partido y 53&nbsp;% de desenlaces acertados, en línea con los propios favoritos del mercado (~55&nbsp;% allí).</p>
+  <p>Varios experimentos dejaron dos lecciones de signo opuesto. <code>FRIENDLY_WEIGHT</code> 0,5 → 1,0 mejoró el RPS monótonamente en toda la rejilla y ganó en las tres métricas bajo reajuste continuo (295,5 vs 289,0 puntos Superbru; RPS 0,1890 vs 0,1897; log-loss 2,770 vs 2,781): ahora es el valor por defecto. Capar las goleadas (<code>GD_CAP</code>) hizo lo contrario — empeoró todo en toda combinación — confirmando que los márgenes abultados llevan señal real que Dixon-Coles ya descuenta adecuadamente.</p>
+  <figure>
+    <table>
+      <thead><tr><th class="num">α (peso de los goles)</th><th class="num">Puntos</th><th class="num">pts/partido</th><th class="num">RPS</th><th class="num">log-loss</th><th class="num">Exactos</th></tr></thead>
+      <tbody>
+        <tr class="hl"><td class="num">1.0 (sin xG)</td><td class="num">295.5</td><td class="num">1.019</td><td class="num">0.1890</td><td class="num">2.7702</td><td class="num">44</td></tr>
+        <tr><td class="num">0.8</td><td class="num">295.5</td><td class="num">1.019</td><td class="num">0.1889</td><td class="num">2.7695</td><td class="num">44</td></tr>
+        <tr><td class="num">0.6 (valor por defecto)</td><td class="num">293.0</td><td class="num">1.010</td><td class="num">0.1889</td><td class="num">2.7689</td><td class="num">43</td></tr>
+        <tr><td class="num">0.4</td><td class="num">293.0</td><td class="num">1.010</td><td class="num">0.1889</td><td class="num">2.7684</td><td class="num">43</td></tr>
+        <tr><td class="num">0.2</td><td class="num">293.0</td><td class="num">1.010</td><td class="num">0.1890</td><td class="num">2.7681</td><td class="num">43</td></tr>
+        <tr><td class="num">0.0 (xG puro)</td><td class="num">290.0</td><td class="num">1.000</td><td class="num">0.1890</td><td class="num">2.7678</td><td class="num">42</td></tr>
+      </tbody>
+    </table>
+    <figcaption><b>Tabla 3.</b> Barrido de la mezcla goles/xG (Superbru, reajuste continuo, 290 partidos agregados). La log-loss mejora ~0,1&nbsp;% — apoyada solo en los 83 partidos con cobertura xG — mientras los puntos caen de forma consistente. Por eso las predicciones de 2026 prescinden del xG.</figcaption>
+  </figure>
+</section>
+
+<section id="limitaciones">
+  <h2><span class="secno">§6</span>Limitación principal: anclaje entre confederaciones</h2>
+  <p>Dixon-Coles solo puede comparar selecciones de confederaciones distintas a través de los partidos «puente» entre ellas: los pocos encuentros que enfrentan, por ejemplo, a Europa con Sudamérica. Cuando esos cruces escasean, la <em>escala relativa</em> de dos confederaciones queda mal determinada: un puñado de resultados puede desplazar bloques enteros, y el descuento por rival débil se queda corto. La matriz de conectividad lo cuantifica:</p>
+  <figure>
+    <div class="tbl-scroll">
+    <table class="heat">
+      <thead><tr><th></th><th>UEFA</th><th>CONMEBOL</th><th>CONCACAF</th><th>CAF</th><th>AFC</th><th>OFC</th></tr></thead>
+      <tbody>
+        <tr><th>UEFA</th><td class="diag" style="background:rgba(28,94,56,.50)">82%</td><td style="background:rgba(163,59,46,.22)">3%</td><td style="background:rgba(28,94,56,.06)">5%</td><td style="background:rgba(28,94,56,.06)">5%</td><td style="background:rgba(28,94,56,.06)">5%</td><td style="background:rgba(28,94,56,.02)">1%</td></tr>
+        <tr><th>CONMEBOL</th><td style="background:rgba(28,94,56,.12)">12%</td><td class="diag" style="background:rgba(28,94,56,.30)">42%</td><td style="background:rgba(28,94,56,.20)">25%</td><td style="background:rgba(28,94,56,.08)">8%</td><td style="background:rgba(28,94,56,.12)">12%</td><td style="background:rgba(28,94,56,.02)">1%</td></tr>
+        <tr><th>CONCACAF</th><td style="background:rgba(28,94,56,.08)">8%</td><td style="background:rgba(28,94,56,.10)">10%</td><td class="diag" style="background:rgba(28,94,56,.44)">70%</td><td style="background:rgba(28,94,56,.05)">4%</td><td style="background:rgba(28,94,56,.07)">7%</td><td style="background:rgba(28,94,56,.02)">1%</td></tr>
+        <tr><th>CAF</th><td style="background:rgba(28,94,56,.06)">6%</td><td style="background:rgba(28,94,56,.03)">2%</td><td style="background:rgba(28,94,56,.04)">3%</td><td class="diag" style="background:rgba(28,94,56,.48)">79%</td><td style="background:rgba(28,94,56,.10)">10%</td><td style="background:rgba(28,94,56,.01)">0%</td></tr>
+        <tr><th>AFC</th><td style="background:rgba(28,94,56,.07)">7%</td><td style="background:rgba(28,94,56,.05)">4%</td><td style="background:rgba(28,94,56,.06)">6%</td><td style="background:rgba(28,94,56,.11)">11%</td><td class="diag" style="background:rgba(28,94,56,.44)">70%</td><td style="background:rgba(28,94,56,.03)">2%</td></tr>
+        <tr><th>OFC</th><td style="background:rgba(28,94,56,.09)">9%</td><td style="background:rgba(28,94,56,.04)">3%</td><td style="background:rgba(28,94,56,.07)">7%</td><td style="background:rgba(28,94,56,.05)">4%</td><td style="background:rgba(28,94,56,.13)">15%</td><td class="diag" style="background:rgba(28,94,56,.40)">61%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <figcaption><b>Figura 1.</b> Matriz de conectividad confederación×confederación (peso de entrenamiento, filas normalizadas; conjunto del 2026-06-12, 10&nbsp;834 partidos). El puente UEFA–CONMEBOL — el que sostiene cualquier afirmación sobre qué élite es más fuerte — pesa solo un 3&nbsp;% del lado UEFA (~25-30 partidos-equivalentes, menos aún tras el decaimiento). Explorable en la pestaña <i>Conectividad</i> de la web app.</figcaption>
+  </figure>
+  <h3>Caso 1: Australia por encima de Estados Unidos</h3>
+  <p>El modelo sitúa a Australia (24.ª, rating global 1,98) por delante de EE.&nbsp;UU. (43.ª, 1,66) pese a que EE.&nbsp;UU. es anfitrión. Desde junio de 2024, Australia construyó un +19 de diferencia de goles esencialmente contra rivales AFC (oponente medio 1,12; incluye Bangladés con −1,3), mientras EE.&nbsp;UU. jugaba — y a menudo perdía — contra Brasil, Portugal, Alemania, Bélgica o Colombia (oponente medio 1,66). El descuento por calendario de Dixon-Coles existe, pero es tan bueno como la conectividad: con la AFC casi aislada (70&nbsp;% intra), sus propios «débiles» están sobrevalorados en términos absolutos y el descuento se queda corto. El veredicto del análisis: <strong>mitad real, mitad artefacto</strong> — EE.&nbsp;UU. ha perdido de verdad el 42&nbsp;% de sus partidos, pero el récord australiano está inflado por calendario. En la práctica el efecto se atenúa. Con la ventaja de campo, la simulación de grupos ya deja a ambos casi igualados (probabilidad de clasificarse 0,498 vs 0,494). Y donde más pesa el artefacto, las cuotas lo corrigen: sin mercado, Australia se clasificaba con probabilidad 0,49 por delante de Paraguay (0,46); con cuotas, Australia baja a 0,26 y Paraguay sube a 0,42.</p>
+  <h3>Caso 2: Argentina por encima de España</h3>
+  <p>El modelo tiene a Argentina 1.ª (3,15) sobre España (2,98), mientras el mercado de ganador del torneo las ordena al revés. La ventaja argentina es defensiva (0,38 goles encajados por partido frente a 0,82 de España), pero ese registro se construye en un 77&nbsp;% contra rivales de CONMEBOL y CONCACAF, y compararlo con el de España depende de los poquísimos partidos que enfrentan a ambas confederaciones. El mercado solo corrige la fase de grupos, donde inclina la balanza hacia España; los cruces de eliminatoria no tienen cuotas, y es ahí donde Argentina adelanta. Por eso su probabilidad de campeón apenas cambia con o sin mercado (16,6&nbsp;%; España 13,6&nbsp;%).</p>
+  <div class="note">
+    <span class="lbl">Cómo leerlo</span>
+    <p>Los rankings <em>dentro</em> de cada bloque son fiables — la densidad intra-UEFA o intra-CONMEBOL hace funcionar el descuento por rival (el calendario blando de Inglaterra, oponente medio 1,55 vs 1,86 de España, se descuenta correctamente dentro de UEFA). Lo frágil es el <em>desplazamiento entre escalas</em>: el 16,6&nbsp;% vs 13,6&nbsp;% de Argentina-España debe leerse como un empate estadístico con ventaja nominal, y el orden del mercado es al menos igual de creíble. Lo mismo aplica a los ratings altos de Marruecos (8.ª, oponente medio 1,05 — el calendario más débil del top) y Japón (12.ª, 1,19).</p>
+  </div>
+</section>
+
+<section id="robustez">
+  <h2><span class="secno">§7</span>El estudio de robustez y por qué se cerró</h2>
+  <p>Se ejecutó un estudio sistemático de cuatro fases contra el problema del anclaje (<code>docs/model-robustness-plan.md</code>), con una única puerta de validación — el backtest continuo, midiendo RPS y log-loss más una auditoría de sesgo entre confederaciones construida ex&nbsp;profeso — y una regla estricta de reproducibilidad: cada intervención queda tras un interruptor cuyo valor por defecto reproduce el modelo actual exactamente.</p>
+  <figure>
+    <table>
+      <thead><tr><th>Fase</th><th>Intervención</th><th>Estado</th><th>Hallazgo decisivo</th></tr></thead>
+      <tbody>
+        <tr><td><b>0</b></td><td>Auditoría de sesgo en puentes (predicho vs realizado, solo partidos inter-confederación; 123 en el backtest)</td><td><span class="chip ok">completa</span></td><td>Sesgo direccional y moderado en los pares mejor muestreados: CONMEBOL sobrevalorada +8,8&nbsp;pp vs UEFA (n=22), CONCACAF +11,3&nbsp;pp (n=14), AFC +46,6&nbsp;pp vs CONCACAF (n=4). No uniforme: AFC–UEFA va al revés (−9,7&nbsp;pp).</td></tr>
+        <tr><td><b>1</b></td><td>Shrinkage por aumento de datos (empates 1-1 sintéticos vs un ancla fantasma o entre pares cross-conf)</td><td><span class="chip rej">rechazada</span></td><td>Degrada RPS y log-loss monótonamente y mueve los <em>niveles</em> en la dirección equivocada: comprime más a la élite UEFA, y el sesgo CONMEBOL–UEFA <em>crece</em> (+0,088 → +0,104).</td></tr>
+        <tr><td><b>2b</b></td><td>Re-anclaje de niveles por confederación a dos escalas temporales (ajuste lento a 8 años, donde abundan los puentes)</td><td><span class="chip rej">rechazada</span></td><td>Única que mejoró RPS/log-loss (0,1887/2,7691 a β=0,75) — pero apenas mueve el sesgo: las ventanas larga y corta asignan niveles casi idénticos (Δ ±0,02) porque ambas cuelgan de los <em>mismos</em> puentes finos. La información interna del dataset está agotada.</td></tr>
+        <tr><td><b>3</b></td><td>Prior Elo externo (penalización hacia una transformación afín del Elo histórico de eloratings.net, resuelto causalmente por snapshot)</td><td><span class="chip rej">rechazada</span></td><td>Añade información real (+14..+22 pts Penka, 594 → 608-616) y mejora los pares AFC — pero la log-loss degrada monótonamente en τ y <strong>los dos sesgos diagnosticados crecen</strong> (CONMEBOL–UEFA +0,088 → +0,095..0,098; CONCACAF–UEFA +0,113 → +0,130..0,146): eloratings.net comparte el mismo sesgo regional en esos pares, así que no puede corregirlo.</td></tr>
+      </tbody>
+    </table>
+    <figcaption><b>Tabla 4.</b> Resumen del estudio de robustez (cerrado el 2026-06-12). Antes de él ya se habían probado y rechazado capar goleadas (<code>GD_CAP</code>) y sobreponderar los partidos puente (<code>CROSS_CONF_WEIGHT</code>: prometedor en ajuste estático, revertido monótonamente bajo el protocolo continuo). Todos los interruptores siguen disponibles, apagados por defecto.</figcaption>
+  </figure>
+  <div class="verdict">
+    <span class="lbl">Conclusión del estudio</span>
+    <p>Ningún ancla — interna o externa — de las ensayadas corrige el sesgo CONMEBOL/CONCACAF-vs-UEFA sin degradar la calibración: los puentes del propio dataset son demasiado finos, y la referencia externa natural (Elo) padece el mismo sesgo. La limitación queda <strong>aceptada y documentada</strong>, mitigada en la práctica por la mezcla de mercado (<code>ODDS_WEIGHT = 1.0</code>) allí donde existen cuotas.</p>
+  </div>
+</section>
+
+<section id="otras">
+  <h2><span class="secno">§8</span>Otras limitaciones</h2>
+  <ul>
+    <li><strong>Eliminatorias en campo neutral.</strong> La ventaja de anfitrión solo se modela en grupos: el cuadro de eliminatorias es sintético («ganador del grupo E», «mejor tercero asignado al partido 80») sin sede asociada, así que todo cruce se juega neutral. Efecto neto: una pequeña infravaloración sistemática de las rondas profundas de EE.&nbsp;UU., México y Canadá.</li>
+    <li><strong>Sin cuotas en cruces potenciales.</strong> Los feeds de cuotas cubren solo partidos programados, de modo que de dieciseisavos en adelante la simulación es solo-modelo aunque haya cuotas en la fase de grupos — y por tanto hereda íntegro el sesgo del <a href="#limitaciones">apartado 6</a> (el mecanismo del caso Argentina-España).</li>
+    <li><strong>xG sin recorrido</strong> (<a href="#validacion">apartado 5</a>): cobertura parcial (desde ~mediados de 2022, sin amistosos) y coste neto en puntos. Apagado para 2026.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  wcpred · white paper · junio 2026 — fuentes: README.md, docs/known-limitations.md, docs/connectivity.md, docs/model-robustness-plan.md
+</footer>
+
+</body>
+</html>
