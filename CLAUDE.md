@@ -112,7 +112,8 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   RPS-driven coordinate search over `ELO_LONGTERM_YEARS`/`ELO_HA` then the
   per-confederation K). Defaults stay at the published-rule values (1.0 K) per
   the regenerability rule — adopt a tuned config only after a rolling
-  re-validation. See `docs/elo-engine-plan.md`.
+  re-validation. See `docs/elo-engine-plan.md` and the tuning run (results +
+  timing) in `docs/elo-engine-tuning.md`.
 - `scoring.py` — Penka and Superbru points, Closeness Index, expected-points
   optimiser (`best_prediction(P, mode, stage)`).
 - `odds.py` — odds → margin-free 1X2 probs → market-implied score matrix.

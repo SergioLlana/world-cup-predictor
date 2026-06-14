@@ -299,9 +299,9 @@ def _elo_pool(df, tournaments, conf_k, ly, ha, rolling):
     }
 
 
-def tune_elo(df, tournaments=None, longterm_years=(5, 8, 10, 12),
-             has=(75.0, 100.0, 125.0),
-             conf_k_grid=(0.5, 0.75, 1.0, 1.25, 1.5),
+def tune_elo(df, tournaments=None, longterm_years=(5, 8, 10, 12, 15),
+             has=(50.0, 75.0, 100.0, 125.0),
+             conf_k_grid=(0.5, 0.75, 1.0, 1.25, 1.5, 2.0),
              confs=("UEFA", "CONMEBOL", "CONCACAF", "CAF", "AFC", "OFC"),
              rolling=False, verbose=True):
     """Coordinate tuning for the Elo engine (``--engine elo``) on pooled RPS
@@ -365,3 +365,24 @@ def tune_elo(df, tournaments=None, longterm_years=(5, 8, 10, 12),
     return (scalar_df,
             pd.DataFrame(conf_rows).sort_values("rps").reset_index(drop=True),
             best)
+
+
+def elo_report(df, conf_k=None, longterm_years=None, ha=None, rolling=True,
+               tournaments=None):
+    """Per-tournament + pooled elo-engine metrics for one config.
+
+    Used to re-validate a tuned config with the live rolling re-fit (the gold
+    standard) before adopting it. Returns ``(per_tournament_df, pooled)``.
+    """
+    tournaments = list(tournaments or TOURNAMENTS)
+    res = [dict(backtest(df, t, rolling=rolling, engine="elo",
+                         elo_conf_k=conf_k, elo_longterm_years=longterm_years,
+                         elo_ha=ha)) for t in tournaments]
+    n = sum(r["matches"] for r in res)
+    pooled = {
+        "points": sum(r["points"] for r in res),
+        "pts_per_match": sum(r["points"] for r in res) / n,
+        "rps": sum(r["rps"] * r["matches"] for r in res) / n,
+        "log_loss": sum(r["log_loss"] * r["matches"] for r in res) / n,
+    }
+    return pd.DataFrame(res), pooled

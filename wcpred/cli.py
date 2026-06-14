@@ -17,7 +17,8 @@ from datetime import date, timedelta
 import pandas as pd
 
 from .anchor import anchor_model
-from .backtest import TOURNAMENTS, backtest, bridge_audit, tune, tune_elo
+from .backtest import (TOURNAMENTS, backtest, bridge_audit, elo_report, tune,
+                       tune_elo)
 from .config import (BAYES_DYNAMIC, BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
                      BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_HA,
                      ELO_LONGTERM_YEARS, ELO_PATH, ELO_PRIOR_TAU, GROUPS_DIR,
@@ -256,17 +257,27 @@ def cmd_tune(args):
     df = load_results(args.data)
     if args.elo_engine:
         # In-house Elo engine (--engine elo): coordinate tuning of the long-term
-        # window, home advantage and the per-confederation K (RPS-driven). Has
-        # its own table layout, so handle and return before the grid printer.
+        # window, home advantage and the per-confederation K (RPS-driven), then
+        # a rolling re-fit re-validation of the winner vs the default config.
         scalar_df, conf_df, best = tune_elo(df, rolling=args.rolling)
         print("\nStep 1 — scalar grid (conf-K=1.0), sorted by pooled RPS:\n")
         print(scalar_df.to_string(index=False))
         print("\nStep 2 — per-confederation K coordinate sweep, by pooled RPS:\n")
         print(conf_df.to_string(index=False))
-        print(f"\nBest elo config: longterm_years={best['longterm_years']} "
+        print(f"\nBest static config: longterm_years={best['longterm_years']} "
               f"ha={best['ha']} conf_k={best['conf_k']} (rps {best['rps']:.4f})")
-        print("Re-validate with `wcpred backtest --tournament all --engine elo` "
-              "(rolling re-fit) before changing config.py.")
+        print("\nRe-validating default vs best with the rolling re-fit "
+              "(the live --as-of protocol)...\n")
+        for label, ck, ly, ha in (
+                ("default (10y, HA=100, K=1.0)", None, None, None),
+                ("best", best["conf_k"], best["longterm_years"], best["ha"])):
+            per, pooled = elo_report(df, conf_k=ck, longterm_years=ly, ha=ha,
+                                     rolling=True)
+            print(f"[rolling] {label}: {pooled['points']:.0f} pts "
+                  f"({pooled['pts_per_match']:.3f}/match), "
+                  f"rps {pooled['rps']:.4f}, ll {pooled['log_loss']:.4f}")
+        print("\nDefaults stay at the published eloratings rule (K=1.0) unless "
+              "the rolling re-validation clearly beats them (config.py).")
         return
     if args.shrinkage:
         # Phase 1 grid (docs/model-robustness-plan.md): sweep the shrinkage
