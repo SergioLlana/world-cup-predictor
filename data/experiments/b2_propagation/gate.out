@@ -1,0 +1,99 @@
+16:16:36 - cmdstanpy - INFO - compiling stan file /Users/sllana/Projects/world-cup-predictor/wcpred/stan/dixon_coles_dynamic.stan to exe file /Users/sllana/Projects/world-cup-predictor/wcpred/stan/dixon_coles_dynamic
+16:16:46 - cmdstanpy - INFO - compiled model executable: /Users/sllana/Projects/world-cup-predictor/wcpred/stan/dixon_coles_dynamic
+16:16:47 - cmdstanpy - INFO - CmdStan start processing
+16:16:47 - cmdstanpy - INFO - Chain [1] start processing
+16:16:47 - cmdstanpy - INFO - Chain [2] start processing
+16:16:47 - cmdstanpy - INFO - Chain [3] start processing
+16:16:47 - cmdstanpy - INFO - Chain [4] start processing
+16:22:30 - cmdstanpy - INFO - Chain [2] done processing
+16:22:39 - cmdstanpy - INFO - Chain [1] done processing
+16:23:06 - cmdstanpy - INFO - Chain [3] done processing
+16:23:44 - cmdstanpy - INFO - Chain [4] done processing
+  plug-in        wc2018     132.0 pts | rps 0.1989 | ll 2.8209 | exact 10
+  propagate      wc2018     132.0 pts | rps 0.1990 | ll 2.8198 | exact 10
+16:23:52 - cmdstanpy - INFO - CmdStan start processing
+16:23:52 - cmdstanpy - INFO - Chain [1] start processing
+16:23:52 - cmdstanpy - INFO - Chain [2] start processing
+16:23:52 - cmdstanpy - INFO - Chain [3] start processing
+16:23:52 - cmdstanpy - INFO - Chain [4] start processing
+16:28:49 - cmdstanpy - INFO - Chain [1] done processing
+16:29:38 - cmdstanpy - INFO - Chain [2] done processing
+16:29:49 - cmdstanpy - INFO - Chain [4] done processing
+16:30:04 - cmdstanpy - INFO - Chain [3] done processing
+  plug-in        euro2021   100.0 pts | rps 0.1820 | ll 2.8567 | exact 4
+  propagate      euro2021   108.0 pts | rps 0.1822 | ll 2.8571 | exact 5
+16:30:12 - cmdstanpy - INFO - CmdStan start processing
+16:30:12 - cmdstanpy - INFO - Chain [1] start processing
+16:30:12 - cmdstanpy - INFO - Chain [2] start processing
+16:30:12 - cmdstanpy - INFO - Chain [3] start processing
+16:30:12 - cmdstanpy - INFO - Chain [4] start processing
+16:35:26 - cmdstanpy - INFO - Chain [1] done processing
+16:36:00 - cmdstanpy - INFO - Chain [4] done processing
+16:36:03 - cmdstanpy - INFO - Chain [2] done processing
+16:36:11 - cmdstanpy - INFO - Chain [3] done processing
+  plug-in        copa2021    67.0 pts | rps 0.1545 | ll 2.5855 | exact 5
+  propagate      copa2021    60.0 pts | rps 0.1552 | ll 2.5972 | exact 5
+16:36:19 - cmdstanpy - INFO - CmdStan start processing
+16:36:19 - cmdstanpy - INFO - Chain [1] start processing
+16:36:19 - cmdstanpy - INFO - Chain [2] start processing
+16:36:19 - cmdstanpy - INFO - Chain [3] start processing
+16:36:19 - cmdstanpy - INFO - Chain [4] start processing
+16:41:40 - cmdstanpy - INFO - Chain [3] done processing
+16:41:57 - cmdstanpy - INFO - Chain [1] done processing
+16:42:09 - cmdstanpy - INFO - Chain [2] done processing
+16:42:42 - cmdstanpy - INFO - Chain [4] done processing
+  plug-in        wc2022     108.0 pts | rps 0.2118 | ll 3.0245 | exact 4
+  propagate      wc2022     105.0 pts | rps 0.2117 | ll 3.0061 | exact 4
+16:42:50 - cmdstanpy - INFO - CmdStan start processing
+16:42:50 - cmdstanpy - INFO - Chain [1] start processing
+16:42:50 - cmdstanpy - INFO - Chain [2] start processing
+16:42:50 - cmdstanpy - INFO - Chain [3] start processing
+16:42:50 - cmdstanpy - INFO - Chain [4] start processing
+16:48:14 - cmdstanpy - INFO - Chain [1] done processing
+16:48:14 - cmdstanpy - INFO - Chain [3] done processing
+16:48:22 - cmdstanpy - INFO - Chain [4] done processing
+16:48:40 - cmdstanpy - INFO - Chain [2] done processing
+  plug-in        euro2024   121.0 pts | rps 0.1862 | ll 2.5653 | exact 8
+  propagate      euro2024   117.0 pts | rps 0.1864 | ll 2.5784 | exact 7
+16:48:47 - cmdstanpy - INFO - CmdStan start processing
+16:48:47 - cmdstanpy - INFO - Chain [1] start processing
+16:48:47 - cmdstanpy - INFO - Chain [2] start processing
+16:48:47 - cmdstanpy - INFO - Chain [3] start processing
+16:48:47 - cmdstanpy - INFO - Chain [4] start processing
+16:53:54 - cmdstanpy - INFO - Chain [3] done processing
+16:54:01 - cmdstanpy - INFO - Chain [1] done processing
+16:54:33 - cmdstanpy - INFO - Chain [2] done processing
+16:54:44 - cmdstanpy - INFO - Chain [4] done processing
+  plug-in        copa2024    76.0 pts | rps 0.1639 | ll 2.4937 | exact 8
+  propagate      copa2024    87.0 pts | rps 0.1642 | ll 2.4991 | exact 9
+
+  plug-in        POOLED  604.0 pts (2.083/match) | rps 0.1884 | ll 2.7683 | exact 39 | n=290
+
+  propagate      POOLED  609.0 pts (2.100/match) | rps 0.1886 | ll 2.7681 | exact 40 | n=290
+
+--- bridge audit (plug-in) ---
+  conf_a   conf_b  n  exp_share_a  real_share_a    bias_a  goal_res_a  goal_res_b      rps
+CONMEBOL     UEFA 22     0.617696      0.522727  0.094969    0.082105    0.325791 0.195504
+     CAF     UEFA 21     0.323278      0.357143 -0.033865    0.247744    0.096363 0.207014
+CONCACAF CONMEBOL 21     0.314952      0.309524  0.005428   -0.150337    0.006720 0.144073
+     AFC     UEFA 19     0.308807      0.394737 -0.085930    0.294627    0.139519 0.229487
+CONCACAF     UEFA 14     0.347315      0.214286  0.133029   -0.137524    1.070858 0.145120
+     AFC CONMEBOL  8     0.240911      0.312500 -0.071589    0.128974   -0.162679 0.232342
+     CAF CONMEBOL  6     0.281781      0.333333 -0.051552    0.098204   -0.324368 0.266683
+     AFC      CAF  6     0.478753      0.583333 -0.104580    0.568286    0.479863 0.275392
+     AFC CONCACAF  4     0.447600      0.000000  0.447600   -0.330959    0.457523 0.239992
+     CAF CONCACAF  2     0.547334      1.000000 -0.452666    0.949693    0.128021 0.231722
+
+--- bridge audit (propagate) ---
+  conf_a   conf_b  n  exp_share_a  real_share_a    bias_a  goal_res_a  goal_res_b      rps
+CONMEBOL     UEFA 22     0.615908      0.522727  0.093181    0.053514    0.306204 0.195429
+     CAF     UEFA 21     0.325694      0.357143 -0.031449    0.231900    0.065077 0.206824
+CONCACAF CONMEBOL 21     0.317097      0.309524  0.007574   -0.164124   -0.020988 0.144605
+     AFC     UEFA 19     0.311658      0.394737 -0.083079    0.278646    0.107843 0.229205
+CONCACAF     UEFA 14     0.349501      0.214286  0.135215   -0.153900    1.043067 0.145903
+     AFC CONMEBOL  8     0.244556      0.312500 -0.067944    0.114945   -0.197409 0.231896
+     CAF CONMEBOL  6     0.284553      0.333333 -0.048781    0.084643   -0.357414 0.265816
+     AFC      CAF  6     0.479250      0.583333 -0.104084    0.547346    0.458129 0.274701
+     AFC CONCACAF  4     0.448034      0.000000  0.448034   -0.346387    0.436783 0.239430
+     CAF CONCACAF  2     0.546543      1.000000 -0.453457    0.925825    0.107358 0.231480
+
