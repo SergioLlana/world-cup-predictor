@@ -107,11 +107,13 @@ def compute_elo(matches, as_of, ha=ELO_HA, conf_k=None, base=ELO_BASE,
 class EloDixonColes(DixonColes):
     """Dixon-Coles whose ratings come from an in-house Elo, not goal-MLE."""
 
-    def fit(self, m, df=None, as_of=None, ha=ELO_HA, conf_k=None,
-            longterm_years=ELO_LONGTERM_YEARS, elo_train_start=ELO_TRAIN_START,
-            elo=None, elo_tau=0.0):
+    def fit(self, m, df=None, as_of=None, ha=None, conf_k=None,
+            longterm_years=None, elo_train_start=None, elo=None, elo_tau=0.0):
         """``m`` is the decay-weighted calibration frame (prepare_training);
         ``df``/``as_of`` give the raw full history for the Elo iteration.
+        ``ha``/``conf_k``/``longterm_years``/``elo_train_start`` default to the
+        ``config`` values when None (so callers can override individually, e.g.
+        the tuner).
 
         ``elo``/``elo_tau`` are accepted for signature parity with
         ``DixonColes.fit`` but ignored — this engine *is* the Elo anchor.
@@ -119,6 +121,11 @@ class EloDixonColes(DixonColes):
         if df is None or as_of is None:
             raise ValueError("EloDixonColes.fit needs df and as_of (raw history "
                              "for the Elo iteration)")
+        ha = ELO_HA if ha is None else ha
+        longterm_years = (ELO_LONGTERM_YEARS if longterm_years is None
+                          else longterm_years)
+        elo_train_start = (ELO_TRAIN_START if elo_train_start is None
+                           else elo_train_start)
         raw = df[(df["date"] >= pd.Timestamp(elo_train_start))
                  & (df["date"] < pd.Timestamp(as_of))]
         ratings, longterm, n_matches = compute_elo(

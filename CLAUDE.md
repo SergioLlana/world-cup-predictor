@@ -24,6 +24,8 @@ wcpred backtest --tournament all      # validation: ~594 Penka pts / 290 matches
                                       # --bridge-audit: + inter-confederation
                                       # calibration table (regional-bias test)
 wcpred tune                           # hyperparameter grid search (no xG)
+wcpred tune --elo-engine              # coordinate-tune the Elo engine
+                                      # (long-term window, HA, per-conf K)
 wcpred ratings --top 20
 wcpred backtest --tournament all --static --engine bayes --bridge-audit
                                       # Bayesian Dixon-Coles (Stan); needs the
@@ -106,7 +108,11 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   β_lt·Δelo_lt` on the decay-weighted training frame) and `rates`; inherits
   `matrix_from_rates`/`score_matrix`. Ratings ~594 dc / ~587 elo Penka pts on
   `backtest --tournament all`. Single data source (`results.csv`), nothing
-  scraped. See `docs/elo-engine-plan.md`.
+  scraped. Tunable via `wcpred tune --elo-engine` (`backtest.tune_elo`:
+  RPS-driven coordinate search over `ELO_LONGTERM_YEARS`/`ELO_HA` then the
+  per-confederation K). Defaults stay at the published-rule values (1.0 K) per
+  the regenerability rule — adopt a tuned config only after a rolling
+  re-validation. See `docs/elo-engine-plan.md`.
 - `scoring.py` — Penka and Superbru points, Closeness Index, expected-points
   optimiser (`best_prediction(P, mode, stage)`).
 - `odds.py` — odds → margin-free 1X2 probs → market-implied score matrix.

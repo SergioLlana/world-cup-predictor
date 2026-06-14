@@ -17,7 +17,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from .anchor import anchor_model
-from .backtest import TOURNAMENTS, backtest, bridge_audit, tune
+from .backtest import TOURNAMENTS, backtest, bridge_audit, tune, tune_elo
 from .config import (BAYES_DYNAMIC, BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
                      BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_HA,
                      ELO_LONGTERM_YEARS, ELO_PATH, ELO_PRIOR_TAU, GROUPS_DIR,
@@ -254,6 +254,20 @@ def cmd_backtest(args):
 
 def cmd_tune(args):
     df = load_results(args.data)
+    if args.elo_engine:
+        # In-house Elo engine (--engine elo): coordinate tuning of the long-term
+        # window, home advantage and the per-confederation K (RPS-driven). Has
+        # its own table layout, so handle and return before the grid printer.
+        scalar_df, conf_df, best = tune_elo(df, rolling=args.rolling)
+        print("\nStep 1 — scalar grid (conf-K=1.0), sorted by pooled RPS:\n")
+        print(scalar_df.to_string(index=False))
+        print("\nStep 2 — per-confederation K coordinate sweep, by pooled RPS:\n")
+        print(conf_df.to_string(index=False))
+        print(f"\nBest elo config: longterm_years={best['longterm_years']} "
+              f"ha={best['ha']} conf_k={best['conf_k']} (rps {best['rps']:.4f})")
+        print("Re-validate with `wcpred backtest --tournament all --engine elo` "
+              "(rolling re-fit) before changing config.py.")
+        return
     if args.shrinkage:
         # Phase 1 grid (docs/model-robustness-plan.md): sweep the shrinkage
         # knobs alone, other hyperparameters held at today's defaults.
@@ -429,6 +443,10 @@ def main():
                     help="sweep the Phase 3 external Elo prior weight "
                          "(ELO_PRIOR_TAU) instead of the standard "
                          "hyperparameter grid")
+    sp.add_argument("--elo-engine", action="store_true",
+                    help="coordinate-tune the in-house Elo engine "
+                         "(--engine elo): long-term window, home advantage and "
+                         "the per-confederation K (ELO_CONF_K)")
     sp.set_defaults(func=cmd_tune)
 
     args = p.parse_args()

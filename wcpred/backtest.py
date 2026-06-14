@@ -15,7 +15,8 @@ import pandas as pd
 
 from .anchor import anchor_model
 from .config import (BAYES_SIGMA_CONF_SCALE, CONF_ANCHOR_BETA,
-                     CONF_ANCHOR_HALF_LIFE_DAYS, ELO_PATH, ELO_PRIOR_TAU,
+                     CONF_ANCHOR_HALF_LIFE_DAYS, ELO_CONF_K, ELO_HA,
+                     ELO_LONGTERM_YEARS, ELO_PATH, ELO_PRIOR_TAU,
                      MAX_GOALS, SCORING_MODE)
 from .confederations import infer_confederations
 from .data import load_elo, prepare_training
@@ -64,6 +65,7 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              elo_tau=ELO_PRIOR_TAU, elo_path=ELO_PATH, engine="dc",
              dynamic=False, time_block=None,
              sigma_conf_scale=BAYES_SIGMA_CONF_SCALE, propagate=False,
+             elo_conf_k=None, elo_longterm_years=None, elo_ha=None,
              **train_kw):
     """Score every match of a past tournament.
 
@@ -145,7 +147,9 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
                     sigma_conf_scale=sigma_conf_scale, propagate=propagate)
             elif engine == "elo":
                 from .model_elo import EloDixonColes
-                model = EloDixonColes().fit(tm, df=df, as_of=cutoff)
+                model = EloDixonColes().fit(
+                    tm, df=df, as_of=cutoff, conf_k=elo_conf_k,
+                    longterm_years=elo_longterm_years, ha=elo_ha)
             else:
                 elo = load_elo(cutoff, elo_path) if elo_tau else None
                 model = DixonColes().fit(tm, elo=elo, elo_tau=elo_tau)
@@ -279,3 +283,85 @@ def tune(df, tournaments=None, gd_caps=(None, 3, 4),
                   f"ll {row['log_loss']:.4f}")
     return (pd.DataFrame(rows)
             .sort_values("rps").reset_index(drop=True))
+
+
+def _elo_pool(df, tournaments, conf_k, ly, ha, rolling):
+    """Pooled (across tournaments) elo-engine metrics for one config."""
+    res = [backtest(df, t, rolling=rolling, engine="elo",
+                    elo_conf_k=conf_k, elo_longterm_years=ly, elo_ha=ha)
+           for t in tournaments]
+    n = sum(r["matches"] for r in res)
+    return {
+        "points": sum(r["points"] for r in res),
+        "pts_per_match": sum(r["points"] for r in res) / n,
+        "rps": sum(r["rps"] * r["matches"] for r in res) / n,
+        "log_loss": sum(r["log_loss"] * r["matches"] for r in res) / n,
+    }
+
+
+def tune_elo(df, tournaments=None, longterm_years=(5, 8, 10, 12),
+             has=(75.0, 100.0, 125.0),
+             conf_k_grid=(0.5, 0.75, 1.0, 1.25, 1.5),
+             confs=("UEFA", "CONMEBOL", "CONCACAF", "CAF", "AFC", "OFC"),
+             rolling=False, verbose=True):
+    """Coordinate tuning for the Elo engine (``--engine elo``) on pooled RPS
+    (low variance), points as the tiebreak — the protocol the rest of `tune`
+    follows.
+
+    The per-confederation K is a 6-D dict, so a full grid is infeasible. Instead:
+
+    1. **scalar grid** over (``longterm_years``, ``ha``) with every conf-K = 1.0;
+    2. **coordinate descent** on the conf-K: holding the best scalar config,
+       sweep one confederation's K multiplier at a time over ``conf_k_grid``,
+       adopting an improvement before moving to the next confederation.
+
+    Static fit by default to keep it cheap; re-validate the winner with
+    rolling=True. Returns ``(scalar_df, conf_df, best)`` where ``best`` is the
+    chosen ``{conf: k}`` dict plus the winning longterm_years/ha.
+    """
+    tournaments = list(tournaments or TOURNAMENTS)
+    base_k = {c: 1.0 for c in confs}
+
+    # --- step 1: scalar grid (longterm_years x ha), conf-K all 1.0 ---
+    scalar_rows = []
+    for ly, ha in itertools.product(longterm_years, has):
+        row = {"longterm_years": ly, "ha": ha,
+               **_elo_pool(df, tournaments, base_k, ly, ha, rolling)}
+        scalar_rows.append(row)
+        if verbose:
+            print(f"[scalar] longterm_years={ly} ha={ha}: "
+                  f"{row['pts_per_match']:.3f} pts/match, rps {row['rps']:.4f}, "
+                  f"ll {row['log_loss']:.4f}")
+    scalar_df = pd.DataFrame(scalar_rows).sort_values("rps").reset_index(drop=True)
+    best_scalar = scalar_df.iloc[0]
+    ly, ha = int(best_scalar["longterm_years"]), float(best_scalar["ha"])
+    if verbose:
+        print(f"--> best scalar: longterm_years={ly} ha={ha} "
+              f"(rps {best_scalar['rps']:.4f})\n")
+
+    # --- step 2: coordinate descent on the per-confederation K ---
+    best_k = dict(base_k)
+    best_rps = float(best_scalar["rps"])
+    conf_rows = []
+    for c in confs:
+        for k in conf_k_grid:
+            trial = dict(best_k)
+            trial[c] = k
+            row = {"conf": c, "k": k,
+                   **_elo_pool(df, tournaments, trial, ly, ha, rolling)}
+            conf_rows.append(row)
+            if verbose:
+                print(f"[conf-K] {c}={k} (others {best_k}): "
+                      f"{row['pts_per_match']:.3f} pts/match, "
+                      f"rps {row['rps']:.4f}, ll {row['log_loss']:.4f}")
+            if row["rps"] < best_rps:
+                best_rps, best_k[c] = row["rps"], k
+        if verbose:
+            print(f"--> {c} -> {best_k[c]} (running rps {best_rps:.4f})\n")
+
+    best = {"longterm_years": ly, "ha": ha, "conf_k": best_k, "rps": best_rps}
+    if verbose:
+        print(f"BEST elo config: {best}")
+    return (scalar_df,
+            pd.DataFrame(conf_rows).sort_values("rps").reset_index(drop=True),
+            best)
