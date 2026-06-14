@@ -102,6 +102,49 @@ BAYES_PROPAGATE = False        # Phase B2 (docs/bayesian-confederation-plan.md):
                                # exactly); opt-in via --bayes-propagate. No effect
                                # under --engine dc.
 
+# --- Elo engine (--engine elo) ---
+# An in-house Elo trained on results.csv (NOT scraped — distinct from the
+# external --elo-tau anchor, which loads data/input/elo.csv and stays untouched).
+# Two extensions over plain eloratings.net: a per-confederation K multiplier and
+# a long-term (median) Elo covariate (EL PAÍS "pedigree" feature). Each team's
+# attack/defence is derived from its current + long-term Elo via a 4-parameter
+# GAM-Poisson + Dixon-Coles calibration, so the rest of the pipeline is unchanged.
+# Defaults reproduce the published eloratings.net rule. See docs/elo-engine-plan.md.
+ELO_HA = 100.0              # eloratings.net home-advantage points added to dr on
+                           # home soil (0 at neutral venues). 100 = published rule.
+ELO_BASE = 1500.0          # Elo seed for a team's first match.
+ELO_TRAIN_START = "2006-01-01"  # raw-history start for the Elo *iteration* —
+                           # deliberately earlier than TRAIN_START (2015, used for
+                           # the goal-model calibration): ratings converge after
+                           # ~30 matches and the long-term median needs a decade.
+ELO_LONGTERM_YEARS = 10    # trailing window (years) for the long-term (median)
+                           # Elo covariate (the regression-to-the-mean "pedigree").
+ELO_CONF_K = {             # per-confederation K multiplier (the extension): a team
+    "UEFA": 1.0,           # updates its rating by its OWN confederation's K on top
+    "CONMEBOL": 1.0,       # of the tournament base K, so the two sides of a match
+    "CONCACAF": 1.0,       # can move by different amounts. All 1.0 = pure
+    "CAF": 1.0,            # eloratings.net (no bloc treatment); unknown-conf teams
+    "AFC": 1.0,            # use 1.0. NOTE: non-unit values break Elo's zero-sum
+    "OFC": 1.0,            # property (total rating mass drifts) — that is the
+}                          # intended effect, not a bug, when the knob is enabled.
+ELO_K_TIERS = {            # base K by tournament type (eloratings.net tiers);
+    "world_cup": 60.0,     # tournament_k() maps the martj42 `tournament` string.
+    "continental_final": 50.0,
+    "qualifier": 40.0,     # WC + continental qualifiers (names ending
+    "other": 30.0,         # "qualification")
+    "friendly": 20.0,
+}
+ELO_K_FINALS = (           # continental / major-intercontinental finals → the
+    "UEFA Euro",           # 'continental_final' (50) tier. Everything not matched
+    "Copa América",        # here, by a qualifier suffix, or by the world_cup/
+    "African Cup of Nations",   # friendly names falls through to 'other' (30).
+    "AFC Asian Cup",
+    "Gold Cup",
+    "CONCACAF Championship",
+    "Oceania Nations Cup",
+    "Confederations Cup",
+)
+
 # --- Blending weights ---
 ODDS_WEIGHT = 1.0           # 1X2 marginals come 100% from the market; the model
                             # only shapes the score distribution *within* each

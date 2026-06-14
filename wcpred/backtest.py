@@ -115,6 +115,9 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     elif dynamic or propagate:
         raise ValueError("dynamic=True/propagate=True only apply to "
                          "engine='bayes'")
+    if engine == "elo" and (elo_tau or anchor_beta):
+        raise ValueError("elo_tau/anchor_beta are MLE-engine knobs; they have "
+                         "no effect under engine='elo' (it trains its own Elo)")
     as_of, start, end, name, n_group, n_mid = TOURNAMENTS[tournament]
     matches = df.dropna(subset=["home_score"])
     matches = matches[matches["date"].between(start, end)
@@ -140,6 +143,9 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
                 model = BayesianDixonColes().fit(
                     tm, dynamic=dynamic, time_block=time_block,
                     sigma_conf_scale=sigma_conf_scale, propagate=propagate)
+            elif engine == "elo":
+                from .model_elo import EloDixonColes
+                model = EloDixonColes().fit(tm, df=df, as_of=cutoff)
             else:
                 elo = load_elo(cutoff, elo_path) if elo_tau else None
                 model = DixonColes().fit(tm, elo=elo, elo_tau=elo_tau)

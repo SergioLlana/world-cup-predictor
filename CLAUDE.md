@@ -91,6 +91,22 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   tight-`sigma_conf` sensitivity — shrink toward 0 to pin the bloc offsets near
   0). Needs the `.[bayes]` extra + CmdStan. See `docs/
   bayesian-confederation-plan.md`.
+- `model_elo.py` — `EloDixonColes`, an in-house Elo engine (opt-in
+  `--engine elo`; default stays `dc`). Trains its OWN Elo on `results.csv` via
+  the eloratings.net rule (`Rn = Ro + K·(W − We)`, K by tournament tier
+  60/50/40/30/20 × goal-difference multiplier, home advantage `ELO_HA`=100,
+  `We = 1/(10^(−dr/400)+1)`) — distinct from the *external* `--elo-tau` anchor,
+  which scrapes `elo.csv` and is untouched. Two extensions (default-off-
+  equivalent): a per-confederation K multiplier (`ELO_CONF_K`, each team updates
+  by its own bloc's K — a lever on the weak-connectivity bias) and a long-term
+  (median over `ELO_LONGTERM_YEARS`=10) Elo covariate (EL PAÍS "pedigree"
+  regression-to-the-mean). Subclasses `DixonColes` — overrides `fit` (Elo
+  iteration over the raw history from `ELO_TRAIN_START`=2006, then a 4-parameter
+  GAM-Poisson + Dixon-Coles calibration `log λ = β0 + β_h·home + β_e·Δelo +
+  β_lt·Δelo_lt` on the decay-weighted training frame) and `rates`; inherits
+  `matrix_from_rates`/`score_matrix`. Ratings ~594 dc / ~587 elo Penka pts on
+  `backtest --tournament all`. Single data source (`results.csv`), nothing
+  scraped. See `docs/elo-engine-plan.md`.
 - `scoring.py` — Penka and Superbru points, Closeness Index, expected-points
   optimiser (`best_prediction(P, mode, stage)`).
 - `odds.py` — odds → margin-free 1X2 probs → market-implied score matrix.

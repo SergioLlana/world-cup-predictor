@@ -19,9 +19,10 @@ import pandas as pd
 from .anchor import anchor_model
 from .backtest import TOURNAMENTS, backtest, bridge_audit, tune
 from .config import (BAYES_DYNAMIC, BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
-                     BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_PATH,
-                     ELO_PRIOR_TAU, GROUPS_DIR, ODDS_WEIGHT, PREDICTIONS_DIR,
-                     RESULTS_PATH, SCORING_MODE, SIM_DIR, XG_ALPHA)
+                     BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_HA,
+                     ELO_LONGTERM_YEARS, ELO_PATH, ELO_PRIOR_TAU, GROUPS_DIR,
+                     ODDS_WEIGHT, PREDICTIONS_DIR, RESULTS_PATH, SCORING_MODE,
+                     SIM_DIR, XG_ALPHA)
 from .data import (PHANTOM_TEAM, download_results, load_elo, load_odds,
                    load_results, played_world_cup, prepare_training,
                    upcoming_world_cup)
@@ -75,6 +76,18 @@ def build_model(df, args):
         sys.exit("--bayes-dynamic only applies to --engine bayes")
     if getattr(args, "bayes_propagate", False):
         sys.exit("--bayes-propagate only applies to --engine bayes")
+    if getattr(args, "engine", "dc") == "elo":
+        # The Elo engine trains its own anchor; the MLE-only external knobs and
+        # the bayes flags do not apply.
+        if args.elo_tau or args.anchor_beta:
+            sys.exit("--elo-tau / --anchor-beta are MLE-engine knobs; they have "
+                     "no effect under --engine elo (it trains its own Elo)")
+        from .model_elo import EloDixonColes
+        model = EloDixonColes().fit(train, df=df, as_of=args.as_of)
+        print(f"Elo model: in-house eloratings.net (HA={ELO_HA}, "
+              f"long-term {ELO_LONGTERM_YEARS}y) calibrated on {len(train)} "
+              f"matches (as of {args.as_of}, xG={'yes' if xg else 'no'})")
+        return model
     elo = load_elo(args.as_of, args.elo) if args.elo_tau else None
     if args.elo_tau and not elo:
         sys.exit(f"--elo-tau needs an Elo snapshot dated <= --as-of in "
@@ -291,12 +304,15 @@ def main():
     def common(sp):
         sp.add_argument("--approach", choices=APPROACHES, default="history",
                         help="information sources to use (default: history)")
-        sp.add_argument("--engine", choices=("dc", "bayes"), default="dc",
+        sp.add_argument("--engine", choices=("dc", "bayes", "elo"), default="dc",
                         help="rating model: 'dc' = MLE Dixon-Coles (default, "
                              "the regenerable production model), 'bayes' = "
                              "Stan Dixon-Coles with a hierarchical "
                              "confederation-offset prior (needs the bayes "
-                             "extra; backtest static only)")
+                             "extra; backtest static only), 'elo' = in-house "
+                             "Elo (eloratings.net rule + per-confederation K + "
+                             "long-term Elo covariate) feeding a GAM-Poisson "
+                             "Dixon-Coles")
         sp.add_argument("--bayes-dynamic", action="store_true",
                         default=BAYES_DYNAMIC,
                         help="Phase B1: under --engine bayes, evolve team "
