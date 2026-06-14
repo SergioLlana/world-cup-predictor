@@ -79,6 +79,28 @@ BAYES_DYNAMIC = False        # Phase B1 (docs/bayesian-confederation-plan.md):
 BAYES_TIME_BLOCK = "halfyear"  # random-walk block granularity when BAYES_DYNAMIC
                                # is on: "year" | "halfyear" | "quarter". Finer =
                                # more temporal resolution, slower MCMC.
+BAYES_SIGMA_CONF_SCALE = 0.5   # half-normal prior scale on sigma_conf, the
+                               # between-confederation offset spread (Phase 4
+                               # tight-sigma_conf sensitivity,
+                               # docs/model-robustness-plan.md). 0.5 = today's
+                               # bayes model exactly. Shrinking it toward 0 pins
+                               # the bloc offsets near 0 (the user's "no bloc is
+                               # systematically stronger" hypothesis in its
+                               # strongest form), testing whether an externally
+                               # constrained offset scale corrects the diagnosed
+                               # CONMEBOL/CONCACAF-vs-UEFA bias. No effect under
+                               # --engine dc. Sweep via --bayes-sigma-conf.
+BAYES_PROPAGATE = False        # Phase B2 (docs/bayesian-confederation-plan.md):
+                               # full posterior propagation — the score matrix is
+                               # the *posterior mean of per-draw Dixon-Coles
+                               # matrices* instead of one matrix built from the
+                               # posterior-mean ratings (Phase A/B1 plug-in).
+                               # Averaging over the MCMC draws carries the
+                               # cross-bloc rating uncertainty (widest on the
+                               # weakly-identified bridges) into the scorelines.
+                               # False = plug-in means (today's bayes model
+                               # exactly); opt-in via --bayes-propagate. No effect
+                               # under --engine dc.
 
 # --- Blending weights ---
 ODDS_WEIGHT = 1.0           # 1X2 marginals come 100% from the market; the model

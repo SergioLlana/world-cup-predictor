@@ -9,3 +9,7 @@ dist/
 
 # Local tooling state
 .claude/
+
+# Compiled Stan artifacts (keep only the .stan source)
+wcpred/stan/*
+!wcpred/stan/*.stan

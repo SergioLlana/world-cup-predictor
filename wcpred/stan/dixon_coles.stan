@@ -37,6 +37,7 @@ data {
   vector<lower=0>[N] w;                     // per-match weight (time decay etc.)
   vector<lower=0, upper=1>[N] hadv;         // 1 if the home side plays at home
   array[T] int<lower=0, upper=C> conf;     // team confederation (0 = unknown)
+  real<lower=0> sigma_conf_scale;           // half-normal prior scale on sigma_conf
 }
 
 transformed data {
@@ -85,7 +86,8 @@ model {
   dfn_conf ~ normal(0, sigma_conf);
   sigma_atk ~ normal(0, 1);                 // half-normal (lower=0)
   sigma_dfn ~ normal(0, 1);
-  sigma_conf ~ normal(0, 0.5);              // half-normal: offsets shrink w/o bridges
+  sigma_conf ~ normal(0, sigma_conf_scale); // half-normal: offsets shrink w/o bridges
+                                            // (scale from data; <0.5 pins them toward 0)
   nu ~ gamma(2, 0.1);
   home ~ normal(0, 0.5);
   rho ~ normal(0, 0.1);

@@ -18,10 +18,10 @@ import pandas as pd
 
 from .anchor import anchor_model
 from .backtest import TOURNAMENTS, backtest, bridge_audit, tune
-from .config import (BAYES_DYNAMIC, BAYES_TIME_BLOCK, CONF_ANCHOR_BETA,
-                     ELO_PATH, ELO_PRIOR_TAU, GROUPS_DIR, ODDS_WEIGHT,
-                     PREDICTIONS_DIR, RESULTS_PATH, SCORING_MODE, SIM_DIR,
-                     XG_ALPHA)
+from .config import (BAYES_DYNAMIC, BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
+                     BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_PATH,
+                     ELO_PRIOR_TAU, GROUPS_DIR, ODDS_WEIGHT, PREDICTIONS_DIR,
+                     RESULTS_PATH, SCORING_MODE, SIM_DIR, XG_ALPHA)
 from .data import (PHANTOM_TEAM, download_results, load_elo, load_odds,
                    load_results, played_world_cup, prepare_training,
                    upcoming_world_cup)
@@ -61,14 +61,20 @@ def build_model(df, args):
                      "have no effect under --engine bayes")
         from .model_bayes import BayesianDixonColes
         model = BayesianDixonColes().fit(train, dynamic=args.bayes_dynamic,
-                                         time_block=args.bayes_block)
+                                         time_block=args.bayes_block,
+                                         sigma_conf_scale=args.bayes_sigma_conf,
+                                         propagate=args.bayes_propagate)
         mode = (f"dynamic random-walk, block={args.bayes_block}"
                 if args.bayes_dynamic else "static decay weights")
+        if args.bayes_propagate:
+            mode += ", posterior propagation"
         print(f"Bayesian model sampled on {len(train)} matches "
               f"({mode}; as of {args.as_of}, xG={'yes' if xg else 'no'})")
         return model
     if getattr(args, "bayes_dynamic", False):
         sys.exit("--bayes-dynamic only applies to --engine bayes")
+    if getattr(args, "bayes_propagate", False):
+        sys.exit("--bayes-propagate only applies to --engine bayes")
     elo = load_elo(args.as_of, args.elo) if args.elo_tau else None
     if args.elo_tau and not elo:
         sys.exit(f"--elo-tau needs an Elo snapshot dated <= --as-of in "
@@ -211,7 +217,9 @@ def cmd_backtest(args):
                      anchor_beta=args.anchor_beta,
                      elo_tau=args.elo_tau, elo_path=args.elo,
                      engine=args.engine, dynamic=args.bayes_dynamic,
-                     time_block=args.bayes_block)
+                     time_block=args.bayes_block,
+                     sigma_conf_scale=args.bayes_sigma_conf,
+                     propagate=args.bayes_propagate)
         print(f"Backtest {r['tournament']} ({args.scoring}): "
               f"{r['points']:.1f} pts in "
               f"{r['matches']} matches ({r['points_per_match']:.2f}/match) | "
@@ -299,6 +307,20 @@ def main():
                         default=BAYES_TIME_BLOCK,
                         help="random-walk block granularity for --bayes-dynamic "
                              "(default: %(default)s)")
+        sp.add_argument("--bayes-sigma-conf", type=float,
+                        default=BAYES_SIGMA_CONF_SCALE,
+                        help="Phase 4 sensitivity: under --engine bayes, the "
+                             "half-normal prior scale on the between-"
+                             "confederation offset spread (default: %(default)s "
+                             "= today's model; shrink toward 0 to pin the bloc "
+                             "offsets near 0)")
+        sp.add_argument("--bayes-propagate", action="store_true",
+                        default=BAYES_PROPAGATE,
+                        help="Phase B2: under --engine bayes, build the score "
+                             "matrix as the posterior mean of the per-draw "
+                             "Dixon-Coles matrices (full posterior propagation) "
+                             "instead of plugging in the posterior-mean ratings "
+                             "(default: off)")
         sp.add_argument("--odds", help="odds CSV (home_team,away_team,"
                                        "odds_1,odds_X,odds_2)")
         sp.add_argument("--xg", help="xG CSV (date,home_team,away_team,"

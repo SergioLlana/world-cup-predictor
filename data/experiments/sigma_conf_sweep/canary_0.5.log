@@ -1,0 +1,13 @@
+12:18:38 - cmdstanpy - INFO - CmdStan start processing
+12:18:38 - cmdstanpy - INFO - Chain [1] start processing
+12:18:38 - cmdstanpy - INFO - Chain [2] start processing
+12:18:38 - cmdstanpy - INFO - Chain [3] start processing
+12:18:38 - cmdstanpy - INFO - Chain [4] start processing
+12:25:04 - cmdstanpy - INFO - Chain [2] done processing
+12:25:21 - cmdstanpy - INFO - Chain [3] done processing
+12:25:28 - cmdstanpy - INFO - Chain [1] done processing
+12:25:41 - cmdstanpy - INFO - Chain [4] done processing
+SCALE 0.5 (as-of 2026-06-14)
+  ARG-ESP gap: +0.087   AUS-USA gap: +0.190
+  sigma_conf (post. mean): 0.657
+  bloc offsets (atk_conf - dfn_conf): CONMEBOL +1.73 > UEFA +1.15 > CAF +0.44 > AFC -0.46 > CONCACAF -0.76 > OFC -2.09

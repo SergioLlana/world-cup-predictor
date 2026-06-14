@@ -139,10 +139,17 @@ ARG−ESP, top-20 sensato.
   gauge suma-cero por bloque); el offset de confederación de Fase A se conserva.
   Plan de implementación y veredicto: `docs/bayesian-phase-b-plan.md` y la
   sub-fase B1 en `docs/model-robustness-plan.md`.
-- **B2 — Propagación posterior completa (diferida):** promediar matrices de
-  marcadores sobre draws en `predict_match`/score paths (override de
-  `score_matrix` que devuelva la media de matrices sobre el posterior),
-  capturando la incertidumbre cross-bloc.
+- **B2 — Propagación posterior completa: IMPLEMENTADO (2026-06-13, opt-in
+  `--bayes-propagate`).** `BayesianDixonColes` guarda los draws posteriores
+  (`atk_draws`/`dfn_draws`/`home_draws`/`rho_draws`; en dinámico, el último
+  bloque) y sobrescribe `score_matrix` para devolver la **media de las matrices
+  Dixon-Coles por draw** en vez de una matriz construida con las medias
+  posteriores (plug-in de Fase A/B1). Promediar sobre el posterior arrastra la
+  incertidumbre de ratings — máxima en los puentes cross-bloc débilmente
+  identificados — hasta los marcadores, ensanchando la distribución. Opt-in
+  `--bayes-propagate` / `BAYES_PROPAGATE` (default off; con off, `score_matrix`
+  cae al path heredado, byte a byte idéntico). Componible con A o B1. Veredicto
+  en la sub-fase B2 de `docs/model-robustness-plan.md`.
 
 ## Verificación end-to-end
 

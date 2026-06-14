@@ -31,7 +31,9 @@ wcpred backtest --tournament all --static --engine bayes --bridge-audit
                                       # install. static only. --engine works on
                                       # every subcommand (default `dc`). Add
                                       # --bayes-dynamic [--bayes-block halfyear]
-                                      # for Phase B1 random-walk strengths.
+                                      # for Phase B1 random-walk strengths;
+                                      # --bayes-propagate for Phase B2 full
+                                      # posterior propagation.
 scripts/run_webapp.sh                 # local dashboard on :8026 (needs `.[web]` extra)
 ```
 
@@ -69,16 +71,25 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   only inter-confederation "bridge" matches can move, so intra-bloc games
   cannot drift a whole confederation (the robustness-plan Phase 4 attempt at
   the weak-anchoring limitation). Subclasses `DixonColes` — inherits
-  `rates`/`matrix_from_rates`/`score_matrix`, overrides only `fit` (MCMC, then
-  adopts posterior-mean atk/dfn/home/rho — Phase A; full posterior propagation
-  is Phase B2). Opt-in via `--engine bayes` (default `dc`, the regenerable
-  production model). Two time treatments: the static default (`stan/
-  dixon_coles.stan`) where time enters as the MLE decay weights (Phase A), and
-  the dynamic `stan/dixon_coles_dynamic.stan` (opt-in `--bayes-dynamic` /
-  `BAYES_DYNAMIC`, Phase B1) where each team's strength evolves as a random
-  walk over `--bayes-block` time blocks (year/halfyear/quarter, default
-  halfyear) and the most recent block is adopted — the decay weighting is then
-  dropped. Needs the `.[bayes]` extra + CmdStan. See `docs/
+  `rates`/`matrix_from_rates`, overrides `fit` (MCMC, then adopts posterior-mean
+  atk/dfn/home/rho — Phase A) and `score_matrix` (plug-in mean by default;
+  full posterior propagation when opted in — Phase B2). Opt-in via
+  `--engine bayes` (default `dc`, the regenerable production model). Two time
+  treatments: the static default (`stan/dixon_coles.stan`) where time enters as
+  the MLE decay weights (Phase A), and the dynamic
+  `stan/dixon_coles_dynamic.stan` (opt-in `--bayes-dynamic` / `BAYES_DYNAMIC`,
+  Phase B1) where each team's strength evolves as a random walk over
+  `--bayes-block` time blocks (year/halfyear/quarter, default halfyear) and the
+  most recent block is adopted — the decay weighting is then dropped. Two
+  posterior treatments of the score matrix: plug-in posterior means (default)
+  or full posterior propagation (opt-in `--bayes-propagate` / `BAYES_PROPAGATE`,
+  Phase B2) where `score_matrix` returns the posterior mean of the per-draw
+  Dixon-Coles matrices, carrying cross-bloc rating uncertainty into the
+  scorelines. The between-confederation offset spread `sigma_conf` carries a
+  half-normal prior whose scale is a tunable knob (`--bayes-sigma-conf` /
+  `BAYES_SIGMA_CONF_SCALE`, default 0.5 = today's model; the Phase 4
+  tight-`sigma_conf` sensitivity — shrink toward 0 to pin the bloc offsets near
+  0). Needs the `.[bayes]` extra + CmdStan. See `docs/
   bayesian-confederation-plan.md`.
 - `scoring.py` — Penka and Superbru points, Closeness Index, expected-points
   optimiser (`best_prediction(P, mode, stage)`).

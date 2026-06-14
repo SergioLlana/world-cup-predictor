@@ -1,0 +1,142 @@
+================ sigma_conf_scale=0.5 ================
+Backtest wc2018 (penka): 132.0 pts in 64 matches (2.06/match) | exact 10 | outcome correct 35 | rps 0.1989 | log-loss 2.8209
+Backtest euro2021 (penka): 100.0 pts in 51 matches (1.96/match) | exact 4 | outcome correct 30 | rps 0.1820 | log-loss 2.8567
+Backtest copa2021 (penka): 67.0 pts in 28 matches (2.39/match) | exact 5 | outcome correct 16 | rps 0.1545 | log-loss 2.5855
+Backtest wc2022 (penka): 108.0 pts in 64 matches (1.69/match) | exact 4 | outcome correct 35 | rps 0.2118 | log-loss 3.0245
+Backtest euro2024 (penka): 121.0 pts in 51 matches (2.37/match) | exact 8 | outcome correct 28 | rps 0.1862 | log-loss 2.5653
+Backtest copa2024 (penka): 76.0 pts in 32 matches (2.38/match) | exact 8 | outcome correct 18 | rps 0.1639 | log-loss 2.4937
+Bridge audit — 123 inter-confederation matches, share = win + draw/2 from conf_a's perspective (bias_a > 0: model overrates conf_a):
+  conf_a   conf_b  n  exp_share_a  real_share_a  bias_a  goal_res_a  goal_res_b   rps
+CONMEBOL     UEFA 22        0.618         0.523   0.095       0.082       0.326 0.196
+CONCACAF CONMEBOL 21        0.315         0.310   0.005      -0.150       0.007 0.144
+CONCACAF     UEFA 14        0.347         0.214   0.133      -0.138       1.071 0.145
+     AFC CONMEBOL  8        0.241         0.312  -0.072       0.129      -0.163 0.232
+     CAF CONMEBOL  6        0.282         0.333  -0.052       0.098      -0.324 0.267
+     AFC CONCACAF  4        0.448         0.000   0.448      -0.331       0.458 0.240
+     CAF CONCACAF  2        0.547         1.000  -0.453       0.950       0.128 0.232
+---- canaries scale=0.5 ----
+Traceback (most recent call last):
+  File "/Users/sllana/Projects/world-cup-predictor/data/experiments/sigma_conf_sweep/canary.py", line 15, in <module>
+    from wcpred.data import load_results, prepare_training
+ModuleNotFoundError: No module named 'wcpred'
+================ sigma_conf_scale=0.25 ================
+Backtest wc2018 (penka): 132.0 pts in 64 matches (2.06/match) | exact 10 | outcome correct 35 | rps 0.1991 | log-loss 2.8219
+Backtest euro2021 (penka): 100.0 pts in 51 matches (1.96/match) | exact 4 | outcome correct 30 | rps 0.1823 | log-loss 2.8569
+Backtest copa2021 (penka): 67.0 pts in 28 matches (2.39/match) | exact 5 | outcome correct 16 | rps 0.1545 | log-loss 2.5857
+Backtest wc2022 (penka): 108.0 pts in 64 matches (1.69/match) | exact 4 | outcome correct 35 | rps 0.2116 | log-loss 3.0247
+Backtest euro2024 (penka): 119.0 pts in 51 matches (2.33/match) | exact 7 | outcome correct 28 | rps 0.1863 | log-loss 2.5657
+Backtest copa2024 (penka): 74.0 pts in 32 matches (2.31/match) | exact 8 | outcome correct 17 | rps 0.1641 | log-loss 2.4914
+Bridge audit — 123 inter-confederation matches, share = win + draw/2 from conf_a's perspective (bias_a > 0: model overrates conf_a):
+  conf_a   conf_b  n  exp_share_a  real_share_a  bias_a  goal_res_a  goal_res_b   rps
+CONMEBOL     UEFA 22        0.618         0.523   0.095       0.083       0.328 0.196
+CONCACAF CONMEBOL 21        0.316         0.310   0.006      -0.151       0.011 0.144
+CONCACAF     UEFA 14        0.347         0.214   0.133      -0.137       1.071 0.145
+     AFC CONMEBOL  8        0.242         0.312  -0.071       0.129      -0.156 0.232
+     CAF CONMEBOL  6        0.281         0.333  -0.052       0.099      -0.325 0.266
+     AFC CONCACAF  4        0.450         0.000   0.450      -0.334       0.464 0.242
+     CAF CONCACAF  2        0.547         1.000  -0.453       0.956       0.131 0.233
+---- canaries scale=0.25 ----
+09:57:54 - cmdstanpy - INFO - CmdStan start processing
+09:57:54 - cmdstanpy - INFO - Chain [1] start processing
+09:57:54 - cmdstanpy - INFO - Chain [2] start processing
+09:57:54 - cmdstanpy - INFO - Chain [3] start processing
+09:57:54 - cmdstanpy - INFO - Chain [4] start processing
+10:04:25 - cmdstanpy - INFO - Chain [2] done processing
+10:04:27 - cmdstanpy - INFO - Chain [1] done processing
+10:04:31 - cmdstanpy - INFO - Chain [3] done processing
+10:04:38 - cmdstanpy - INFO - Chain [4] done processing
+SCALE 0.25 (as-of 2026-06-14)
+  ARG-ESP gap: +0.087   AUS-USA gap: +0.145
+  sigma_conf (post. mean): 0.568
+  bloc offsets (atk_conf - dfn_conf): CONMEBOL +1.72 > UEFA +1.15 > CAF +0.42 > AFC -0.48 > CONCACAF -0.74 > OFC -2.06
+================ sigma_conf_scale=0.1 ================
+Backtest wc2018 (penka): 132.0 pts in 64 matches (2.06/match) | exact 10 | outcome correct 35 | rps 0.1993 | log-loss 2.8204
+Backtest euro2021 (penka): 100.0 pts in 51 matches (1.96/match) | exact 4 | outcome correct 30 | rps 0.1823 | log-loss 2.8574
+Backtest copa2021 (penka): 60.0 pts in 28 matches (2.14/match) | exact 5 | outcome correct 15 | rps 0.1545 | log-loss 2.5839
+Backtest wc2022 (penka): 108.0 pts in 64 matches (1.69/match) | exact 4 | outcome correct 35 | rps 0.2115 | log-loss 3.0240
+Backtest euro2024 (penka): 115.0 pts in 51 matches (2.25/match) | exact 6 | outcome correct 28 | rps 0.1859 | log-loss 2.5632
+Backtest copa2024 (penka): 76.0 pts in 32 matches (2.38/match) | exact 8 | outcome correct 18 | rps 0.1642 | log-loss 2.4949
+Bridge audit — 123 inter-confederation matches, share = win + draw/2 from conf_a's perspective (bias_a > 0: model overrates conf_a):
+  conf_a   conf_b  n  exp_share_a  real_share_a  bias_a  goal_res_a  goal_res_b   rps
+CONMEBOL     UEFA 22        0.618         0.523   0.095       0.084       0.327 0.196
+CONCACAF CONMEBOL 21        0.317         0.310   0.007      -0.154       0.012 0.144
+CONCACAF     UEFA 14        0.349         0.214   0.134      -0.138       1.077 0.146
+     AFC CONMEBOL  8        0.243         0.312  -0.069       0.127      -0.150 0.232
+     CAF CONMEBOL  6        0.283         0.333  -0.050       0.097      -0.317 0.266
+     AFC CONCACAF  4        0.450         0.000   0.450      -0.332       0.465 0.241
+     CAF CONCACAF  2        0.547         1.000  -0.453       0.953       0.131 0.232
+---- canaries scale=0.1 ----
+10:41:51 - cmdstanpy - INFO - CmdStan start processing
+10:41:51 - cmdstanpy - INFO - Chain [1] start processing
+10:41:51 - cmdstanpy - INFO - Chain [2] start processing
+10:41:51 - cmdstanpy - INFO - Chain [3] start processing
+10:41:51 - cmdstanpy - INFO - Chain [4] start processing
+10:48:29 - cmdstanpy - INFO - Chain [2] done processing
+10:48:30 - cmdstanpy - INFO - Chain [3] done processing
+10:48:30 - cmdstanpy - INFO - Chain [4] done processing
+10:48:41 - cmdstanpy - INFO - Chain [1] done processing
+SCALE 0.1 (as-of 2026-06-14)
+  ARG-ESP gap: +0.086   AUS-USA gap: +0.155
+  sigma_conf (post. mean): 0.396
+  bloc offsets (atk_conf - dfn_conf): CONMEBOL +1.53 > UEFA +1.10 > CAF +0.41 > AFC -0.45 > CONCACAF -0.75 > OFC -1.82
+================ sigma_conf_scale=0.05 ================
+Backtest wc2018 (penka): 132.0 pts in 64 matches (2.06/match) | exact 10 | outcome correct 35 | rps 0.1992 | log-loss 2.8218
+Backtest euro2021 (penka): 100.0 pts in 51 matches (1.96/match) | exact 4 | outcome correct 30 | rps 0.1825 | log-loss 2.8568
+Backtest copa2021 (penka): 67.0 pts in 28 matches (2.39/match) | exact 5 | outcome correct 16 | rps 0.1544 | log-loss 2.5847
+Backtest wc2022 (penka): 108.0 pts in 64 matches (1.69/match) | exact 4 | outcome correct 35 | rps 0.2112 | log-loss 3.0245
+Backtest euro2024 (penka): 116.0 pts in 51 matches (2.27/match) | exact 7 | outcome correct 27 | rps 0.1863 | log-loss 2.5650
+Backtest copa2024 (penka): 76.0 pts in 32 matches (2.38/match) | exact 8 | outcome correct 18 | rps 0.1640 | log-loss 2.4967
+Bridge audit — 123 inter-confederation matches, share = win + draw/2 from conf_a's perspective (bias_a > 0: model overrates conf_a):
+  conf_a   conf_b  n  exp_share_a  real_share_a  bias_a  goal_res_a  goal_res_b   rps
+CONMEBOL     UEFA 22        0.619         0.523   0.096       0.082       0.330 0.196
+CONCACAF CONMEBOL 21        0.319         0.310   0.009      -0.157       0.020 0.144
+CONCACAF     UEFA 14        0.350         0.214   0.135      -0.141       1.079 0.146
+     AFC CONMEBOL  8        0.244         0.312  -0.069       0.125      -0.149 0.232
+     CAF CONMEBOL  6        0.283         0.333  -0.050       0.098      -0.315 0.266
+     AFC CONCACAF  4        0.451         0.000   0.451      -0.336       0.467 0.243
+     CAF CONCACAF  2        0.548         1.000  -0.452       0.953       0.132 0.232
+---- canaries scale=0.05 ----
+11:26:09 - cmdstanpy - INFO - CmdStan start processing
+11:26:09 - cmdstanpy - INFO - Chain [1] start processing
+11:26:09 - cmdstanpy - INFO - Chain [2] start processing
+11:26:09 - cmdstanpy - INFO - Chain [3] start processing
+11:26:09 - cmdstanpy - INFO - Chain [4] start processing
+11:32:30 - cmdstanpy - INFO - Chain [4] done processing
+11:32:34 - cmdstanpy - INFO - Chain [2] done processing
+11:32:57 - cmdstanpy - INFO - Chain [3] done processing
+11:32:57 - cmdstanpy - INFO - Chain [1] done processing
+SCALE 0.05 (as-of 2026-06-14)
+  ARG-ESP gap: +0.079   AUS-USA gap: +0.166
+  sigma_conf (post. mean): 0.275
+  bloc offsets (atk_conf - dfn_conf): CONMEBOL +1.28 > UEFA +1.03 > CAF +0.38 > AFC -0.45 > CONCACAF -0.72 > OFC -1.49
+================ sigma_conf_scale=0.01 ================
+Backtest wc2018 (penka): 135.0 pts in 64 matches (2.11/match) | exact 10 | outcome correct 36 | rps 0.2007 | log-loss 2.8310
+Backtest euro2021 (penka): 100.0 pts in 51 matches (1.96/match) | exact 4 | outcome correct 30 | rps 0.1824 | log-loss 2.8609
+Backtest copa2021 (penka): 67.0 pts in 28 matches (2.39/match) | exact 5 | outcome correct 16 | rps 0.1550 | log-loss 2.5886
+Backtest wc2022 (penka): 99.0 pts in 64 matches (1.55/match) | exact 3 | outcome correct 33 | rps 0.2119 | log-loss 3.0379
+Backtest euro2024 (penka): 115.0 pts in 51 matches (2.25/match) | exact 6 | outcome correct 28 | rps 0.1859 | log-loss 2.5633
+Backtest copa2024 (penka): 76.0 pts in 32 matches (2.38/match) | exact 8 | outcome correct 18 | rps 0.1636 | log-loss 2.5020
+Bridge audit — 123 inter-confederation matches, share = win + draw/2 from conf_a's perspective (bias_a > 0: model overrates conf_a):
+  conf_a   conf_b  n  exp_share_a  real_share_a  bias_a  goal_res_a  goal_res_b   rps
+CONMEBOL     UEFA 22        0.629         0.523   0.106       0.062       0.356 0.198
+CONCACAF CONMEBOL 21        0.330         0.310   0.020      -0.174       0.061 0.144
+CONCACAF     UEFA 14        0.374         0.214   0.160      -0.173       1.157 0.155
+     AFC CONMEBOL  8        0.249         0.312  -0.063       0.120      -0.121 0.232
+     CAF CONMEBOL  6        0.282         0.333  -0.051       0.107      -0.309 0.268
+     AFC CONCACAF  4        0.448         0.000   0.448      -0.327       0.465 0.240
+     CAF CONCACAF  2        0.531         1.000  -0.469       0.989       0.104 0.247
+---- canaries scale=0.01 ----
+12:10:38 - cmdstanpy - INFO - CmdStan start processing
+12:10:38 - cmdstanpy - INFO - Chain [1] start processing
+12:10:38 - cmdstanpy - INFO - Chain [2] start processing
+12:10:38 - cmdstanpy - INFO - Chain [3] start processing
+12:10:38 - cmdstanpy - INFO - Chain [4] start processing
+12:17:22 - cmdstanpy - INFO - Chain [2] done processing
+12:17:25 - cmdstanpy - INFO - Chain [3] done processing
+12:17:34 - cmdstanpy - INFO - Chain [4] done processing
+12:17:46 - cmdstanpy - INFO - Chain [1] done processing
+SCALE 0.01 (as-of 2026-06-14)
+  ARG-ESP gap: +0.162   AUS-USA gap: +0.234
+  sigma_conf (post. mean): 0.051
+  bloc offsets (atk_conf - dfn_conf): UEFA +0.24 > CONMEBOL +0.10 > CAF +0.07 > AFC -0.12 > OFC -0.12 > CONCACAF -0.16
+================ SWEEP DONE ================

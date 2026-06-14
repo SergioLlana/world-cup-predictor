@@ -5,7 +5,17 @@ A drop-in alternative to `model.DixonColes`: it subclasses it, so it inherits
 into `predict`/`groups`/`tournament`/`odds`/the webapp transparently. Only
 `fit` is overridden — it samples a Stan Dixon-Coles via cmdstanpy and fixes
 `atk`/`dfn`/`home`/`rho` to their posterior means (Phase A,
-docs/bayesian-confederation-plan.md; full posterior propagation is Phase B2).
+docs/bayesian-confederation-plan.md).
+
+Two posterior treatments of the score matrix are available:
+  - plug-in mean (default): the inherited `score_matrix` builds one matrix from
+    the posterior-mean ratings — Phase A/B1.
+  - full propagation (`stan/`-agnostic, opt-in via `propagate=True` /
+    `--bayes-propagate` / `config.BAYES_PROPAGATE`, Phase B2): `score_matrix`
+    is overridden to return the posterior mean of the *per-draw* Dixon-Coles
+    matrices, carrying the cross-bloc rating uncertainty (widest on the
+    weakly-identified bridges) into the scorelines. The MCMC draws kept on the
+    fitted model (`atk_draws`/`dfn_draws`/`home_draws`/`rho_draws`) drive it.
 
 The structural difference from the MLE model is the prior: each team's
 attack/defence carries an additive confederation-level offset that only the
@@ -30,8 +40,10 @@ Needs the `bayes` extra and a one-off CmdStan install:
 import os
 
 import numpy as np
+from scipy.stats import poisson
 
-from .config import BAYES_DYNAMIC, BAYES_TIME_BLOCK
+from .config import (BAYES_DYNAMIC, BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
+                     BAYES_TIME_BLOCK, MAX_GOALS)
 from .confederations import infer_confederations
 from .model import DixonColes
 
@@ -71,7 +83,8 @@ class BayesianDixonColes(DixonColes):
 
     def fit(self, m, chains=4, iter_warmup=500, iter_sampling=500, seed=2026,
             adapt_delta=0.9, show_progress=False, elo=None, elo_tau=0.0,
-            dynamic=None, time_block=None, **stan_kwargs):
+            dynamic=None, time_block=None, sigma_conf_scale=None,
+            propagate=None, **stan_kwargs):
         """Sample the Stan model on training frame `m` and adopt posterior
         means. `elo`/`elo_tau` are accepted for a uniform call signature with
         DixonColes.fit but ignored (the Bayesian engine has no external prior).
@@ -80,13 +93,28 @@ class BayesianDixonColes(DixonColes):
         config.BAYES_TIME_BLOCK when None) select the time treatment: False =
         Phase A static decay weights; True = Phase B1 random-walk strengths over
         `time_block`-sized blocks ("year"/"halfyear"/"quarter"), adopting the
-        most recent block. Extra `stan_kwargs` pass through to
+        most recent block.
+
+        sigma_conf_scale (resolved from config.BAYES_SIGMA_CONF_SCALE when None)
+        is the half-normal prior scale on the between-confederation offset spread
+        `sigma_conf` (Phase 4 tight-sigma_conf sensitivity): 0.5 reproduces the
+        current model; shrinking it toward 0 pins the bloc offsets near 0.
+
+        propagate (resolved from config.BAYES_PROPAGATE when None) selects the
+        score-matrix treatment (Phase B2): False = plug-in posterior means (the
+        inherited score_matrix, today's bayes model exactly); True = full
+        posterior propagation, where score_matrix averages the per-draw
+        Dixon-Coles matrices. Extra `stan_kwargs` pass through to
         `CmdStanModel.sample`.
         """
         if dynamic is None:
             dynamic = BAYES_DYNAMIC
         if time_block is None:
             time_block = BAYES_TIME_BLOCK
+        if sigma_conf_scale is None:
+            sigma_conf_scale = BAYES_SIGMA_CONF_SCALE
+        if propagate is None:
+            propagate = BAYES_PROPAGATE
 
         teams = sorted(set(m["home_team"]) | set(m["away_team"]))
         self.idx = {t: i for i, t in enumerate(teams)}
@@ -113,6 +141,7 @@ class BayesianDixonColes(DixonColes):
             "hg": np.round(hg).astype(int).tolist(),
             "ag": np.round(ag).astype(int).tolist(),
             "hadv": hadv.tolist(), "conf": conf.tolist(),
+            "sigma_conf_scale": float(sigma_conf_scale),
         }
 
         if dynamic:
@@ -142,14 +171,61 @@ class BayesianDixonColes(DixonColes):
             show_progress=show_progress, **stan_kwargs)
 
         if dynamic:
-            # atk/dfn are (draws, T, B); adopt the most recent block's mean.
-            self.atk = mcmc.stan_variable("atk")[:, :, -1].mean(axis=0)
-            self.dfn = mcmc.stan_variable("dfn")[:, :, -1].mean(axis=0)
+            # atk/dfn are (draws, T, B); adopt the most recent block.
+            atk_draws = mcmc.stan_variable("atk")[:, :, -1]
+            dfn_draws = mcmc.stan_variable("dfn")[:, :, -1]
         else:
-            self.atk = mcmc.stan_variable("atk").mean(axis=0)
-            self.dfn = mcmc.stan_variable("dfn").mean(axis=0)
-        self.home = float(mcmc.stan_variable("home").mean())
-        self.rho = float(mcmc.stan_variable("rho").mean())
+            atk_draws = mcmc.stan_variable("atk")
+            dfn_draws = mcmc.stan_variable("dfn")
+        home_draws = mcmc.stan_variable("home")
+        rho_draws = mcmc.stan_variable("rho")
+        # Plug-in posterior means (Phase A/B1): the inherited score_matrix path.
+        self.atk = atk_draws.mean(axis=0)
+        self.dfn = dfn_draws.mean(axis=0)
+        self.home = float(home_draws.mean())
+        self.rho = float(rho_draws.mean())
+        # Per-(adopted-block) posterior draws, kept for Phase B2 propagation
+        # (score_matrix averages per-draw matrices when self.propagate is on).
+        self.atk_draws = atk_draws            # (draws, T)
+        self.dfn_draws = dfn_draws            # (draws, T)
+        self.home_draws = home_draws          # (draws,)
+        self.rho_draws = rho_draws            # (draws,)
         self.dynamic = dynamic
-        self._mcmc = mcmc   # kept for diagnostics / Phase B2 posterior draws
+        self.propagate = propagate
+        self._mcmc = mcmc   # kept for diagnostics
         return self
+
+    def score_matrix(self, home, away, home_side=None):
+        """P[home_goals, away_goals] over the 0..MAX_GOALS grid.
+
+        With propagation off (default) this is the inherited plug-in-mean path.
+        With propagation on (Phase B2) it returns the posterior mean of the
+        per-draw Dixon-Coles matrices — the honest posterior predictive, which
+        widens the scoreline distribution by the rating uncertainty (largest on
+        the weakly-anchored cross-confederation comparisons).
+        """
+        if not getattr(self, "propagate", False):
+            return super().score_matrix(home, away, home_side)
+        try:
+            i, j = self.idx[home], self.idx[away]
+        except KeyError as e:
+            raise KeyError(f"team not in the fitted model (misspelt, or fewer "
+                           f"than MIN_MATCHES results before the training "
+                           f"cutoff?): {e.args[0]}") from None
+        hb = self.home_draws if home_side == "home" else 0.0
+        ab = self.home_draws if home_side == "away" else 0.0
+        lam = np.exp(self.atk_draws[:, i] + self.dfn_draws[:, j] + hb)   # (D,)
+        mu = np.exp(self.atk_draws[:, j] + self.dfn_draws[:, i] + ab)    # (D,)
+        g = np.arange(MAX_GOALS + 1)
+        ph = poisson.pmf(g[:, None], lam[None, :])   # (G, D)
+        pa = poisson.pmf(g[:, None], mu[None, :])    # (G, D)
+        P = ph.T[:, :, None] * pa.T[:, None, :]      # (D, G, G)
+        # Dixon-Coles low-score correction, per draw (same four cells as _tau).
+        rho = self.rho_draws
+        P[:, 0, 0] *= 1.0 - lam * mu * rho
+        P[:, 0, 1] *= 1.0 + lam * rho
+        P[:, 1, 0] *= 1.0 + mu * rho
+        P[:, 1, 1] *= 1.0 - rho
+        np.clip(P, 0.0, None, out=P)   # tau can push P[0,0] below 0 at high rates
+        P /= P.sum(axis=(1, 2), keepdims=True)
+        return P.mean(axis=0)

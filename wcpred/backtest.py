@@ -14,8 +14,9 @@ import numpy as np
 import pandas as pd
 
 from .anchor import anchor_model
-from .config import (CONF_ANCHOR_BETA, CONF_ANCHOR_HALF_LIFE_DAYS, ELO_PATH,
-                     ELO_PRIOR_TAU, MAX_GOALS, SCORING_MODE)
+from .config import (BAYES_SIGMA_CONF_SCALE, CONF_ANCHOR_BETA,
+                     CONF_ANCHOR_HALF_LIFE_DAYS, ELO_PATH, ELO_PRIOR_TAU,
+                     MAX_GOALS, SCORING_MODE)
 from .confederations import infer_confederations
 from .data import load_elo, prepare_training
 from .model import DixonColes
@@ -61,7 +62,9 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              anchor_beta=CONF_ANCHOR_BETA,
              anchor_half_life=CONF_ANCHOR_HALF_LIFE_DAYS,
              elo_tau=ELO_PRIOR_TAU, elo_path=ELO_PATH, engine="dc",
-             dynamic=False, time_block=None, **train_kw):
+             dynamic=False, time_block=None,
+             sigma_conf_scale=BAYES_SIGMA_CONF_SCALE, propagate=False,
+             **train_kw):
     """Score every match of a past tournament.
 
     rolling=True re-fits the model at each matchday (training on matches
@@ -92,6 +95,15 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     MLE-specific. dynamic=True (Phase B1, bayes only) replaces the decay
     weighting with a random-walk evolution of team strengths over
     time_block-sized blocks ("year"/"halfyear"/"quarter").
+
+    sigma_conf_scale (bayes only) is the half-normal prior scale on the
+    between-confederation offset spread — the Phase 4 tight-sigma_conf
+    sensitivity. 0.5 reproduces the current bayes model; shrinking it toward 0
+    pins the bloc offsets near 0.
+
+    propagate=True (Phase B2, bayes only) builds each match's score matrix as
+    the posterior mean of the per-draw Dixon-Coles matrices (full posterior
+    propagation) instead of plugging in the posterior-mean ratings.
     """
     if engine == "bayes":
         if rolling:
@@ -100,8 +112,9 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
         if elo_tau or anchor_beta:
             raise ValueError("elo_tau/anchor_beta are MLE-engine knobs; "
                              "they have no effect under engine='bayes'")
-    elif dynamic:
-        raise ValueError("dynamic=True only applies to engine='bayes'")
+    elif dynamic or propagate:
+        raise ValueError("dynamic=True/propagate=True only apply to "
+                         "engine='bayes'")
     as_of, start, end, name, n_group, n_mid = TOURNAMENTS[tournament]
     matches = df.dropna(subset=["home_score"])
     matches = matches[matches["date"].between(start, end)
@@ -124,8 +137,9 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
             tm = prepare_training(df, cutoff, xg_path=xg_path, **kw)
             if engine == "bayes":
                 from .model_bayes import BayesianDixonColes
-                model = BayesianDixonColes().fit(tm, dynamic=dynamic,
-                                                 time_block=time_block)
+                model = BayesianDixonColes().fit(
+                    tm, dynamic=dynamic, time_block=time_block,
+                    sigma_conf_scale=sigma_conf_scale, propagate=propagate)
             else:
                 elo = load_elo(cutoff, elo_path) if elo_tau else None
                 model = DixonColes().fit(tm, elo=elo, elo_tau=elo_tau)

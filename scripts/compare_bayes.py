@@ -4,9 +4,10 @@ Phases A and B1 of docs/bayesian-confederation-plan.md. Prints per-tournament
 and pooled RPS / log-loss / Penka points for each engine variant plus the
 bridge-audit table (the cross-confederation regional-bias metric):
 
-  dc        — MLE Dixon-Coles, static (the apples-to-apples baseline).
-  bayes     — Bayesian, static decay weights (Phase A).
-  bayes-dyn — Bayesian, dynamic random-walk strengths (Phase B1).
+  dc            — MLE Dixon-Coles, static (the apples-to-apples baseline).
+  bayes         — Bayesian, static decay weights (Phase A).
+  bayes-dyn     — Bayesian, dynamic random-walk strengths (Phase B1).
+  bayes-dyn-prop — Phase B1 + full posterior propagation (Phase B2).
 
 Run from the project root. Not wired into the CLI on purpose — this is an
 experiment harness. Pass a block granularity for the dynamic variant as the
@@ -22,6 +23,7 @@ VARIANTS = [
     ("dc", dict(engine="dc")),
     ("bayes", dict(engine="bayes")),
     ("bayes-dyn", dict(engine="bayes", dynamic=True)),
+    ("bayes-dyn-prop", dict(engine="bayes", dynamic=True, propagate=True)),
 ]
 
 

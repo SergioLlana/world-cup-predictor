@@ -63,3 +63,35 @@ for p in ("sigma_rw_atk", "sigma_rw_dfn"):
           f"(95% CI {np.percentile(v, 2.5):.4f}-{np.percentile(v, 97.5):.4f})")
 print("\n[bayes-dyn] MCMC diagnose:")
 print(dyn._mcmc.diagnose())
+
+
+def propagation_effect(m, tag, pairs):
+    """Phase B2: how full posterior propagation reshapes the score matrix
+    relative to the plug-in posterior mean. The means (atk/dfn) are identical,
+    so the rating gaps above are unchanged; what propagation changes is the
+    *scoreline distribution* — averaging over the rating posterior widens it,
+    most on the weakly-anchored cross-confederation pairs. Reports Shannon
+    entropy (higher = wider) and the 1X2 for each pair, mean vs propagated."""
+    def ent(P):
+        return float(-np.sum(P * np.log(np.clip(P, 1e-12, None))))
+
+    def outc(P):
+        d = np.subtract.outer(np.arange(P.shape[0]), np.arange(P.shape[1]))
+        return P[d > 0].sum(), P[d == 0].sum(), P[d < 0].sum()
+
+    print(f"\n[{tag}] posterior propagation (Phase B2) vs plug-in mean:")
+    for h, a in pairs:
+        m.propagate = False
+        Pm = m.score_matrix(h, a)
+        m.propagate = True
+        Pp = m.score_matrix(h, a)
+        m.propagate = False
+        o_m, o_p = outc(Pm), outc(Pp)
+        print(f"  {h}-{a}: entropy {ent(Pm):.3f}->{ent(Pp):.3f} "
+              f"| 1X2 mean ({o_m[0]:.3f},{o_m[1]:.3f},{o_m[2]:.3f}) "
+              f"-> prop ({o_p[0]:.3f},{o_p[1]:.3f},{o_p[2]:.3f}) "
+              f"| max|dP| {np.abs(Pm - Pp).max():.4f}")
+
+
+propagation_effect(dyn, "bayes-dyn",
+                   [("Argentina", "Spain"), ("Australia", "United States")])

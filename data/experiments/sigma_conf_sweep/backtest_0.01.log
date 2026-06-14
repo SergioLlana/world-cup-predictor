@@ -1,0 +1,74 @@
+11:33:07 - cmdstanpy - INFO - CmdStan start processing
+11:33:07 - cmdstanpy - INFO - Chain [1] start processing
+11:33:07 - cmdstanpy - INFO - Chain [2] start processing
+11:33:07 - cmdstanpy - INFO - Chain [3] start processing
+11:33:07 - cmdstanpy - INFO - Chain [4] start processing
+11:38:40 - cmdstanpy - INFO - Chain [2] done processing
+11:38:48 - cmdstanpy - INFO - Chain [1] done processing
+11:38:56 - cmdstanpy - INFO - Chain [4] done processing
+11:39:25 - cmdstanpy - INFO - Chain [3] done processing
+11:39:33 - cmdstanpy - INFO - CmdStan start processing
+11:39:33 - cmdstanpy - INFO - Chain [1] start processing
+11:39:33 - cmdstanpy - INFO - Chain [2] start processing
+11:39:33 - cmdstanpy - INFO - Chain [3] start processing
+11:39:33 - cmdstanpy - INFO - Chain [4] start processing
+11:44:30 - cmdstanpy - INFO - Chain [1] done processing
+11:45:11 - cmdstanpy - INFO - Chain [2] done processing
+11:45:29 - cmdstanpy - INFO - Chain [4] done processing
+11:45:41 - cmdstanpy - INFO - Chain [3] done processing
+11:45:50 - cmdstanpy - INFO - CmdStan start processing
+11:45:50 - cmdstanpy - INFO - Chain [1] start processing
+11:45:50 - cmdstanpy - INFO - Chain [2] start processing
+11:45:50 - cmdstanpy - INFO - Chain [3] start processing
+11:45:50 - cmdstanpy - INFO - Chain [4] start processing
+11:51:50 - cmdstanpy - INFO - Chain [4] done processing
+11:51:55 - cmdstanpy - INFO - Chain [2] done processing
+11:52:06 - cmdstanpy - INFO - Chain [3] done processing
+11:52:12 - cmdstanpy - INFO - Chain [1] done processing
+11:52:21 - cmdstanpy - INFO - CmdStan start processing
+11:52:21 - cmdstanpy - INFO - Chain [1] start processing
+11:52:21 - cmdstanpy - INFO - Chain [2] start processing
+11:52:21 - cmdstanpy - INFO - Chain [3] start processing
+11:52:21 - cmdstanpy - INFO - Chain [4] start processing
+11:57:10 - cmdstanpy - INFO - Chain [3] done processing
+11:57:32 - cmdstanpy - INFO - Chain [4] done processing
+11:57:52 - cmdstanpy - INFO - Chain [1] done processing
+11:57:55 - cmdstanpy - INFO - Chain [2] done processing
+11:58:03 - cmdstanpy - INFO - CmdStan start processing
+11:58:03 - cmdstanpy - INFO - Chain [1] start processing
+11:58:03 - cmdstanpy - INFO - Chain [2] start processing
+11:58:03 - cmdstanpy - INFO - Chain [3] start processing
+11:58:03 - cmdstanpy - INFO - Chain [4] start processing
+12:03:12 - cmdstanpy - INFO - Chain [4] done processing
+12:03:14 - cmdstanpy - INFO - Chain [1] done processing
+12:03:20 - cmdstanpy - INFO - Chain [3] done processing
+12:03:56 - cmdstanpy - INFO - Chain [2] done processing
+12:04:04 - cmdstanpy - INFO - CmdStan start processing
+12:04:04 - cmdstanpy - INFO - Chain [1] start processing
+12:04:04 - cmdstanpy - INFO - Chain [2] start processing
+12:04:04 - cmdstanpy - INFO - Chain [3] start processing
+12:04:04 - cmdstanpy - INFO - Chain [4] start processing
+12:09:14 - cmdstanpy - INFO - Chain [3] done processing
+12:09:18 - cmdstanpy - INFO - Chain [1] done processing
+12:09:53 - cmdstanpy - INFO - Chain [2] done processing
+12:10:28 - cmdstanpy - INFO - Chain [4] done processing
+Backtest wc2018 (penka): 135.0 pts in 64 matches (2.11/match) | exact 10 | outcome correct 36 | rps 0.2007 | log-loss 2.8310
+Backtest euro2021 (penka): 100.0 pts in 51 matches (1.96/match) | exact 4 | outcome correct 30 | rps 0.1824 | log-loss 2.8609
+Backtest copa2021 (penka): 67.0 pts in 28 matches (2.39/match) | exact 5 | outcome correct 16 | rps 0.1550 | log-loss 2.5886
+Backtest wc2022 (penka): 99.0 pts in 64 matches (1.55/match) | exact 3 | outcome correct 33 | rps 0.2119 | log-loss 3.0379
+Backtest euro2024 (penka): 115.0 pts in 51 matches (2.25/match) | exact 6 | outcome correct 28 | rps 0.1859 | log-loss 2.5633
+Backtest copa2024 (penka): 76.0 pts in 32 matches (2.38/match) | exact 8 | outcome correct 18 | rps 0.1636 | log-loss 2.5020
+
+Bridge audit — 123 inter-confederation matches, share = win + draw/2 from conf_a's perspective (bias_a > 0: model overrates conf_a):
+
+  conf_a   conf_b  n  exp_share_a  real_share_a  bias_a  goal_res_a  goal_res_b   rps
+CONMEBOL     UEFA 22        0.629         0.523   0.106       0.062       0.356 0.198
+     CAF     UEFA 21        0.336         0.357  -0.021       0.239       0.148 0.206
+CONCACAF CONMEBOL 21        0.330         0.310   0.020      -0.174       0.061 0.144
+     AFC     UEFA 19        0.332         0.395  -0.062       0.263       0.220 0.225
+CONCACAF     UEFA 14        0.374         0.214   0.160      -0.173       1.157 0.155
+     AFC CONMEBOL  8        0.249         0.312  -0.063       0.120      -0.121 0.232
+     CAF CONMEBOL  6        0.282         0.333  -0.051       0.107      -0.309 0.268
+     AFC      CAF  6        0.489         0.583  -0.094       0.554       0.506 0.274
+     AFC CONCACAF  4        0.448         0.000   0.448      -0.327       0.465 0.240
+     CAF CONCACAF  2        0.531         1.000  -0.469       0.989       0.104 0.247
