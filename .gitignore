@@ -13,3 +13,6 @@ dist/
 # Compiled Stan artifacts (keep only the .stan source)
 wcpred/stan/*
 !wcpred/stan/*.stan
+
+.DS_Store
+docs/.obsidian/

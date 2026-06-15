@@ -38,6 +38,11 @@ GENERATE_SH = os.path.join(ROOT, "scripts", "generate_predictions.sh")
 
 # Approach label in the CSV filenames -> what the UI's odds toggle selects.
 APPROACHES = ("odds", "history")
+# Engine label in the CSV filenames -> what the UI's engine picker selects.
+# dc is the production model; elo/bayes are the alternative engines (see
+# CLAUDE.md). generate_predictions.sh stamps every engine into the filename.
+ENGINES = ("dc", "elo", "bayes")
+DEFAULT_ENGINE = "dc"
 
 # name in the martj42 dataset -> flag file (webapp/static/flags/) + Spanish name
 TEAMS = {
@@ -113,22 +118,25 @@ app = FastAPI(title="wcpred web")
 
 # ---------------------------------------------------------------- snapshots
 
+# generate_predictions.sh labels every engine into the filename, so each CSV
+# carries an _<engine> segment (_dc/_elo/_bayes); the UI's engine picker selects
+# which one the dashboard reads.
 _FILE_RE = {
-    "predictions": re.compile(r"picks_(odds|history)_(\d{4}-\d{2}-\d{2})\.csv$"),
-    "groups": re.compile(r"groups_(odds|history)_(\d{4}-\d{2}-\d{2})\.csv$"),
-    "simulations": re.compile(r"sim_(odds|history)_(\d{4}-\d{2}-\d{2})\.csv$"),
+    "predictions": re.compile(r"picks_(odds|history)_(dc|elo|bayes)_(\d{4}-\d{2}-\d{2})\.csv$"),
+    "groups": re.compile(r"groups_(odds|history)_(dc|elo|bayes)_(\d{4}-\d{2}-\d{2})\.csv$"),
+    "simulations": re.compile(r"sim_(odds|history)_(dc|elo|bayes)_(\d{4}-\d{2}-\d{2})\.csv$"),
 }
 _DIRS = {"predictions": PREDICTIONS_DIR, "groups": GROUPS_DIR, "simulations": SIM_DIR}
 
 
-def _snapshots(kind, approach):
-    """Sorted [(date, path)] of the date-stamped CSVs for one approach."""
+def _snapshots(kind, approach, engine=DEFAULT_ENGINE):
+    """Sorted [(date, path)] of the date-stamped CSVs for one approach+engine."""
     rx = _FILE_RE[kind]
     out = []
     for path in glob.glob(os.path.join(ROOT, _DIRS[kind], "*.csv")):
         m = rx.search(os.path.basename(path))
-        if m and m.group(1) == approach:
-            out.append((m.group(2), path))
+        if m and m.group(1) == approach and m.group(2) == engine:
+            out.append((m.group(3), path))
     return sorted(out)
 
 
@@ -137,10 +145,16 @@ def _check_approach(approach):
         raise HTTPException(400, f"approach must be one of {APPROACHES}")
 
 
-def _read_snapshots(kind, approach):
+def _check_engine(engine):
+    if engine not in ENGINES:
+        raise HTTPException(400, f"engine must be one of {ENGINES}")
+
+
+def _read_snapshots(kind, approach, engine):
     _check_approach(approach)
+    _check_engine(engine)
     snaps = []
-    for date, path in _snapshots(kind, approach):
+    for date, path in _snapshots(kind, approach, engine):
         df = pd.read_csv(path)
         snaps.append({"date": date, "rows": df.where(df.notna(), None).to_dict("records")})
     return {"snapshots": snaps}
@@ -153,26 +167,29 @@ def meta():
     return {
         "teams": TEAMS,
         "groups": OFFICIAL_GROUPS,
+        "engines": list(ENGINES),
         "snapshots": {
-            kind: {ap: [d for d, _ in _snapshots(kind, ap)] for ap in APPROACHES}
+            kind: {ap: {eng: [d for d, _ in _snapshots(kind, ap, eng)]
+                        for eng in ENGINES}
+                   for ap in APPROACHES}
             for kind in _DIRS
         },
     }
 
 
 @app.get("/api/picks")
-def picks(approach: str = "odds"):
-    return _read_snapshots("predictions", approach)
+def picks(approach: str = "odds", engine: str = DEFAULT_ENGINE):
+    return _read_snapshots("predictions", approach, engine)
 
 
 @app.get("/api/groups")
-def groups(approach: str = "odds"):
-    return _read_snapshots("groups", approach)
+def groups(approach: str = "odds", engine: str = DEFAULT_ENGINE):
+    return _read_snapshots("groups", approach, engine)
 
 
 @app.get("/api/sims")
-def sims(approach: str = "odds"):
-    return _read_snapshots("simulations", approach)
+def sims(approach: str = "odds", engine: str = DEFAULT_ENGINE):
+    return _read_snapshots("simulations", approach, engine)
 
 
 def _load_odds_history():
@@ -268,29 +285,38 @@ def matches():
 
 # ------------------------------------------------------------------- matrix
 
-@lru_cache(maxsize=8)
-def _model_for(as_of, results_mtime):
-    """Dixon-Coles fitted on matches before `as_of` (no xG, like the daily
-    pipeline). results_mtime is only part of the key so a data refresh
-    invalidates the cache."""
+@lru_cache(maxsize=24)
+def _model_for(as_of, results_mtime, engine=DEFAULT_ENGINE):
+    """Model fitted on matches before `as_of` (no xG, like the daily pipeline),
+    using the requested engine (dc/elo/bayes). results_mtime is only part of the
+    key so a data refresh invalidates the cache."""
     df = load_results(os.path.join(ROOT, RESULTS_PATH))
-    return DixonColes().fit(prepare_training(df, as_of=as_of))
+    train = prepare_training(df, as_of=as_of)
+    if engine == "elo":
+        from wcpred.model_elo import EloDixonColes
+        return EloDixonColes().fit(train, df=df, as_of=as_of)
+    if engine == "bayes":
+        from wcpred.model_bayes import BayesianDixonColes
+        return BayesianDixonColes().fit(train)
+    return DixonColes().fit(train)
 
 
 @app.get("/api/matrix")
-def matrix(home: str, away: str, date: str, approach: str = "odds"):
+def matrix(home: str, away: str, date: str, approach: str = "odds",
+           engine: str = DEFAULT_ENGINE):
     """Full score-probability matrix for one fixture, reproducing the pick
     shown in the calendar: model as of the snapshot in force on the match
     date, with market odds blended in when approach=odds."""
     _check_approach(approach)
-    snaps = [d for d, _ in _snapshots("predictions", approach)]
+    _check_engine(engine)
+    snaps = [d for d, _ in _snapshots("predictions", approach, engine)]
     # No snapshot on/before the match date → fall back to the match date
     # itself, which is still leak-free (training uses matches strictly before
     # it); a later snapshot would train on results from after the match.
     as_of = max((d for d in snaps if d <= date), default=date)
 
     results_path = os.path.join(ROOT, RESULTS_PATH)
-    model = _model_for(as_of, os.path.getmtime(results_path))
+    model = _model_for(as_of, os.path.getmtime(results_path), engine)
 
     df = pd.read_csv(results_path)
     row = df[(df["date"] == date) & (df["home_team"] == home) & (df["away_team"] == away)]
@@ -311,7 +337,7 @@ def matrix(home: str, away: str, date: str, approach: str = "odds"):
         raise HTTPException(404, f"equipo sin datos de entrenamiento: {home} / {away}")
     return {
         "home": home, "away": away, "as_of": as_of, "side": side,
-        "odds_used": bool(res["used_odds"]),
+        "engine": engine, "odds_used": bool(res["used_odds"]),
         "pick": f"{res['pick'][0]}-{res['pick'][1]}",
         "expected_points": round(res["expected_points"], 3),
         "p1": round(res["p1"], 4), "px": round(res["px"], 4), "p2": round(res["p2"], 4),
@@ -436,6 +462,10 @@ def refresh(payload: dict):
     sims = payload.get("sims")
     if sims:
         args += ["--sims", str(int(sims))]
+    # engines to (re)generate so the engine picker has fresh data on each side
+    engines = [e for e in (payload.get("engines") or [DEFAULT_ENGINE])
+               if e in ENGINES] or [DEFAULT_ENGINE]
+    args += ["--engines", ",".join(engines)]
     # one run per approach so the odds toggle has fresh data on both sides
     approaches = payload.get("approaches") or ["odds", "history"]
 

@@ -198,6 +198,11 @@ tr.conn-row.sel td:first-child { box-shadow: inset 3px 0 0 var(--orange); }
 .check { display: block; font-size: 13.5px; margin: 8px 0; }
 .check input[type=number] { width: 110px; margin-left: 8px; }
 .hint { font-size: 12px; color: var(--muted); }
+.refresh-engines { border: 1px solid var(--border, #ddd); border-radius: 8px;
+  padding: 6px 12px 10px; margin: 12px 0; }
+.refresh-engines legend { font-size: 12px; color: var(--muted); padding: 0 4px; }
+.refresh-engines .check { margin: 6px 0; }
+.refresh-engines .hint { display: inline; margin-left: 4px; }
 .modal-actions { display: flex; gap: 10px; margin: 12px 0 4px; }
 #refresh-log { background: #14141a; color: #cfe8e8; font-size: 11px; padding: 10px;
                border-radius: 8px; max-height: 300px; overflow: auto; white-space: pre-wrap; }

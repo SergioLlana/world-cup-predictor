@@ -3,16 +3,23 @@
 
 const state = {
   approach: "odds",          // toggle de cuotas: odds | history
+  engine: "dc",              // motor: dc | elo | bayes
   tab: "champion",
   snapshotDate: null,        // null = último disponible
   evoMetric: "p_champion",
   meta: null,
   matches: null,
-  cache: { odds: {}, history: {} },   // por approach: {sims, groups, picks}
+  cache: {},                 // por "<approach>|<engine>": {sims, groups, picks}
   connectivity: null,                  // /api/connectivity (solo modelo, sin approach)
   connLoading: false,
   connSelected: null,                  // equipo con el desglose abierto
 };
+
+// Etiquetas legibles para cada motor (las claves vienen del backend).
+const ENGINE_LABELS = { dc: "Dixon-Coles", elo: "Elo", bayes: "Bayesiano" };
+const cacheKey = (ap = state.approach, eng = state.engine) => `${ap}|${eng}`;
+// Datos del approach+engine vigente; {} si aún no se han cargado.
+const curCache = () => state.cache[cacheKey()] || {};
 
 const $ = (sel) => document.querySelector(sel);
 const fetchJSON = async (url) => {
@@ -63,23 +70,26 @@ function pickSnapshot(snapshots, date) {
 
 // ------------------------------------------------------------- data load
 
-async function loadApproach(ap) {
-  if (state.cache[ap].sims) return;
+async function loadData(ap = state.approach, eng = state.engine) {
+  const key = cacheKey(ap, eng);
+  if (state.cache[key]?.sims) return;
+  const q = `approach=${ap}&engine=${eng}`;
   const [sims, groups, picks] = await Promise.all([
-    fetchJSON(`/api/sims?approach=${ap}`),
-    fetchJSON(`/api/groups?approach=${ap}`),
-    fetchJSON(`/api/picks?approach=${ap}`),
+    fetchJSON(`/api/sims?${q}`),
+    fetchJSON(`/api/groups?${q}`),
+    fetchJSON(`/api/picks?${q}`),
   ]);
-  state.cache[ap] = { sims: sims.snapshots, groups: groups.snapshots, picks: picks.snapshots };
+  state.cache[key] = { sims: sims.snapshots, groups: groups.snapshots, picks: picks.snapshots };
 }
 
 async function reloadAll() {
-  state.cache = { odds: {}, history: {} };
+  state.cache = {};
   state.connectivity = null;          // un refresco puede traer resultados nuevos
   const [meta, matches] = await Promise.all([fetchJSON("/api/meta"), fetchJSON("/api/matches")]);
   state.meta = meta;
   state.matches = matches.matches;
-  await loadApproach(state.approach);
+  buildEngineSelect();
+  await loadData();
   buildSnapshotSelect();
   render();
   // permalink a la matriz de un partido: #match=2026-06-11|Mexico|South Africa
@@ -90,8 +100,24 @@ async function reloadAll() {
   }
 }
 
+function buildEngineSelect() {
+  const engines = state.meta.engines || ["dc"];
+  const sel = $("#engine-select");
+  sel.innerHTML = engines
+    .map((e) => `<option value="${e}">${ENGINE_LABELS[e] || e}</option>`)
+    .join("");
+  if (!engines.includes(state.engine)) state.engine = engines[0];
+  sel.value = state.engine;
+  updateEngineNote();
+}
+
+function updateEngineNote() {
+  const note = $("#engine-note");
+  if (note) note.textContent = ENGINE_LABELS[state.engine] || state.engine;
+}
+
 function buildSnapshotSelect() {
-  const dates = state.meta.snapshots.simulations[state.approach] || [];
+  const dates = (state.meta.snapshots.simulations[state.approach] || {})[state.engine] || [];
   const sel = $("#snapshot-select");
   sel.innerHTML = dates.map((d) => `<option value="${d}">${fmtShort(d)}</option>`).join("");
   const wanted = state.snapshotDate && dates.includes(state.snapshotDate)
@@ -115,7 +141,7 @@ const SIM_COLS = [
 ];
 
 function renderChampion() {
-  const snap = pickSnapshot(state.cache[state.approach].sims, state.snapshotDate);
+  const snap = pickSnapshot(curCache().sims, state.snapshotDate);
   const el = $("#tab-champion");
   if (!snap) { el.innerHTML = `<p class="note">No hay simulaciones generadas. Usa «Actualizar datos».</p>`; return; }
   const rows = [...snap.rows].sort((a, b) => b.p_champion - a.p_champion);
@@ -151,7 +177,7 @@ const PALETTE = ["#0f8a8a", "#e8632c", "#3b6bb5", "#c0392b", "#7d3bb5",
                  "#2e8b57", "#d9a514", "#7a4b2c", "#e054a0", "#44443f"];
 
 function renderEvolution() {
-  const snaps = state.cache[state.approach].sims;
+  const snaps = curCache().sims;
   const el = $("#tab-evolution");
   if (!snaps.length) { el.innerHTML = `<p class="note">No hay simulaciones generadas.</p>`; return; }
 
@@ -238,7 +264,7 @@ function renderEvolution() {
 // ----------------------------------------------------------------- grupos
 
 function renderGroups() {
-  const snap = pickSnapshot(state.cache[state.approach].groups, state.snapshotDate);
+  const snap = pickSnapshot(curCache().groups, state.snapshotDate);
   const el = $("#tab-groups");
   if (!snap) { el.innerHTML = `<p class="note">No hay standings generados.</p>`; return; }
   const byGroup = {};
@@ -270,7 +296,7 @@ const ROUND_ORDER = ["j1", "j2", "j3", "r32", "r16", "qf", "sf", "p3", "f", "ko"
 // predicción vigente para un partido: el snapshot de picks más reciente cuya
 // fecha sea <= la del partido (lo que se habría pronosticado ese día)
 function predictionFor(match) {
-  const snap = pickSnapshot(state.cache[state.approach].picks, match.date);
+  const snap = pickSnapshot(curCache().picks, match.date);
   if (!snap) return null;
   let row = snap.rows.find((r) => r.home === match.home && r.away === match.away && r.date === match.date)
          || snap.rows.find((r) => r.home === match.home && r.away === match.away);
@@ -540,7 +566,7 @@ async function openMatrix(home, away, date) {
   box.innerHTML = `<div class="matrix-loading">Ajustando el modelo… (la primera vez tarda unos segundos)</div>`;
   let d;
   try {
-    const q = new URLSearchParams({ home, away, date, approach: state.approach });
+    const q = new URLSearchParams({ home, away, date, approach: state.approach, engine: state.engine });
     d = await fetchJSON(`/api/matrix?${q}`);
   } catch (e) {
     box.innerHTML = `<div class="matrix-loading">Error calculando la matriz: ${e.message}</div>`;
@@ -568,7 +594,7 @@ async function openMatrix(home, away, date) {
   box.innerHTML = `
     <div class="matrix-head">${flagImg(home, true)} ${teamES(home)}
       <span style="color:var(--muted)">${score}</span> ${teamES(away)} ${flagImg(away, true)}</div>
-    <div class="matrix-sub">Probabilidad (%) de cada marcador exacto · modelo del ${fmtDay(d.as_of)}
+    <div class="matrix-sub">Probabilidad (%) de cada marcador exacto · modelo ${ENGINE_LABELS[d.engine] || d.engine} del ${fmtDay(d.as_of)}
       · ${d.odds_used ? "con cuotas de mercado" : "solo modelo"}
       · 1X2: ${pct(d.p1)} / ${pct(d.px)} / ${pct(d.p2)}
       · Pred. <b>${d.pick}</b> (xPts ${d.expected_points.toFixed(2)})</div>
@@ -631,6 +657,7 @@ function setupRefresh() {
   $("#refresh-start").addEventListener("click", async () => {
     $("#refresh-start").disabled = true;
     const sims = parseInt($("#refresh-sims").value, 10);
+    const engines = [...document.querySelectorAll(".refresh-engine:checked")].map((c) => c.value);
     try {
       await fetch("/api/refresh", {
         method: "POST",
@@ -638,6 +665,7 @@ function setupRefresh() {
         body: JSON.stringify({
           refresh_inputs: $("#refresh-inputs").checked,
           sims: isNaN(sims) ? null : sims,
+          engines: engines.length ? engines : ["dc"],
         }),
       });
     } catch (e) { /* el 409 (ya en marcha) acaba igualmente en el poll */ }
@@ -669,7 +697,15 @@ function setupUI() {
 
   $("#odds-toggle").addEventListener("change", async (e) => {
     state.approach = e.target.checked ? "odds" : "history";
-    await loadApproach(state.approach);
+    await loadData();
+    buildSnapshotSelect();
+    render();
+  });
+
+  $("#engine-select").addEventListener("change", async (e) => {
+    state.engine = e.target.value;
+    updateEngineNote();
+    await loadData();
     buildSnapshotSelect();
     render();
   });

@@ -19,6 +19,10 @@
 # Options:
 #   --approach A     history | odds | xg | full
 #                    (default: odds if data/input/odds.csv exists, else history)
+#   --engines LIST   comma-separated engines to run: dc | elo | bayes
+#                    (default: dc). Each engine adds an _<engine> label segment
+#                    (picks_<approach>_dc_<date>.csv etc.). bayes needs the
+#                    .[bayes] extra + CmdStan and is slow (MCMC).
 #   --as-of DATE     train on matches before DATE; also the filename stamp.
 #                    Past dates pick the matching data/input/odds/ snapshot
 #                    (default: today)
@@ -52,6 +56,7 @@ ODDS_CSV="$INPUT_DIR/odds.csv"
 XG_CSV="$INPUT_DIR/xg.csv"
 
 APPROACH=""
+ENGINES="dc"
 ASOF=""
 DAYS=""
 SIMS=""
@@ -76,6 +81,9 @@ Usage: scripts/generate_predictions.sh [options]
 Options:
   --approach A     history | odds | xg | full
                    (default: odds if data/input/odds.csv exists, else history)
+  --engines LIST   comma-separated engines: dc | elo | bayes (default: dc).
+                   Each engine adds an _<engine> filename segment.
+                   bayes needs the .[bayes] extra + CmdStan and is slow (MCMC).
   --as-of DATE     train on matches before DATE; also the filename stamp (default: today)
   --days N         predictions: only fixtures within N days of --as-of
   --sims N         groups + simulation: Monte Carlo count
@@ -98,6 +106,7 @@ EOF
 while [ $# -gt 0 ]; do
   case "$1" in
     --approach)     APPROACH="$2"; shift 2 ;;
+    --engines)      ENGINES="$2"; shift 2 ;;
     --as-of)        ASOF="$2"; shift 2 ;;
     --days)         DAYS="$2"; shift 2 ;;
     --sims)         SIMS="$2"; shift 2 ;;
@@ -113,6 +122,20 @@ while [ $# -gt 0 ]; do
     --time)         WITH_TIME=1; shift ;;
     -h|--help)      usage; exit 0 ;;
     *) echo "Unknown option: $1 (try --help)" >&2; exit 2 ;;
+  esac
+done
+
+# Engines to run (comma-separated, e.g. dc,elo,bayes). Each engine gets an
+# _<engine> label segment so their CSVs don't collide: dc → picks_<approach>_dc_
+# <date>.csv (the production model the webapp reads), elo/bayes likewise (the
+# webapp's regex only matches _dc, so elo/bayes stay invisible there). 'bayes'
+# needs the .[bayes] extra + CmdStan and is slow (MCMC); a failure there is
+# reported, not fatal.
+IFS=',' read -r -a ENGINE_LIST <<< "$ENGINES"
+for e in "${ENGINE_LIST[@]}"; do
+  case "$e" in
+    dc|elo|bayes) ;;
+    *) echo "Unknown engine: $e (expected dc|elo|bayes)" >&2; exit 2 ;;
   esac
 done
 
@@ -169,31 +192,39 @@ esac
 FAILED=()
 log() { printf '\n=== %s ===\n' "$*"; }
 
-if [ "$DO_PREDICT" = 1 ]; then
-  log "Predictions — approach=$APPROACH → data/predictions/picks_${LABEL}_${STAMP}.csv"
-  pargs=("${common_args[@]}")
-  [ -n "$DAYS" ]      && pargs+=(--days "$DAYS")
-  [ "$EXTRA_TIME" = 1 ] && pargs+=(--extra-time)
-  [ "$SHOOTOUT" = 1 ]   && pargs+=(--shootout)
-  pargs+=(--out "picks_${LABEL}_${STAMP}.csv")
-  if ! wcpred_cli predict "${pargs[@]}"; then FAILED+=("predict"); fi
-fi
+for ENGINE in "${ENGINE_LIST[@]}"; do
+  # Every engine (dc included) gets an _<engine> label segment and passes the
+  # explicit --engine flag, so the three engines' CSVs never collide. The webapp
+  # engine picker reads whichever segment is selected (picks_<approach>_<engine>_
+  # <date>.csv); dc stays the default.
+  ENG_LABEL="${LABEL}_${ENGINE}"
 
-if [ "$DO_GROUPS" = 1 ]; then
-  log "Groups — approach=$APPROACH → data/groups/groups_${LABEL}_${STAMP}.csv"
-  gargs=("${common_args[@]}")
-  [ -n "$SIMS" ] && gargs+=(--sims "$SIMS")
-  gargs+=(--out "groups_${LABEL}_${STAMP}.csv")
-  if ! wcpred_cli groups "${gargs[@]}"; then FAILED+=("groups"); fi
-fi
+  if [ "$DO_PREDICT" = 1 ]; then
+    log "Predictions [$ENGINE] — approach=$APPROACH → data/predictions/picks_${ENG_LABEL}_${STAMP}.csv"
+    pargs=("${common_args[@]}" --engine "$ENGINE")
+    [ -n "$DAYS" ]      && pargs+=(--days "$DAYS")
+    [ "$EXTRA_TIME" = 1 ] && pargs+=(--extra-time)
+    [ "$SHOOTOUT" = 1 ]   && pargs+=(--shootout)
+    pargs+=(--out "picks_${ENG_LABEL}_${STAMP}.csv")
+    if ! wcpred_cli predict "${pargs[@]}"; then FAILED+=("predict[$ENGINE]"); fi
+  fi
 
-if [ "$DO_SIMULATE" = 1 ]; then
-  log "Simulation — approach=$APPROACH → data/simulations/sim_${LABEL}_${STAMP}.csv"
-  sargs=("${common_args[@]}")
-  [ -n "$SIMS" ] && sargs+=(--sims "$SIMS")
-  sargs+=(--out "sim_${LABEL}_${STAMP}.csv")
-  if ! wcpred_cli simulate "${sargs[@]}"; then FAILED+=("simulate"); fi
-fi
+  if [ "$DO_GROUPS" = 1 ]; then
+    log "Groups [$ENGINE] — approach=$APPROACH → data/groups/groups_${ENG_LABEL}_${STAMP}.csv"
+    gargs=("${common_args[@]}" --engine "$ENGINE")
+    [ -n "$SIMS" ] && gargs+=(--sims "$SIMS")
+    gargs+=(--out "groups_${ENG_LABEL}_${STAMP}.csv")
+    if ! wcpred_cli groups "${gargs[@]}"; then FAILED+=("groups[$ENGINE]"); fi
+  fi
+
+  if [ "$DO_SIMULATE" = 1 ]; then
+    log "Simulation [$ENGINE] — approach=$APPROACH → data/simulations/sim_${ENG_LABEL}_${STAMP}.csv"
+    sargs=("${common_args[@]}" --engine "$ENGINE")
+    [ -n "$SIMS" ] && sargs+=(--sims "$SIMS")
+    sargs+=(--out "sim_${ENG_LABEL}_${STAMP}.csv")
+    if ! wcpred_cli simulate "${sargs[@]}"; then FAILED+=("simulate[$ENGINE]"); fi
+  fi
+done
 
 if [ "${#FAILED[@]}" -gt 0 ]; then
   printf '\n!! Failed: %s\n' "${FAILED[*]}" >&2

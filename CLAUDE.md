@@ -142,20 +142,26 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 - `server.py` — FastAPI (install `.[web]`; run `scripts/run_webapp.sh`, port
   8026). JSON API over the date-stamped CSVs in `data/` (re-read per request,
   no cache) plus `POST /api/refresh` which runs `generate_predictions.sh
-  --refresh` for both approaches in a background thread. Owns the team →
+  --refresh` for both approaches (and the requested `--engines`) in a background
+  thread. Every data endpoint takes `approach` (odds/history) **and** `engine`
+  (dc/elo/bayes, default dc) query params — the CSV filename carries an
+  `_<engine>` segment (`_FILE_RE`), so the UI's engine picker selects which
+  engine's snapshots the dashboard shows. Owns the team →
   flag-code/Spanish-name map (`TEAMS`); odds↔fixture matching reuses
   `predict._norm_team` and tolerates swapped home/away (host MD3 quirk).
-  `GET /api/matrix` re-fits Dixon-Coles as of the snapshot in force on the
-  match date (lru_cached per as-of + results.csv mtime) to serve the full
-  score matrix behind a pick. `GET /api/connectivity` (Conectividad tab)
+  `GET /api/matrix` re-fits the requested engine as of the snapshot in force on
+  the match date (lru_cached per as-of + results.csv mtime + engine) to serve
+  the full score matrix behind a pick (bayes needs CmdStan and is slow). `GET /api/connectivity` (Conectividad tab)
   exposes the inter-confederation anchoring evidence behind
   `docs/known-limitations.md`: the conf×conf training-weight matrix (via
   `confederations.infer_confederations`) plus per-WC-team bridge share and
   weighted mean opponent rating.
 - `static/` — vanilla JS frontend (`app.js`), no external deps; charts are
   hand-rolled SVG; `flags/` holds the 48 country SVGs (flagcdn). The odds
-  toggle switches between the `odds`/`history` CSV variants; the calendar
-  shows each match the prediction from the latest snapshot ≤ its date.
+  toggle switches between the `odds`/`history` CSV variants and the engine
+  picker (header `<select>`) between `dc`/`elo`/`bayes`; the in-memory cache is
+  keyed by `<approach>|<engine>`. The calendar shows each match the prediction
+  from the latest snapshot ≤ its date.
 
 ## Conventions
 

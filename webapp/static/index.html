@@ -11,13 +11,16 @@
 <header class="topbar">
   <div class="title">
     <h1>Mundial 2026 · Predicciones</h1>
-    <p class="subtitle">Modelo Dixon-Coles optimizado para Penka · <span id="snapshot-note"></span></p>
+    <p class="subtitle">Modelo <span id="engine-note">Dixon-Coles</span> optimizado para Penka · <span id="snapshot-note"></span></p>
   </div>
   <div class="controls">
     <label class="switch" title="Mezclar las cuotas 1X2 del mercado en las predicciones">
       <input type="checkbox" id="odds-toggle" checked>
       <span class="slider"></span>
       <span class="switch-label">Cuotas de mercado</span>
+    </label>
+    <label class="snapshot-picker" title="Motor de predicción">Motor
+      <select id="engine-select"></select>
     </label>
     <label class="snapshot-picker">Día
       <select id="snapshot-select"></select>
@@ -56,11 +59,17 @@
     <h2>Actualizar predicciones</h2>
     <label class="check"><input type="checkbox" id="refresh-inputs" checked>
       Refrescar datos de entrada (resultados + xG + cuotas)</label>
+    <fieldset class="refresh-engines">
+      <legend>Motores a generar</legend>
+      <label class="check"><input type="checkbox" class="refresh-engine" value="dc" checked> Dixon-Coles</label>
+      <label class="check"><input type="checkbox" class="refresh-engine" value="elo"> Elo</label>
+      <label class="check"><input type="checkbox" class="refresh-engine" value="bayes"> Bayesiano <span class="hint">(necesita CmdStan; lento)</span></label>
+    </fieldset>
     <label class="check">Simulaciones Monte Carlo
       <input type="number" id="refresh-sims" placeholder="por defecto" min="1000" step="1000">
     </label>
-    <p class="hint">Genera los CSV fechados de hoy para ambas variantes (con y sin cuotas).
-       Puede tardar varios minutos.</p>
+    <p class="hint">Genera los CSV fechados de hoy para ambas variantes (con y sin cuotas)
+       y los motores marcados. Puede tardar varios minutos.</p>
     <div class="modal-actions">
       <button id="refresh-start" class="btn primary">Lanzar</button>
       <button id="refresh-close" class="btn">Cerrar</button>
