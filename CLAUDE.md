@@ -16,6 +16,8 @@ pip install -e .                 # installs the `wcpred` console script
 wcpred update-data               # download/refresh data/input/results.csv (run first)
 scripts/update_data.sh           # refresh ALL sources (results+xG+odds) incrementally
 scripts/generate_predictions.sh  # date-stamped picks + group standings (track evolution)
+scripts/generate_rankings.sh     # date-stamped model rankings (--as-of, --engines;
+                                 # track how team ratings evolve)
 wcpred predict --approach odds --odds data/input/odds.csv --days 3
 wcpred groups --approach odds --odds data/input/odds.csv  # MC group standings
 wcpred simulate --approach odds --odds data/input/odds.csv  # full bracket → champion
@@ -142,8 +144,10 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 - `server.py` — FastAPI (install `.[web]`; run `scripts/run_webapp.sh`, port
   8026). JSON API over the date-stamped CSVs in `data/` (re-read per request,
   no cache) plus `POST /api/refresh` which runs `generate_predictions.sh
-  --refresh` for both approaches (and the requested `--engines`) in a background
-  thread. Every data endpoint takes `approach` (odds/history) **and** `engine`
+  --refresh` for both approaches (and the requested `--engines`), then
+  `generate_rankings.sh` once for those engines, in a background thread (a
+  multi-step run keeps `running` true until the last step — `_run_proc` no
+  longer flips it). Every data endpoint takes `approach` (odds/history) **and** `engine`
   (dc/elo/bayes, default dc) query params — the CSV filename carries an
   `_<engine>` segment (`_FILE_RE`), so the UI's engine picker selects which
   engine's snapshots the dashboard shows. Owns the team →
@@ -155,22 +159,37 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   exposes the inter-confederation anchoring evidence behind
   `docs/known-limitations.md`: the conf×conf training-weight matrix (via
   `confederations.infer_confederations`) plus per-WC-team bridge share and
-  weighted mean opponent rating.
+  weighted mean opponent rating. The Rankings tab is fed by two endpoints:
+  `GET /api/rankings/history?engine=` reads the date-stamped
+  `data/rankings/ratings_<engine>_<date>.csv` snapshots (from
+  `generate_rankings.sh`; `_RANK_RE`, no approach segment) so the tab can show
+  the latest table plus an evolution chart; `GET /api/rankings?engine=` is the
+  live fallback used only when no snapshot exists yet (re-fits the engine as of
+  today, lru_cached per as-of + results.csv mtime + engine) and returns the 48
+  WC teams' attack/defence coefficients, overall rating (atk − dfn),
+  confederation, weighted mean opponent rating (schedule difficulty) and — for
+  the Elo engine only — its current Elo (`has_elo`). Both rank by Elo for `elo`,
+  by overall rating otherwise. (`_records` makes the snapshot CSV NaN-safe —
+  Starlette's encoder rejects NaN.)
 - `static/` — vanilla JS frontend (`app.js`), no external deps; charts are
   hand-rolled SVG; `flags/` holds the 48 country SVGs (flagcdn). The odds
   toggle switches between the `odds`/`history` CSV variants and the engine
   picker (header `<select>`) between `dc`/`elo`/`bayes`; the in-memory cache is
   keyed by `<approach>|<engine>`. The calendar shows each match the prediction
-  from the latest snapshot ≤ its date.
+  from the latest snapshot ≤ its date. The Rankings tab (cached per engine) is
+  snapshot-driven: it shows the latest `ratings` snapshot's table plus a
+  hand-rolled SVG evolution chart (metric picker: rating / Elo / rank / opponent
+  difficulty; rank uses an inverted axis) over all snapshots — independent of
+  the odds toggle and the global day picker.
 
 ## Conventions
 
 - Generated files live under `data/`, never the project root:
   inputs in `data/input/` (`results.csv`/`odds.csv`/`xg.csv`),
   `predict --out` in `data/predictions/`, `groups --out` in `data/groups/`,
-  `simulate --out` in `data/simulations/`.
+  `simulate --out` in `data/simulations/`, `ratings --out` in `data/rankings/`.
   Paths are set in `config.py` (`INPUT_DIR`/`PREDICTIONS_DIR`/`GROUPS_DIR`/
-  `SIM_DIR`, `RESULTS_PATH`); writers `os.makedirs` their target, and
+  `SIM_DIR`/`RANKINGS_DIR`, `RESULTS_PATH`); writers `os.makedirs` their target, and
   `cli.resolve_out` routes a bare `--out` filename into the right folder.
 - Team names must match the martj42 dataset exactly (e.g. `United States`,
   `South Korea`, `Czech Republic`, `Ivory Coast`, `Turkey`).

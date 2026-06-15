@@ -70,6 +70,22 @@ It defaults to `--approach odds` when `data/input/odds.csv` exists (else
 is the `--as-of` date (today by default); use `--time` to also keep multiple runs
 within a day.
 
+**Track how the ratings evolve** — `scripts/generate_rankings.sh` does the same
+for the model's team-strength rankings (which, unlike picks, don't depend on the
+odds), writing one date-stamped CSV per engine:
+
+```bash
+scripts/generate_rankings.sh                     # → data/rankings/ratings_<engine>_<date>.csv
+scripts/generate_rankings.sh --engines dc,elo    # one CSV per engine
+scripts/generate_rankings.sh --as-of 2026-06-10  # regenerate a past day's snapshot
+scripts/generate_rankings.sh --help              # all options
+```
+
+Each CSV holds every team's confederation, attack/defence coefficients, overall
+rating (attack − defence), the weighted mean opponent rating (its schedule
+difficulty) and — for the Elo engine — its current Elo. The same data backs the
+web app's **Rankings** tab (which fits live as of today).
+
 Re-run any time during the tournament: `update-data` pulls the latest
 results (the dataset updates daily), training always uses everything played
 before `--as-of` (default: today), and `predict` covers only fixtures that
@@ -86,16 +102,20 @@ pip install -e '.[web]'        # or: uv sync --extra web
 scripts/run_webapp.sh          # → http://localhost:8026
 ```
 
-Four views: advancement probabilities per round (full-tournament simulation),
+Six views: advancement probabilities per round (full-tournament simulation),
 day-by-day evolution of those probabilities across snapshots, group-stage
-position probabilities, and a round-by-round calendar showing each match's
+position probabilities, a round-by-round calendar showing each match's
 prediction *as of its date*, market odds, and — once played — the real score
-graded against the pick. Clicking a match opens the full exact-score
-probability matrix (computed on demand with the model as of that date). The «Cuotas de mercado» toggle switches between the
+graded against the pick, a **Rankings** tab (the model's team-strength table
+plus an evolution chart over the `generate_rankings.sh` snapshots — rating, Elo,
+rank or opponent difficulty), and a connectivity view. Clicking a match opens
+the full exact-score probability matrix (computed on demand with the model as of
+that date). The «Cuotas de mercado» toggle switches between the
 `odds` and `history` CSV variants, and «Actualizar datos» runs
-`generate_predictions.sh --refresh` for both variants from the browser.
+`generate_predictions.sh --refresh` (then `generate_rankings.sh`) for both
+variants from the browser.
 Backend: `webapp/server.py` (FastAPI); it re-reads the CSVs on every request,
-so manual `generate_predictions.sh` runs show up on reload.
+so manual `generate_predictions.sh`/`generate_rankings.sh` runs show up on reload.
 
 ## Commands
 
@@ -253,6 +273,7 @@ webapp/
 scripts/
 ├── update_data.sh          # incrementally refresh all data sources into data/input/
 ├── generate_predictions.sh # date-stamped predictions + standings + simulation
+├── generate_rankings.sh    # date-stamped model rankings (per engine)
 ├── run_webapp.sh           # serve the local web app on :8026
 ├── fetch_odds.py           # data/input/odds.csv via The Odds API
 ├── fetch_xg.py             # data/input/xg.csv via FotMob's public JSON API
@@ -261,7 +282,8 @@ data/             # all generated files
 ├── input/        # results.csv, odds.csv, xg.csv
 ├── predictions/  # `predict --out` CSVs
 ├── groups/       # `groups --out` standings
-└── simulations/  # `simulate --out` probability tables
+├── simulations/  # `simulate --out` probability tables
+└── rankings/     # `ratings --out` date-stamped model rankings
 ```
 
 ## Notes & caveats

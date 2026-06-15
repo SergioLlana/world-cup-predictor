@@ -24,7 +24,7 @@ from fastapi.staticfiles import StaticFiles
 
 from functools import lru_cache
 
-from wcpred.config import (GROUPS_DIR, INPUT_DIR, PREDICTIONS_DIR,
+from wcpred.config import (GROUPS_DIR, INPUT_DIR, PREDICTIONS_DIR, RANKINGS_DIR,
                            RESULTS_PATH, SIM_DIR, WC2026_KNOCKOUT_ROUNDS)
 from wcpred.confederations import infer_confederations
 from wcpred.data import load_results, prepare_training, resolve_odds_path
@@ -35,6 +35,7 @@ from wcpred.tournament import OFFICIAL_GROUPS
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(ROOT, "webapp", "static")
 GENERATE_SH = os.path.join(ROOT, "scripts", "generate_predictions.sh")
+GENERATE_RANKINGS_SH = os.path.join(ROOT, "scripts", "generate_rankings.sh")
 
 # Approach label in the CSV filenames -> what the UI's odds toggle selects.
 APPROACHES = ("odds", "history")
@@ -150,13 +151,20 @@ def _check_engine(engine):
         raise HTTPException(400, f"engine must be one of {ENGINES}")
 
 
+def _records(df):
+    """NaN-safe records: missing cells become None (JSON null). A plain
+    `df.where(df.notna(), None)` leaves NaN in object columns, which Starlette's
+    strict JSON encoder (allow_nan=False) then rejects with a 500 — so cast to
+    object first."""
+    return df.astype(object).where(df.notna(), None).to_dict("records")
+
+
 def _read_snapshots(kind, approach, engine):
     _check_approach(approach)
     _check_engine(engine)
     snaps = []
     for date, path in _snapshots(kind, approach, engine):
-        df = pd.read_csv(path)
-        snaps.append({"date": date, "rows": df.where(df.notna(), None).to_dict("records")})
+        snaps.append({"date": date, "rows": _records(pd.read_csv(path))})
     return {"snapshots": snaps}
 
 
@@ -431,22 +439,111 @@ def connectivity():
     return _connectivity(as_of, os.path.getmtime(os.path.join(ROOT, RESULTS_PATH)))
 
 
+# --------------------------------------------------------------- rankings
+
+@lru_cache(maxsize=12)
+def _rankings(as_of, results_mtime, engine):
+    """Per-team strength ratings of the requested engine, for the 48 WC2026
+    teams. Returns the model's attack/defence coefficients and overall rating
+    (atk - dfn), each team's confederation, the weighted mean opponent rating
+    (average difficulty of its training schedule) and, for the Elo engine, its
+    current Elo. results_mtime is only part of the key so a data refresh
+    invalidates the cache."""
+    df = load_results(os.path.join(ROOT, RESULTS_PATH))
+    m = prepare_training(df, as_of=as_of)
+    confs = infer_confederations(m)
+    model = _model_for(as_of, results_mtime, engine)
+    overall = {t: float(model.atk[i] - model.dfn[i]) for t, i in model.idx.items()}
+
+    # weighted mean opponent rating per team (same `w` the model fits on)
+    opp_w = {}
+    w_tot = {}
+    for r in m.itertuples():
+        w = float(r.w)
+        for team, opp in ((r.home_team, r.away_team), (r.away_team, r.home_team)):
+            if team in model.idx and opp in model.idx:
+                opp_w[team] = opp_w.get(team, 0.0) + w * overall[opp]
+                w_tot[team] = w_tot.get(team, 0.0) + w
+
+    wc_teams = {t for ts in OFFICIAL_GROUPS.values() for t in ts}
+    elo_cur = getattr(model, "elo_cur", None)
+    teams = []
+    for t in wc_teams:
+        i = model.idx.get(t)
+        if i is None:
+            continue
+        entry = {
+            "team": t, "conf": confs.get(t),
+            "atk": round(float(model.atk[i]), 3),
+            "dfn": round(float(model.dfn[i]), 3),
+            "rating": round(overall[t], 3),
+            "opp_rating": round(opp_w[t] / w_tot[t], 3) if w_tot.get(t) else None,
+        }
+        if elo_cur is not None:
+            entry["elo"] = round(float(elo_cur[i]), 1)
+        teams.append(entry)
+    # Elo engine: rank by the raw Elo; coefficient engines: by overall rating.
+    teams.sort(key=lambda x: -(x.get("elo") if elo_cur is not None else x["rating"]))
+    return {"as_of": as_of, "engine": engine, "has_elo": elo_cur is not None,
+            "teams": teams}
+
+
+@app.get("/api/rankings")
+def rankings(engine: str = DEFAULT_ENGINE):
+    _check_engine(engine)
+    as_of = datetime.date.today().isoformat()
+    return _rankings(as_of, os.path.getmtime(os.path.join(ROOT, RESULTS_PATH)),
+                     engine)
+
+
+# Date-stamped ranking snapshots written by scripts/generate_rankings.sh.
+# Rankings don't depend on the odds (the `approach`), so the filename has no
+# approach segment — just ratings_<engine>_<date>.csv (a --label run adds an
+# extra segment that this regex deliberately skips, like the picks regex).
+_RANK_RE = re.compile(r"ratings_(dc|elo|bayes)_(\d{4}-\d{2}-\d{2})\.csv$")
+
+
+def _ranking_snapshots(engine):
+    """Sorted [(date, path)] of the ranking CSVs for one engine."""
+    out = []
+    for path in glob.glob(os.path.join(ROOT, RANKINGS_DIR, "*.csv")):
+        m = _RANK_RE.search(os.path.basename(path))
+        if m and m.group(1) == engine:
+            out.append((m.group(2), path))
+    return sorted(out)
+
+
+@app.get("/api/rankings/history")
+def rankings_history(engine: str = DEFAULT_ENGINE):
+    """Every date-stamped ranking snapshot for one engine, so the Rankings tab
+    can show the latest table and chart how the ratings evolve. Empty when
+    generate_rankings.sh has not run yet — the UI then falls back to the live
+    /api/rankings fit."""
+    _check_engine(engine)
+    snaps = []
+    for date, path in _ranking_snapshots(engine):
+        snaps.append({"date": date, "rows": _records(pd.read_csv(path))})
+    return {"engine": engine, "snapshots": snaps}
+
+
 # ------------------------------------------------------------------ refresh
 
 _refresh_lock = threading.Lock()
 _refresh = {"running": False, "returncode": None, "log": deque(maxlen=400)}
 
 
-def _run_refresh(args):
+def _run_proc(cmd):
+    """Stream one subprocess's output into the refresh log and record its exit
+    code. Does NOT flip `running` — the runner owns that, so a multi-step
+    refresh isn't reported as finished between steps."""
     proc = subprocess.Popen(
-        [GENERATE_SH] + args, cwd=ROOT,
+        cmd, cwd=ROOT,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
     )
     for line in proc.stdout:
         _refresh["log"].append(line.rstrip("\n"))
     proc.wait()
     _refresh["returncode"] = proc.returncode
-    _refresh["running"] = False
 
 
 @app.post("/api/refresh")
@@ -470,13 +567,19 @@ def refresh(payload: dict):
     approaches = payload.get("approaches") or ["odds", "history"]
 
     def runner():
-        for i, ap in enumerate(approaches):
-            ap_args = list(args) if i == 0 else [a for a in args if a != "--refresh"]
-            _refresh["log"].append(f">>> generate_predictions.sh --approach {ap}")
-            _run_refresh(ap_args + ["--approach", ap])
-            if _refresh["returncode"] not in (0, None) or ap == approaches[-1]:
-                return
-            _refresh["running"] = True
+        try:
+            for i, ap in enumerate(approaches):
+                ap_args = list(args) if i == 0 else [a for a in args if a != "--refresh"]
+                _refresh["log"].append(f">>> generate_predictions.sh --approach {ap}")
+                _run_proc([GENERATE_SH] + ap_args + ["--approach", ap])
+                if _refresh["returncode"] not in (0, None):
+                    return
+            # Rankings are approach-independent: one run for the chosen engines
+            # (data already refreshed above, so no --refresh here).
+            _refresh["log"].append(">>> generate_rankings.sh")
+            _run_proc([GENERATE_RANKINGS_SH, "--engines", ",".join(engines)])
+        finally:
+            _refresh["running"] = False
 
     threading.Thread(target=runner, daemon=True).start()
     return {"started": True}

@@ -13,6 +13,9 @@ const state = {
   connectivity: null,                  // /api/connectivity (solo modelo, sin approach)
   connLoading: false,
   connSelected: null,                  // equipo con el desglose abierto
+  rankings: {},                        // por motor: {snapshots:[...], live:data|null}
+  rankLoading: false,
+  rankMetric: "rating",                // métrica de la gráfica de evolución
 };
 
 // Etiquetas legibles para cada motor (las claves vienen del backend).
@@ -60,6 +63,14 @@ const fmtShort = (iso) =>
   new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" })
     .format(new Date(iso + "T12:00:00"));
 
+// paso "bonito" (1/2/5 × 10^k) para ~6 líneas de rejilla en un rango dado
+function niceStep(span) {
+  const raw = (span || 1) / 6;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  return (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+}
+
 // snapshot vigente: el último con fecha <= la seleccionada (o el último de todos)
 function pickSnapshot(snapshots, date) {
   if (!snapshots.length) return null;
@@ -85,6 +96,7 @@ async function loadData(ap = state.approach, eng = state.engine) {
 async function reloadAll() {
   state.cache = {};
   state.connectivity = null;          // un refresco puede traer resultados nuevos
+  state.rankings = {};
   const [meta, matches] = await Promise.all([fetchJSON("/api/meta"), fetchJSON("/api/matches")]);
   state.meta = meta;
   state.matches = matches.matches;
@@ -545,6 +557,242 @@ function renderConnectivity() {
     }));
 }
 
+// --------------------------------------------------------------- rankings
+
+// Una fila del CSV de snapshot (confederation/attack/defence) o del ajuste en
+// vivo (conf/atk/dfn) → forma común.
+function normRankRow(r) {
+  return {
+    team: r.team,
+    conf: r.conf ?? r.confederation ?? null,
+    atk: +(r.atk ?? r.attack),
+    dfn: +(r.dfn ?? r.defence),
+    rating: +r.rating,
+    opp_rating: r.opp_rating == null ? null : +r.opp_rating,
+    elo: r.elo == null ? null : +r.elo,
+  };
+}
+
+async function loadRankings() {
+  const eng = state.engine;
+  if (state.rankLoading || state.rankings[eng]) { renderRankings(); return; }
+  state.rankLoading = true;
+  const el = $("#tab-rankings");
+  el.innerHTML = `<p class="note">Cargando rankings…</p>`;
+  try {
+    const hist = await fetchJSON(`/api/rankings/history?engine=${eng}`);
+    let live = null;
+    if (!hist.snapshots.length) {
+      // sin snapshots fechados todavía: ajuste en vivo a día de hoy
+      el.innerHTML = `<p class="note">No hay snapshots de rankings generados.
+        Ajustando el modelo en vivo… (la primera vez tarda unos segundos)</p>`;
+      live = await fetchJSON(`/api/rankings?engine=${eng}`);
+    }
+    state.rankings[eng] = { snapshots: hist.snapshots, live };
+  } catch (e) {
+    el.innerHTML = `<p class="note">Error cargando los rankings: ${e.message}</p>`;
+    return;
+  } finally {
+    state.rankLoading = false;
+  }
+  renderRankings();
+}
+
+// métricas de la gráfica de evolución (la de Elo solo si el motor la tiene)
+function rankMetrics(hasElo) {
+  const m = [["rating", "Rating (ataque − defensa)"]];
+  if (hasElo) m.push(["elo", "Puntuación Elo"]);
+  m.push(["rank", "Posición en el ranking"], ["opp_rating", "Dificultad de rivales"]);
+  return m;
+}
+
+function renderRankings() {
+  if (!state.meta) return;
+  const el = $("#tab-rankings");
+  const data = state.rankings[state.engine];
+  if (!data) { loadRankings(); return; }
+
+  const engLabel = ENGINE_LABELS[state.engine] || state.engine;
+  const snaps = data.snapshots;
+  // tabla: el último snapshot disponible (la evolución se ve en la gráfica), o
+  // el ajuste en vivo si aún no se ha generado ninguno. La fecha de rankings es
+  // independiente del selector «Día» (atado a las simulaciones).
+  let rows, asOf, fromLive = false;
+  if (snaps.length) {
+    const snap = snaps[snaps.length - 1];
+    rows = snap.rows.map(normRankRow);
+    asOf = snap.date;
+  } else {
+    rows = data.live.teams.map(normRankRow);
+    asOf = data.live.as_of;
+    fromLive = true;
+  }
+  const hasElo = rows.length > 0 && rows[0].elo != null;
+  rows.sort((a, b) => (hasElo ? b.elo - a.elo : b.rating - a.rating));
+
+  const sortLabel = hasElo ? "puntuación Elo" : "rating (ataque − defensa)";
+  const tbody = rows.map((t, i) => `
+    <tr class="conn-row" data-team="${t.team}">
+      <td class="team-cell">${i + 1}. ${flagImg(t.team)}${teamES(t.team)}</td>
+      <td style="color:${CONF_COLORS[t.conf] || CONF_UNKNOWN};font-weight:700">${t.conf || "–"}</td>
+      ${hasElo ? `<td><b>${Math.round(t.elo)}</b></td>` : ""}
+      <td>${t.atk.toFixed(2)}</td>
+      <td>${t.dfn.toFixed(2)}</td>
+      <td><b>${t.rating.toFixed(2)}</b></td>
+      <td>${t.opp_rating != null ? t.opp_rating.toFixed(2) : "–"}</td>
+    </tr>`).join("");
+
+  const source = fromLive
+    ? `ajuste en vivo a ${fmtDay(asOf)} (genera snapshots con
+       <code>scripts/generate_rankings.sh</code> o «Actualizar datos» para ver la evolución)`
+    : `snapshot del ${fmtDay(asOf)}`;
+
+  el.innerHTML = `
+    <h2 class="section">Rankings del modelo · ${engLabel}</h2>
+    <p class="note">Fuerza de cada selección según el motor <b>${engLabel}</b>, ordenada por ${sortLabel}
+      (${source}). El <b>rating</b> es ataque − defensa: cuanto mayor, mejor.
+      ${hasElo ? "La <b>puntuación Elo</b> es la del propio motor (regla de eloratings.net). " : ""}
+      El <b>rival medio</b> es el rating medio (ponderado por el peso de entrenamiento) de los equipos
+      contra los que ha jugado: una medida de la dificultad media de sus partidos. Usa el selector de
+      <b>Motor</b> de la cabecera para cambiar de modelo.</p>
+    ${snaps.length ? rankEvolutionBlock(snaps, hasElo) : ""}
+    <div class="card" style="overflow-x:auto">
+      <h3 class="conn-h3">Clasificación ${fromLive ? "(en vivo)" : `del ${fmtShort(asOf)}`}</h3>
+      <table class="probs">
+        <thead><tr><th class="team-col">Equipo</th><th>Conf.</th>
+          ${hasElo ? "<th title=\"Puntuación Elo del motor (regla de eloratings.net)\">Elo</th>" : ""}
+          <th title="Coeficiente de ataque del modelo">Ataque</th>
+          <th title="Coeficiente de defensa del modelo (menor = mejor defensa)">Defensa</th>
+          <th title="Ataque − defensa: la fuerza global">Rating</th>
+          <th title="Rating medio (ponderado) de los rivales en la ventana de entrenamiento">Rival medio</th>
+        </tr></thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>`;
+
+  const sel = $("#rank-metric");
+  if (sel) sel.addEventListener("change", (e) => {
+    state.rankMetric = e.target.value;
+    renderRankings();
+  });
+}
+
+// bloque de la gráfica de evolución: selector de métrica + SVG + leyenda
+function rankEvolutionBlock(snaps, hasElo) {
+  const metrics = rankMetrics(hasElo);
+  let metric = state.rankMetric;
+  if (!metrics.some(([k]) => k === metric)) metric = state.rankMetric = "rating";
+  const isRank = metric === "rank";
+  const n = snaps.length;
+
+  // top 10 del último snapshot por la métrica elegida
+  const last = snaps[n - 1].rows.map(normRankRow);
+  const lastVal = (r) => isRank ? null : r[metric];
+  const lastRank = (() => {            // ranking por rating/elo para el modo "Posición"
+    const key = hasElo ? "elo" : "rating";
+    const ord = [...last].sort((a, b) => b[key] - a[key]);
+    const pos = {}; ord.forEach((r, i) => (pos[r.team] = i + 1));
+    return pos;
+  })();
+  const sortLast = isRank
+    ? [...last].sort((a, b) => lastRank[a.team] - lastRank[b.team])
+    : [...last].sort((a, b) => b[metric] - a[metric]);
+  const top = sortLast.slice(0, 10).map((r) => r.team);
+
+  // valor por equipo y snapshot (en "Posición", la posición dentro de cada día)
+  const rankIn = (rowsRaw) => {
+    const key = hasElo ? "elo" : "rating";
+    const ord = [...rowsRaw].sort((a, b) => b[key] - a[key]);
+    const pos = {}; ord.forEach((r, i) => (pos[r.team] = i + 1));
+    return pos;
+  };
+  const series = top.map((team, i) => ({
+    team, color: PALETTE[i % PALETTE.length],
+    values: snaps.map((s) => {
+      const rowsRaw = s.rows.map(normRankRow);
+      if (isRank) { const p = rankIn(rowsRaw)[team]; return p ?? null; }
+      const r = rowsRaw.find((x) => x.team === team);
+      return r && r[metric] != null ? r[metric] : null;
+    }),
+  }));
+
+  const W = 920, H = 430, mL = 54, mR = 150, mT = 16, mB = 40;
+  const x = (i) => n === 1 ? (mL + W - mR) / 2 : mL + (i * (W - mL - mR)) / (n - 1);
+  const allV = series.flatMap((s) => s.values.filter((v) => v != null));
+  let lo, hi;
+  if (isRank) { lo = 1; hi = Math.max(2, ...allV); }
+  else {
+    lo = Math.min(...allV); hi = Math.max(...allV);
+    const pad = (hi - lo) * 0.1 || 0.1; lo -= pad; hi += pad;
+  }
+  // t en [0,1] con 0 = arriba (rating/elo: mayor arriba; posición: 1 arriba)
+  const y = (v) => mT + (isRank ? (v - 1) / (hi - 1) : (hi - v) / (hi - lo)) * (H - mT - mB);
+
+  let grid = "";
+  if (isRank) {
+    for (let v = 1; v <= hi; v++)
+      grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e4e2da"/>
+               <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#6b6b66">${v}</text>`;
+  } else {
+    const step = niceStep(hi - lo);
+    const dec = step < 0.1 ? 2 : step < 1 ? 1 : 0;
+    for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step)
+      grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e4e2da"/>
+               <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#6b6b66">${v.toFixed(dec)}</text>`;
+  }
+  const every = Math.max(1, Math.ceil(n / 12));
+  let xaxis = "";
+  snaps.forEach((s, i) => {
+    if (i % every === 0 || i === n - 1)
+      xaxis += `<text x="${x(i)}" y="${H - mB + 18}" text-anchor="middle" font-size="11" fill="#6b6b66">${fmtShort(s.date)}</text>`;
+  });
+
+  const fmtV = (v) => isRank ? `#${v}` : metric === "elo" ? Math.round(v) : v.toFixed(2);
+  let lines = "";
+  series.forEach((s) => {
+    const pts = s.values.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean);
+    if (pts.length > 1)
+      lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
+    s.values.forEach((v, i) => {
+      if (v != null) lines += `<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="${s.color}"/>`;
+    });
+  });
+  // etiquetas finales sin solaparse
+  const labels = series
+    .filter((s) => s.values[n - 1] != null)
+    .map((s) => ({ s, v: s.values[n - 1], ly: y(s.values[n - 1]) }))
+    .sort((a, b) => a.ly - b.ly);
+  labels.forEach((l, i) => {
+    if (i > 0 && l.ly < labels[i - 1].ly + 15) l.ly = labels[i - 1].ly + 15;
+  });
+  labels.forEach((l) => {
+    const yEnd = y(l.v);
+    if (Math.abs(l.ly - yEnd) > 4)
+      lines += `<line x1="${x(n - 1) + 4}" y1="${yEnd}" x2="${x(n - 1) + 18}" y2="${l.ly - 4}" stroke="${l.s.color}" stroke-width="1" opacity=".6"/>`;
+    lines += `<text x="${x(n - 1) + 21}" y="${l.ly}" font-size="11.5" font-weight="600" fill="${l.s.color}">${teamES(l.s.team)} ${fmtV(l.v)}</text>`;
+  });
+
+  const metricLabel = metrics.find(([k]) => k === metric)[1];
+  return `
+    <div class="card">
+      <h3 class="conn-h3">Evolución del ranking</h3>
+      <div class="evo-controls">
+        <label>Métrica
+          <select id="rank-metric">${metrics.map(([k, l]) =>
+            `<option value="${k}"${k === metric ? " selected" : ""}>${l}</option>`).join("")}</select>
+        </label>
+        <span class="note">Top 10 por «${metricLabel}» en el último snapshot.
+          ${n === 1 ? "Solo hay un día generado: la línea crecerá con cada nuevo snapshot."
+            : `${n} snapshots.`}
+          ${isRank ? "Eje invertido: el 1.º arriba." : ""}</span>
+      </div>
+      <svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${xaxis}${lines}</svg>
+      <div class="evo-legend">${series.map((s) => `
+        <span class="item"><span class="swatch" style="background:${s.color}"></span>
+          ${flagImg(s.team)} ${teamES(s.team)}</span>`).join("")}</div>
+    </div>`;
+}
+
 // ------------------------------------------------------------------ render
 
 function render() {
@@ -555,6 +803,8 @@ function render() {
   // la conectividad no depende del approach/snapshot: solo se repinta si ya
   // está cargada (o si es la pestaña activa tras un refresco de datos)
   if (state.connectivity || state.tab === "connectivity") renderConnectivity();
+  // los rankings dependen del motor pero no del approach/snapshot
+  if (state.rankings[state.engine] || state.tab === "rankings") renderRankings();
 }
 
 // ----------------------------------------------------------- matriz marcador
@@ -685,6 +935,7 @@ function activateTab(tab) {
     p.classList.toggle("active", p.id === `tab-${tab}`));
   state.tab = tab;
   if (tab === "connectivity" && !state.connectivity && state.meta) loadConnectivity();
+  if (tab === "rankings" && !state.rankings[state.engine] && state.meta) loadRankings();
 }
 
 function setupUI() {

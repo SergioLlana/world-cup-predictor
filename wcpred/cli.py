@@ -22,8 +22,9 @@ from .backtest import (TOURNAMENTS, backtest, bridge_audit, elo_report, tune,
 from .config import (BAYES_DYNAMIC, BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
                      BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_HA,
                      ELO_LONGTERM_YEARS, ELO_PATH, ELO_PRIOR_TAU, GROUPS_DIR,
-                     ODDS_WEIGHT, PREDICTIONS_DIR, RESULTS_PATH, SCORING_MODE,
-                     SIM_DIR, XG_ALPHA)
+                     ODDS_WEIGHT, PREDICTIONS_DIR, RANKINGS_DIR, RESULTS_PATH,
+                     SCORING_MODE, SIM_DIR, XG_ALPHA)
+from .confederations import infer_confederations
 from .data import (PHANTOM_TEAM, download_results, load_elo, load_odds,
                    load_results, played_world_cup, prepare_training,
                    upcoming_world_cup)
@@ -210,14 +211,54 @@ def cmd_simulate(args):
 def cmd_ratings(args):
     df = load_results(args.data)
     model = build_model(df, args)
-    teams = sorted((t for t in model.idx if t != PHANTOM_TEAM),
-                   key=lambda t: -(model.atk[model.idx[t]]
-                                   - model.dfn[model.idx[t]]))
+    overall = {t: float(model.atk[i] - model.dfn[i])
+               for t, i in model.idx.items() if t != PHANTOM_TEAM}
+    elo_cur = getattr(model, "elo_cur", None)   # only the Elo engine has it
+    # Rank by the engine's headline number: raw Elo for the Elo engine (matches
+    # the webapp), attack-minus-defence rating for the coefficient engines.
+    sort_key = ((lambda t: -float(elo_cur[model.idx[t]])) if elo_cur is not None
+                else (lambda t: -overall[t]))
+    teams = sorted(overall, key=sort_key)
     print(f"\n{'#':>3} {'Team':22s} {'Attack':>7s} {'Defence':>8s} {'Overall':>8s}")
     for i, t in enumerate(teams[:args.top], 1):
         k = model.idx[t]
         print(f"{i:3d} {t:22s} {model.atk[k]:7.2f} {model.dfn[k]:8.2f} "
               f"{model.atk[k] - model.dfn[k]:8.2f}")
+
+    if not args.out:
+        return
+    # Full ranking CSV for the daily snapshots (scripts/generate_rankings.sh):
+    # every team's coefficients plus its confederation and the weighted mean
+    # opponent rating (schedule difficulty), so the evolution can be tracked.
+    xg = args.xg if args.approach in ("xg", "full") else None
+    train = prepare_training(df, as_of=args.as_of, xg_path=xg,
+                             xg_alpha=args.xg_alpha)
+    confs = infer_confederations(train)
+    opp_w, w_tot = {}, {}
+    for r in train.itertuples():
+        w = float(r.w)
+        for team, opp in ((r.home_team, r.away_team), (r.away_team, r.home_team)):
+            if team in model.idx and opp in overall:
+                opp_w[team] = opp_w.get(team, 0.0) + w * overall[opp]
+                w_tot[team] = w_tot.get(team, 0.0) + w
+    rows = []
+    for rank, t in enumerate(teams, 1):
+        k = model.idx[t]
+        row = {
+            "as_of": args.as_of, "engine": args.engine, "rank": rank,
+            "team": t, "confederation": confs.get(t),
+            "attack": round(float(model.atk[k]), 4),
+            "defence": round(float(model.dfn[k]), 4),
+            "rating": round(overall[t], 4),
+            "opp_rating": (round(opp_w[t] / w_tot[t], 4)
+                           if w_tot.get(t) else None),
+        }
+        if elo_cur is not None:
+            row["elo"] = round(float(elo_cur[k]), 1)
+        rows.append(row)
+    dest = resolve_out(args.out, RANKINGS_DIR)
+    pd.DataFrame(rows).to_csv(dest, index=False)
+    print(f"\nSaved {len(rows)} ratings to {dest}")
 
 
 def cmd_backtest(args):
@@ -436,6 +477,10 @@ def main():
     sp = sub.add_parser("ratings", help="show team strength ratings")
     common(sp)
     sp.add_argument("--top", type=int, default=20)
+    sp.add_argument("--out", help="save the full ranking CSV here (team, "
+                    "confederation, attack/defence, rating, opponent difficulty "
+                    f"and Elo when available); a bare filename goes under "
+                    f"{RANKINGS_DIR}/")
     sp.set_defaults(func=cmd_ratings)
 
     sp = sub.add_parser("backtest", help="score the model on a past tournament")

@@ -10,6 +10,7 @@ INPUT_DIR = "data/input"              # results.csv, odds.csv, xg.csv
 PREDICTIONS_DIR = "data/predictions"  # `predict --out`
 GROUPS_DIR = "data/groups"            # `groups --out`
 SIM_DIR = "data/simulations"          # `simulate --out`
+RANKINGS_DIR = "data/rankings"        # `ratings --out`
 RESULTS_PATH = f"{INPUT_DIR}/results.csv"
 ODDS_PATH = f"{INPUT_DIR}/odds.csv"   # live odds (latest fetch)
 
