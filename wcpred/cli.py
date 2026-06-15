@@ -221,6 +221,20 @@ def cmd_ratings(args):
 
 
 def cmd_backtest(args):
+    # Validate engine/flag combinations up front so a usage slip prints a clean
+    # message instead of an uncaught ValueError traceback from backtest().
+    if args.engine == "bayes" and not args.static:
+        sys.exit("--engine bayes is static only; add --static "
+                 "(a per-matchday MCMC re-fit is prohibitively slow)")
+    if args.engine == "bayes" and (args.elo_tau or args.anchor_beta):
+        sys.exit("--elo-tau / --anchor-beta are MLE-engine knobs; they have no "
+                 "effect under --engine bayes")
+    if args.engine != "bayes" and (args.bayes_dynamic or args.bayes_propagate):
+        sys.exit("--bayes-dynamic / --bayes-propagate only apply to "
+                 "--engine bayes")
+    if args.engine == "elo" and (args.elo_tau or args.anchor_beta):
+        sys.exit("--elo-tau / --anchor-beta are MLE-engine knobs; they have no "
+                 "effect under --engine elo (it trains its own Elo)")
     df = load_results(args.data)
     names = list(TOURNAMENTS) if args.tournament == "all" else [args.tournament]
     audit = [] if args.bridge_audit else None

@@ -14,8 +14,8 @@ Bayesian engine. Run from the project root; experiment harness, not CLI-wired.
 import numpy as np
 import pandas as pd
 
-from wcpred.backtest import TOURNAMENTS, TRAIN_WINDOW_YEARS, _match_metrics, \
-    bridge_audit
+from wcpred.backtest import TOURNAMENTS, TRAIN_WINDOW_YEARS, _bridge_record, \
+    _match_metrics, _pool_metrics, bridge_audit
 from wcpred.confederations import infer_confederations
 from wcpred.data import load_results, prepare_training
 from wcpred.model_bayes import BayesianDixonColes
@@ -50,30 +50,19 @@ def score(df, tournament, model, propagate, audit):
         if audit is not None:
             hc, ac = confs.get(r.home_team), confs.get(r.away_team)
             if hc is not None and ac is not None and hc != ac:
-                P = res["P"]
-                goals = np.arange(P.shape[0])
-                audit.append({
-                    "tournament": tournament, "date": str(r["date"].date()),
-                    "home_conf": hc, "away_conf": ac,
-                    "p_home": res["p1"], "p_draw": res["px"],
-                    "home_goals": true[0], "away_goals": true[1],
-                    "exp_home": float(P.sum(axis=1) @ goals),
-                    "exp_away": float(P.sum(axis=0) @ goals),
-                    "rps": rps,
-                })
+                audit.append(_bridge_record(tournament, r, res, true, hc, ac,
+                                            rps))
     n = len(matches)
     return {"matches": n, "points": total, "exact": exact,
             "log_loss": float(np.mean(lls)), "rps": float(np.mean(rpss))}
 
 
 def pooled(label, rows):
-    n = sum(r["matches"] for r in rows)
-    pts = sum(r["points"] for r in rows)
-    rps = sum(r["rps"] * r["matches"] for r in rows) / n
-    ll = sum(r["log_loss"] * r["matches"] for r in rows) / n
-    ex = sum(r["exact"] for r in rows)
-    print(f"  {label:14s} POOLED {pts:6.1f} pts ({pts/n:.3f}/match) | "
-          f"rps {rps:.4f} | ll {ll:.4f} | exact {ex} | n={n}\n", flush=True)
+    p = _pool_metrics(rows)
+    print(f"  {label:14s} POOLED {p['points']:6.1f} pts "
+          f"({p['pts_per_match']:.3f}/match) | rps {p['rps']:.4f} | "
+          f"ll {p['log_loss']:.4f} | exact {p['exact']} | n={p['matches']}\n",
+          flush=True)
 
 
 if __name__ == "__main__":

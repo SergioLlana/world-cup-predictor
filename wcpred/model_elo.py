@@ -63,73 +63,119 @@ def gd_mult(n):
     return 1.75 + (n - 3) / 8.0
 
 
+class EloHistory:
+    """The full eloratings.net rating trajectory per team, iterated once.
+
+    A team's rating after a match never depends on later matches, so slicing a
+    single full-window iteration at any cutoff date reproduces a from-scratch
+    ``compute_elo(matches < cutoff, cutoff)`` exactly. A rolling backtest can
+    therefore build ONE ``EloHistory`` over the whole window and call ``.at`` per
+    matchday instead of re-iterating the decade of history at every cutoff
+    (``O(history)`` per matchday → ``O(history)`` per tournament).
+
+    Build it over the matches you want available; ``.at`` slices causally
+    (strictly before the cutoff). The confederation inference (which only feeds
+    the per-confederation K, ``ELO_CONF_K`` — all 1.0 by default, i.e. inert) is
+    done once over the whole window.
+    """
+
+    def __init__(self, matches, ha=ELO_HA, conf_k=None, base=ELO_BASE):
+        conf_k = conf_k if conf_k is not None else ELO_CONF_K
+        confs = infer_confederations(matches)
+        m = matches.dropna(subset=["home_score", "away_score"])
+        m = m.sort_values("date", kind="stable")
+
+        R = defaultdict(lambda: base)
+        history = defaultdict(list)   # team -> [(date, rating_after_match), ...]
+        for r in m.itertuples(index=False):
+            Rh, Ra = R[r.home_team], R[r.away_team]
+            dr = (Rh - Ra) + (0.0 if r.neutral else ha)
+            we_h = 1.0 / (10.0 ** (-dr / 400.0) + 1.0)
+            margin = r.home_score - r.away_score
+            w_h = 1.0 if margin > 0 else 0.5 if margin == 0 else 0.0
+            g = gd_mult(abs(margin))
+            k = tournament_k(r.tournament) * g
+            k_h = k * conf_k.get(confs.get(r.home_team), 1.0)
+            k_a = k * conf_k.get(confs.get(r.away_team), 1.0)
+            R[r.home_team] = Rh + k_h * (w_h - we_h)
+            R[r.away_team] = Ra + k_a * ((1.0 - w_h) - (1.0 - we_h))
+            history[r.home_team].append((r.date, R[r.home_team]))
+            history[r.away_team].append((r.date, R[r.away_team]))
+        self.history = history
+
+    def at(self, as_of, longterm_years=ELO_LONGTERM_YEARS):
+        """``(ratings, longterm, n_matches)`` as of ``as_of`` (strictly before).
+
+        current rating per team, the median post-match rating over the trailing
+        ``longterm_years`` window, and the match count (for provisional
+        <30-match flagging). Teams with no match before the cutoff are omitted,
+        exactly as a from-scratch iteration over ``matches < as_of`` would.
+        """
+        cutoff = pd.Timestamp(as_of)
+        window_start = cutoff - pd.DateOffset(years=longterm_years)
+        ratings, longterm, n_matches = {}, {}, {}
+        for team, hist in self.history.items():
+            before = [(d, rt) for d, rt in hist if d < cutoff]
+            if not before:
+                continue
+            ratings[team] = before[-1][1]
+            recent = [rt for d, rt in before if d >= window_start]
+            longterm[team] = (float(np.median(recent)) if recent
+                              else ratings[team])
+            n_matches[team] = len(before)
+        return ratings, longterm, n_matches
+
+
 def compute_elo(matches, as_of, ha=ELO_HA, conf_k=None, base=ELO_BASE,
                 longterm_years=ELO_LONGTERM_YEARS):
-    """Run the eloratings.net iteration over ``matches`` (played, chronological,
-    strictly before ``as_of``).
+    """``(ratings, longterm, n_matches)`` from a single-cutoff Elo iteration.
 
-    Returns ``(ratings, longterm, n_matches)``: current rating per team, the
-    median post-match rating over the trailing ``longterm_years`` window, and the
-    match count (for provisional <30-match flagging).
+    Thin wrapper over :class:`EloHistory` (built over ``matches`` strictly before
+    ``as_of``, then sliced at ``as_of``) — the single-fit path. Rolling callers
+    should build one :class:`EloHistory` and slice it per cutoff instead.
     """
-    conf_k = conf_k if conf_k is not None else ELO_CONF_K
-    confs = infer_confederations(matches)
-    m = matches.dropna(subset=["home_score", "away_score"])
-    m = m[m["date"] < pd.Timestamp(as_of)].sort_values("date")
-
-    R = defaultdict(lambda: base)
-    history = defaultdict(list)   # team -> [(date, rating_after_match), ...]
-    for r in m.itertuples(index=False):
-        Rh, Ra = R[r.home_team], R[r.away_team]
-        dr = (Rh - Ra) + (0.0 if r.neutral else ha)
-        we_h = 1.0 / (10.0 ** (-dr / 400.0) + 1.0)
-        margin = r.home_score - r.away_score
-        w_h = 1.0 if margin > 0 else 0.5 if margin == 0 else 0.0
-        g = gd_mult(abs(margin))
-        k = tournament_k(r.tournament) * g
-        k_h = k * conf_k.get(confs.get(r.home_team), 1.0)
-        k_a = k * conf_k.get(confs.get(r.away_team), 1.0)
-        R[r.home_team] = Rh + k_h * (w_h - we_h)
-        R[r.away_team] = Ra + k_a * ((1.0 - w_h) - (1.0 - we_h))
-        history[r.home_team].append((r.date, R[r.home_team]))
-        history[r.away_team].append((r.date, R[r.away_team]))
-
-    ratings = dict(R)
-    window_start = pd.Timestamp(as_of) - pd.DateOffset(years=longterm_years)
-    longterm, n_matches = {}, {}
-    for team, hist in history.items():
-        recent = [rt for (d, rt) in hist if d >= window_start]
-        longterm[team] = float(np.median(recent)) if recent else ratings[team]
-        n_matches[team] = len(hist)
-    return ratings, longterm, n_matches
+    m = matches[matches["date"] < pd.Timestamp(as_of)]
+    return EloHistory(m, ha=ha, conf_k=conf_k, base=base).at(as_of,
+                                                             longterm_years)
 
 
 class EloDixonColes(DixonColes):
     """Dixon-Coles whose ratings come from an in-house Elo, not goal-MLE."""
 
     def fit(self, m, df=None, as_of=None, ha=None, conf_k=None,
-            longterm_years=None, elo_train_start=None, elo=None, elo_tau=0.0):
+            longterm_years=None, elo_train_start=None, elo_history=None,
+            elo=None, elo_tau=0.0):
         """``m`` is the decay-weighted calibration frame (prepare_training);
         ``df``/``as_of`` give the raw full history for the Elo iteration.
         ``ha``/``conf_k``/``longterm_years``/``elo_train_start`` default to the
         ``config`` values when None (so callers can override individually, e.g.
         the tuner).
 
+        ``elo_history`` (optional) is a prebuilt :class:`EloHistory` to slice at
+        ``as_of`` instead of re-iterating from ``df`` — a rolling backtest passes
+        one shared instance so the iteration runs once per tournament, not once
+        per matchday. It must have been built with the same ``ha``/``conf_k`` and
+        cover ``[elo_train_start, as_of)``.
+
         ``elo``/``elo_tau`` are accepted for signature parity with
         ``DixonColes.fit`` but ignored — this engine *is* the Elo anchor.
         """
-        if df is None or as_of is None:
-            raise ValueError("EloDixonColes.fit needs df and as_of (raw history "
-                             "for the Elo iteration)")
+        if as_of is None:
+            raise ValueError("EloDixonColes.fit needs as_of (the cutoff to "
+                             "slice the Elo ratings at)")
         ha = ELO_HA if ha is None else ha
         longterm_years = (ELO_LONGTERM_YEARS if longterm_years is None
                           else longterm_years)
         elo_train_start = (ELO_TRAIN_START if elo_train_start is None
                            else elo_train_start)
-        raw = df[(df["date"] >= pd.Timestamp(elo_train_start))
-                 & (df["date"] < pd.Timestamp(as_of))]
-        ratings, longterm, n_matches = compute_elo(
-            raw, as_of, ha=ha, conf_k=conf_k, longterm_years=longterm_years)
+        if elo_history is None:
+            if df is None:
+                raise ValueError("EloDixonColes.fit needs df (raw history) when "
+                                 "no elo_history cache is passed")
+            raw = df[(df["date"] >= pd.Timestamp(elo_train_start))
+                     & (df["date"] < pd.Timestamp(as_of))]
+            elo_history = EloHistory(raw, ha=ha, conf_k=conf_k)
+        ratings, longterm, n_matches = elo_history.at(as_of, longterm_years)
 
         teams = sorted(set(m["home_team"]) | set(m["away_team"]))
         self.idx = {t: i for i, t in enumerate(teams)}

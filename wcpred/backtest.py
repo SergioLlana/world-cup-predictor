@@ -15,9 +15,9 @@ import pandas as pd
 
 from .anchor import anchor_model
 from .config import (BAYES_SIGMA_CONF_SCALE, CONF_ANCHOR_BETA,
-                     CONF_ANCHOR_HALF_LIFE_DAYS, ELO_CONF_K, ELO_HA,
+                     CONF_ANCHOR_HALF_LIFE_DAYS, ELO_BASE, ELO_CONF_K, ELO_HA,
                      ELO_LONGTERM_YEARS, ELO_PATH, ELO_PRIOR_TAU,
-                     MAX_GOALS, SCORING_MODE)
+                     ELO_TRAIN_START, MAX_GOALS, SCORING_MODE)
 from .confederations import infer_confederations
 from .data import load_elo, prepare_training
 from .model import DixonColes
@@ -56,6 +56,43 @@ def _match_metrics(res, true, scoring=SCORING_MODE, stage="group"):
     rps = 0.5 * ((res["p1"] - o1) ** 2
                  + (res["p1"] + res["px"] - o1 - ox) ** 2)
     return p, ll, rps
+
+
+def _bridge_record(tournament, r, res, true, hc, ac, rps):
+    """One inter-confederation ("bridge") audit record: predicted vs realised.
+
+    Shared by `backtest` and the experiment harnesses (scripts/gate_b2.py) so
+    the schema `bridge_audit` consumes is defined in exactly one place.
+    """
+    P = res["P"]
+    goals = np.arange(P.shape[0])
+    return {
+        "tournament": tournament, "date": str(r["date"].date()),
+        "home_conf": hc, "away_conf": ac,
+        "p_home": res["p1"], "p_draw": res["px"],
+        "home_goals": true[0], "away_goals": true[1],
+        "exp_home": float(P.sum(axis=1) @ goals),
+        "exp_away": float(P.sum(axis=0) @ goals),
+        "rps": rps,
+    }
+
+
+def _pool_metrics(results):
+    """Match-weighted pooled metrics across per-tournament result dicts.
+
+    Single source of truth for the RPS/log-loss (match-weighted) + points
+    pooling repeated by `tune`, the elo-engine tuners and the experiment
+    harnesses.
+    """
+    n = sum(r["matches"] for r in results)
+    return {
+        "matches": n,
+        "points": sum(r["points"] for r in results),
+        "pts_per_match": sum(r["points"] for r in results) / n,
+        "exact": sum(r["exact"] for r in results),
+        "rps": sum(r["rps"] * r["matches"] for r in results) / n,
+        "log_loss": sum(r["log_loss"] * r["matches"] for r in results) / n,
+    }
 
 
 def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
@@ -131,6 +168,19 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     kw.setdefault("train_start", str(
         (pd.Timestamp(as_of) - pd.DateOffset(years=TRAIN_WINDOW_YEARS)).date()))
 
+    # The Elo engine re-iterates the full eloratings history at every cutoff;
+    # in a rolling backtest that is the same decade of matches re-run per
+    # matchday. Iterate it ONCE over the whole window here and let each re-fit
+    # slice it causally (EloHistory.at(cutoff) reproduces a from-scratch fit
+    # exactly). Bounded at `end` so we never iterate matches past the tournament.
+    elo_history = None
+    if engine == "elo":
+        from .model_elo import EloHistory
+        raw_elo = df[(df["date"] >= pd.Timestamp(ELO_TRAIN_START))
+                     & (df["date"] <= pd.Timestamp(end))]
+        elo_history = EloHistory(raw_elo, conf_k=elo_conf_k,
+                                 ha=(ELO_HA if elo_ha is None else elo_ha))
+
     model, fitted_at, confs = None, None, {}
     total, exact, outcome = 0.0, 0, 0
     lls, rpss = [], []
@@ -148,8 +198,9 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
             elif engine == "elo":
                 from .model_elo import EloDixonColes
                 model = EloDixonColes().fit(
-                    tm, df=df, as_of=cutoff, conf_k=elo_conf_k,
-                    longterm_years=elo_longterm_years, ha=elo_ha)
+                    tm, as_of=cutoff, conf_k=elo_conf_k,
+                    longterm_years=elo_longterm_years, ha=elo_ha,
+                    elo_history=elo_history)
             else:
                 elo = load_elo(cutoff, elo_path) if elo_tau else None
                 model = DixonColes().fit(tm, elo=elo, elo_tau=elo_tau)
@@ -173,17 +224,8 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
         if audit is not None:
             hc, ac = confs.get(r.home_team), confs.get(r.away_team)
             if hc is not None and ac is not None and hc != ac:
-                P = res["P"]
-                goals = np.arange(P.shape[0])
-                audit.append({
-                    "tournament": tournament, "date": str(r["date"].date()),
-                    "home_conf": hc, "away_conf": ac,
-                    "p_home": res["p1"], "p_draw": res["px"],
-                    "home_goals": true[0], "away_goals": true[1],
-                    "exp_home": float(P.sum(axis=1) @ goals),
-                    "exp_away": float(P.sum(axis=0) @ goals),
-                    "rps": rps,
-                })
+                audit.append(_bridge_record(tournament, r, res, true, hc, ac,
+                                            rps))
     n = len(matches)
     return {"tournament": tournament, "matches": n, "points": total,
             "points_per_match": total / n, "exact": exact,
@@ -260,18 +302,12 @@ def tune(df, tournaments=None, gd_caps=(None, 3, 4),
                         shrinkage_mode=sm, shrinkage_weight=sw,
                         anchor_beta=ab, elo_tau=et)
                for t in tournaments]
-        n = sum(r["matches"] for r in res)
         row = {
             "gd_cap": cap, "half_life": hl, "friendly_w": fw,
             "cross_conf_w": ccw,
             "shrink_mode": sm, "shrink_w": sw, "anchor_beta": ab,
             "elo_tau": et,
-            "points": sum(r["points"] for r in res),
-            "pts_per_match": sum(r["points"] for r in res) / n,
-            "exact": sum(r["exact"] for r in res),
-            "rps": sum(r["rps"] * r["matches"] for r in res) / n,
-            "log_loss": sum(r["log_loss"] * r["matches"]
-                            for r in res) / n,
+            **_pool_metrics(res),
         }
         rows.append(row)
         if verbose:
@@ -290,13 +326,7 @@ def _elo_pool(df, tournaments, conf_k, ly, ha, rolling):
     res = [backtest(df, t, rolling=rolling, engine="elo",
                     elo_conf_k=conf_k, elo_longterm_years=ly, elo_ha=ha)
            for t in tournaments]
-    n = sum(r["matches"] for r in res)
-    return {
-        "points": sum(r["points"] for r in res),
-        "pts_per_match": sum(r["points"] for r in res) / n,
-        "rps": sum(r["rps"] * r["matches"] for r in res) / n,
-        "log_loss": sum(r["log_loss"] * r["matches"] for r in res) / n,
-    }
+    return _pool_metrics(res)
 
 
 def tune_elo(df, tournaments=None, longterm_years=(5, 8, 10, 12, 15),
@@ -378,11 +408,4 @@ def elo_report(df, conf_k=None, longterm_years=None, ha=None, rolling=True,
     res = [dict(backtest(df, t, rolling=rolling, engine="elo",
                          elo_conf_k=conf_k, elo_longterm_years=longterm_years,
                          elo_ha=ha)) for t in tournaments]
-    n = sum(r["matches"] for r in res)
-    pooled = {
-        "points": sum(r["points"] for r in res),
-        "pts_per_match": sum(r["points"] for r in res) / n,
-        "rps": sum(r["rps"] * r["matches"] for r in res) / n,
-        "log_loss": sum(r["log_loss"] * r["matches"] for r in res) / n,
-    }
-    return pd.DataFrame(res), pooled
+    return pd.DataFrame(res), _pool_metrics(res)

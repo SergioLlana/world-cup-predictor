@@ -15,7 +15,7 @@ first CLI arg (year|halfyear|quarter; default halfyear).
 """
 import sys
 
-from wcpred.backtest import TOURNAMENTS, backtest, bridge_audit
+from wcpred.backtest import TOURNAMENTS, _pool_metrics, backtest, bridge_audit
 from wcpred.data import load_results
 
 # (label, backtest kwargs)
@@ -35,14 +35,12 @@ def run(df, label, kw, audit):
         print(f"  {label:9s} {t:9s} {r['points']:6.1f} pts | "
               f"rps {r['rps']:.4f} | ll {r['log_loss']:.4f} | "
               f"exact {r['exact']}", flush=True)
-    n = sum(r["matches"] for r in rows)
-    pts = sum(r["points"] for r in rows)
-    rps = sum(r["rps"] * r["matches"] for r in rows) / n
-    ll = sum(r["log_loss"] * r["matches"] for r in rows) / n
-    ex = sum(r["exact"] for r in rows)
-    print(f"  {label:9s} POOLED    {pts:6.1f} pts ({pts/n:.3f}/match) | "
-          f"rps {rps:.4f} | ll {ll:.4f} | exact {ex} | n={n}\n", flush=True)
-    return rps, ll, pts
+    p = _pool_metrics(rows)
+    print(f"  {label:9s} POOLED    {p['points']:6.1f} pts "
+          f"({p['pts_per_match']:.3f}/match) | rps {p['rps']:.4f} | "
+          f"ll {p['log_loss']:.4f} | exact {p['exact']} | n={p['matches']}\n",
+          flush=True)
+    return p["rps"], p["log_loss"], p["points"]
 
 
 if __name__ == "__main__":
