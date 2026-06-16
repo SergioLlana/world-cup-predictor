@@ -19,7 +19,7 @@ partido son:
 μ (visitante) = exp(atk_visitante + dfn_local)
 ```
 
-El ajuste (`fit`) maximiza la log-verosimilitud Poisson ponderada vía L-BFGS-B
+El ajuste (`fit`) maximiza la log-likelihood Poisson ponderada vía L-BFGS-B
 (con gradiente analítico y una penalización de identificabilidad para fijar la
 media de `atk`). Después estima **`rho`** por *grid search*: la corrección
 Dixon-Coles que reajusta las probabilidades de los marcadores bajos
@@ -44,7 +44,7 @@ Cada partido recibe un peso `w`:
   todas las métricas en el grid de validación de junio de 2026.
 - Se descartan selecciones con menos de `MIN_MATCHES` (10) partidos.
 
-Ese `w` es el que multiplica la verosimilitud en `fit`.
+Ese `w` es el que multiplica la likelihood en `fit`.
 
 ### 2. xG — se mezcla *dentro* del entrenamiento (`prepare_training`, opcional)
 

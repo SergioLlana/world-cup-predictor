@@ -62,10 +62,6 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   list upcoming fixtures.
 - `model.py` — Dixon-Coles (weighted Poisson + rho low-score correction).
   Produces per-team attack/defence ratings and score-probability matrices.
-  `fit` takes an optional external Elo prior (robustness-plan Phase 3;
-  rejected as default, available via `ELO_PRIOR_TAU` / `--elo-tau` /
-  `wcpred tune --elo`; snapshots from `scripts/fetch_elo.py` →
-  `data/input/elo.csv`, resolved causally by `data.load_elo`).
 - `anchor.py` — two-timescale confederation re-anchoring (robustness-plan
   Phase 2b; rejected as default, available via `CONF_ANCHOR_BETA` /
   `--anchor-beta` / `wcpred tune --anchor`).
@@ -73,11 +69,13 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   (cmdstanpy) Dixon-Coles with a **hierarchical confederation-offset prior**:
   each team's attack/defence carries an additive per-confederation offset that
   only inter-confederation "bridge" matches can move, so intra-bloc games
-  cannot drift a whole confederation (the robustness-plan Phase 4 attempt at
+  cannot shift a whole confederation (the robustness-plan Phase 4 attempt at
   the weak-anchoring limitation). Subclasses `DixonColes` — inherits
   `rates`/`matrix_from_rates`, overrides `fit` (MCMC, then adopts posterior-mean
-  atk/dfn/home/rho — Phase A) and `score_matrix` (plug-in mean by default;
-  full posterior propagation when opted in — Phase B2). Opt-in via
+  atk/dfn/home/rho — Phase A) and `score_matrix` (plug-in mean by default —
+  "plug-in" = plug the single posterior-mean rating straight into one
+  Dixon-Coles matrix, instead of averaging over the posterior draws; full
+  posterior propagation when opted in — Phase B2). Opt-in via
   `--engine bayes` (default `dc`, the regenerable production model). Two time
   treatments: the static default (`stan/dixon_coles.stan`) where time enters as
   the MLE decay weights (Phase A), and the dynamic
@@ -90,7 +88,7 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   Phase B2) where `score_matrix` returns the posterior mean of the per-draw
   Dixon-Coles matrices, carrying cross-bloc rating uncertainty into the
   scorelines. The between-confederation offset spread `sigma_conf` carries a
-  half-normal prior whose scale is a tunable knob (`--bayes-sigma-conf` /
+  half-normal prior whose scale is a tunable parameter (`--bayes-sigma-conf` /
   `BAYES_SIGMA_CONF_SCALE`, default 0.5 = today's model; the Phase 4
   tight-`sigma_conf` sensitivity — shrink toward 0 to pin the bloc offsets near
   0). Phase C (`--bayes-connect`, `BAYES_CONNECT_SHRINK/_REF/_MODE/_BY/_OPP_REF`,
@@ -104,15 +102,14 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   with the right predictor (`opp`) — base 605 > C' 593 > B 581 Penka pts; kept
   default-off. Needs the `.[bayes]` extra + CmdStan. See `docs/
   bayesian-confederation-plan.md` and `docs/connectivity-shrinkage-experiment.md`.
-- `model_elo.py` — `EloDixonColes`, an in-house Elo engine (opt-in
+- `model_elo.py` — `EloDixonColes`, an Elo engine (opt-in
   `--engine elo`; default stays `dc`). Trains its OWN Elo on `results.csv` via
   the eloratings.net rule (`Rn = Ro + K·(W − We)`, K by tournament tier
   60/50/40/30/20 × goal-difference multiplier, home advantage `ELO_HA`=100,
-  `We = 1/(10^(−dr/400)+1)`) — distinct from the *external* `--elo-tau` anchor,
-  which scrapes `elo.csv` and is untouched. Two extensions (default-off-
+  `We = 1/(10^(−dr/400)+1)`). Two extensions (default-off-
   equivalent): a per-confederation K multiplier (`ELO_CONF_K`, each team updates
-  by its own bloc's K — a lever on the weak-connectivity bias) and a long-term
-  (median over `ELO_LONGTERM_YEARS`=10) Elo covariate (EL PAÍS "pedigree"
+  by its own bloc's K — a parameter on the weak-connectivity bias) and a long-term
+  (median over `ELO_LONGTERM_YEARS`=10) Elo covariate (EL PAÍS "trayectoria histórica"
   regression-to-the-mean). Subclasses `DixonColes` — overrides `fit` (Elo
   iteration over the raw history from `ELO_TRAIN_START`=2006, then a 4-parameter
   GAM-Poisson + Dixon-Coles calibration `log λ = β0 + β_h·home + β_e·Δelo +
@@ -123,8 +120,9 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   RPS-driven coordinate search over `ELO_LONGTERM_YEARS`/`ELO_HA` then the
   per-confederation K). Defaults stay at the published-rule values (1.0 K) per
   the regenerability rule — adopt a tuned config only after a rolling
-  re-validation. See `docs/elo-engine-plan.md` and the tuning run (results +
-  timing) in `docs/elo-engine-tuning.md`.
+  re-validation. See `docs/elo-engine-plan.md`, the tuning run results in
+  `docs/engine-tuning-2026-06.md` (§Motor `elo`) and the timing + decision
+  rationale in `docs/elo-engine-tuning.md`.
 - `scoring.py` — Penka and Superbru points, Closeness Index, expected-points
   optimiser (`best_prediction(P, mode, stage)`).
 - `odds.py` — odds → margin-free 1X2 probs → market-implied score matrix.
@@ -143,7 +141,7 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   real A..L draw), not `groups.derive_groups`' kick-off ordering.
 - `thirds_table.py` — auto-generated FIFA Annex-C allocation of the 8 best
   thirds to Round-of-32 slots (495 combinations); regenerate with
-  `scripts/build_thirds_table.py`.
+  `scripts/experiments/build_thirds_table.py`.
 - `backtest.py` — six past tournaments, rolling re-fit, Superbru/RPS/log-loss
   metrics, and the `tune` hyperparameter grid search.
 - `cli.py` — argparse entry point (`main`); subcommands map to `cmd_*`.
@@ -207,7 +205,7 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   *before* it, so past results inform future picks. Fixtures are every WC
   match dated on/after it **even if since played** (the result is ignored),
   so past snapshots regenerate without leakage.
-- Time-capsule odds: every `fetch_odds.py` run also writes
+- Frozen-in-time odds: every `fetch_odds.py` run also writes
   `data/input/odds/odds_<YYYY-MM-DDTHHMM>.csv`. For a past `--as-of`,
   `generate_predictions.sh` (via `data.resolve_odds_path`) uses the latest
   snapshot stamped ≤ as-of + `ODDS_CUTOVER` (17:00 local — the earliest
@@ -220,9 +218,6 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 - xG source is `scripts/fetch_xg.py` (FotMob public JSON API). It writes
   `xg.csv` in the `date,home_team,away_team,home_xg,away_xg` format `data.py`
   expects. FotMob has NO xG for friendlies and only ~28% of qualifiers.
-- `scripts/fetch_sofascore.py` (needs `curl_cffi` to pass Cloudflare) scrapes
-  SofaScore for historical 1X2 odds (`data/input/odds_history.csv`, back to
-  ≥2018, single book) and supplemental xG. See `docs/sofascore.md`.
 - Data-source landscape, coverage cutoffs and gotchas: `docs/data-sources.md`.
 - Known modelling limitations (e.g. ratings of teams from weakly-connected
   confederations like the AFC are schedule-inflated): `docs/known-limitations.md`.
@@ -231,14 +226,13 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 - Robustness work on the confederation-anchoring problem is tracked in
   `docs/model-robustness-plan.md` — a LIVING document: read it before touching
   that work and update its checkboxes/status/decision-log in the same session.
-  Hard rule there: the current model must stay regenerable (new knobs
+  Hard rule there: the current model must stay regenerable (new parameters
   default-off, experiment outputs outside `data/predictions|groups|simulations`,
   never regenerate past snapshots with a changed model).
   The plan is CLOSED (June 2026): Phases 0-3 all rejected as defaults — even
   the external Elo anchor shares the diagnosed CONMEBOL/CONCACAF-vs-UEFA bias.
   Key facts: FotMob xG only goes back to ~mid-2022 and never covers friendlies;
-  free historical odds exist only via SofaScore (single book); the model trains
-  on goals/xG but never on odds (odds are a predict-time blend only — the one
-  exception is the optional, default-off Elo training prior above).
+  the model trains on goals/xG only — odds are a predict-time blend, never a
+  training input.
 
 Full usage, data sources and tuning notes live in `README.md`.

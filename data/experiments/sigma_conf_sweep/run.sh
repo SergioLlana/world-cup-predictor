@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Phase 4 tight-sigma_conf sensitivity sweep (docs/model-robustness-plan.md).
 # Six-tournament static backtest of the B1 dynamic Bayesian Dixon-Coles at a
-# grid of confederation-offset prior scales, with the bridge audit + canaries.
+# grid of confederation-offset prior scales, with the bridge audit + control cases.
 set -u
 cd "$(dirname "$0")/../../.."   # repo root
 OUT="data/experiments/sigma_conf_sweep"
@@ -16,8 +16,8 @@ for s in $SCALES; do
       --bridge-audit > "$log" 2>&1
   grep -iE "^Backtest|bias_a|CONMEBOL|CONCACAF|inter-confederation" "$log" \
       || tail -5 "$log"
-  echo "---- canaries scale=$s ----"
-  python3 "$OUT/canary.py" "$s" "$ASOF" > "$OUT/canary_${s}.log" 2>&1
-  cat "$OUT/canary_${s}.log"
+  echo "---- control cases scale=$s ----"
+  python3 "$OUT/control_cases.py" "$s" "$ASOF" > "$OUT/control_cases_${s}.log" 2>&1
+  cat "$OUT/control_cases_${s}.log"
 done
 echo "================ SWEEP DONE ================"

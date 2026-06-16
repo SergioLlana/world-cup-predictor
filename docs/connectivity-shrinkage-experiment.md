@@ -81,7 +81,7 @@ Con `c = 1` para todos, ambas se reducen exactamente a `dixon_coles.stan`.
 | base bayes | **605** | **0.1905** | **2.7732** |
 | B (`deviation`) | 581 | 0.1932 | 2.7950 |
 
-(El base 605 confirma de paso la regenerabilidad: con el knob off se usa el path
+(El base 605 confirma de paso la regenerabilidad: con el parameter off se usa el path
 estático intacto.)
 
 ### A es contraproducente
@@ -152,9 +152,9 @@ el bridge share — eso quedó demostrado (C' > B). Pero el **mecanismo** de
 encogimiento por equipo no puede reordenar el ranking: para mover a Australia
 *respecto a* los equipos de calendario duro habría que actuar sobre la **escala
 relativa entre bloques** (el offset / `sigma_conf`), y esa vía ya se exploró y
-rechazó en las Fases A/4 (codifica el sesgo, empeora el gate). El `bayes` ya
+rechazó en las Fases A/4 (codifica el sesgo, empeora el criterio de validación). El `bayes` ya
 sitúa a Australia en #28, que es razonable; el problema agudo y visible (#13) es
-del motor **`elo`**, mecanismo aparte sin offset — su única palanca es
+del motor **`elo`**, mecanismo aparte sin offset — su único parámetro es
 `ELO_CONF_K` (`wcpred tune --elo-engine`).
 
 Lo único no agotado, si se reabre: **`sigma_atk` por bloque** (no global) para
@@ -178,7 +178,7 @@ wcpred backtest --tournament all --static --engine bayes --bayes-connect \
                --bayes-connect-mode deviation                                  # B
 ```
 
-Knobs: `BAYES_CONNECT_SHRINK` / `BAYES_CONNECT_REF` / `BAYES_CONNECT_MODE`
+Parameters: `BAYES_CONNECT_SHRINK` / `BAYES_CONNECT_REF` / `BAYES_CONNECT_MODE`
 (`config.py`). Helper: `confederations.bridge_share`. **No regenerar snapshots
-pasados con estos knobs** (regla de regenerabilidad): son experimentos
+pasados con estos parameters** (regla de regenerabilidad): son experimentos
 default-off.

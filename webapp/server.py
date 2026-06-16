@@ -200,19 +200,6 @@ def sims(approach: str = "odds", engine: str = DEFAULT_ENGINE):
     return _read_snapshots("simulations", approach, engine)
 
 
-def _load_odds_history():
-    """{(date, home, away): [o1, oX, o2]} from odds_history.csv (SofaScore)."""
-    by_date = {}
-    hist = os.path.join(ROOT, INPUT_DIR, "odds_history.csv")
-    if os.path.exists(hist):
-        df = pd.read_csv(hist)
-        df = df[df["date"] >= WC_START]
-        for r in df.itertuples():
-            by_date[(r.date, _norm_team(r.home_team), _norm_team(r.away_team))] = \
-                [r.odds_1, r.odds_X, r.odds_2]
-    return by_date
-
-
 @lru_cache(maxsize=64)
 def _odds_pairs(path, mtime):
     """{(home, away): [o1, oX, o2]} from one odds CSV. Snapshots are
@@ -225,7 +212,7 @@ def _odds_pairs(path, mtime):
 
 
 def _pairs_in_force(as_of):
-    """Pair-indexed odds in force on `as_of`: the time-capsule snapshot for a
+    """Pair-indexed odds in force on `as_of`: the frozen-in-time snapshot for a
     past date, the live odds.csv otherwise — the same file the prediction
     pipeline would use for that day (wcpred.data.resolve_odds_path)."""
     path = resolve_odds_path(as_of, root=ROOT)
@@ -234,13 +221,13 @@ def _pairs_in_force(as_of):
     return _odds_pairs(path, os.path.getmtime(path))
 
 
-def _match_odds(by_pair, by_date, date, home, away):
-    """1X2 odds for a fixture; tolerates the feed listing home/away swapped
-    (three host fixtures do — see docs/known-limitations.md)."""
+def _match_odds(by_pair, home, away):
+    """1X2 odds for a fixture from the in-force odds snapshot; tolerates the
+    feed listing home/away swapped (three host fixtures do — see
+    docs/known-limitations.md)."""
     home, away = _norm_team(home), _norm_team(away)
-    for key, swap in (((date, home, away), False), ((date, away, home), True),
-                      ((home, away), False), ((away, home), True)):
-        odds = (by_date if len(key) == 3 else by_pair).get(key)
+    for key, swap in (((home, away), False), ((away, home), True)):
+        odds = by_pair.get(key)
         if odds is not None:
             return ([odds[2], odds[1], odds[0]] if swap else odds), swap
     return None, False
@@ -255,7 +242,6 @@ def matches():
     # Group-stage matchday: nth fixture of that group (0-1 -> J1, 2-3 -> J2 ...).
     team_group = {t: g for g, ts in OFFICIAL_GROUPS.items() for t in ts}
     seen_in_group = {}
-    by_date = _load_odds_history()
 
     out = []
     pairs_by_date = {}   # resolve the in-force odds file once per match day
@@ -277,8 +263,7 @@ def matches():
         # upcoming), so past matches keep the prices their pick was based on.
         if date not in pairs_by_date:
             pairs_by_date[date] = _pairs_in_force(date)
-        odds, swapped = _match_odds(pairs_by_date[date], by_date,
-                                    date, home, away)
+        odds, swapped = _match_odds(pairs_by_date[date], home, away)
         out.append({
             "date": date, "home": home, "away": away,
             "home_score": int(r.home_score) if played else None,
@@ -334,8 +319,7 @@ def matrix(home: str, away: str, date: str, approach: str = "odds",
     odds = None
     if approach == "odds":
         # Reproduce the pick: the odds file the pipeline used for `as_of`.
-        odds, _ = _match_odds(_pairs_in_force(as_of), _load_odds_history(),
-                              date, home, away)
+        odds, _ = _match_odds(_pairs_in_force(as_of), home, away)
 
     try:
         res = predict_match(model, home, away, side=side,
@@ -363,7 +347,7 @@ def _connectivity(as_of, results_mtime):
     """Inter-confederation connectivity of the training set.
 
     Bridge matches (between confederations) are the only games anchoring the
-    confederations to a common rating scale; pools with few bridges drift —
+    confederations to a common rating scale; pools with few bridges shift —
     the schedule-inflation caveat in docs/known-limitations.md. Returns the
     conf x conf matrix of training weight (time decay included, the same `w`
     the model fits on) plus per-WC-team bridge stats. results_mtime is only

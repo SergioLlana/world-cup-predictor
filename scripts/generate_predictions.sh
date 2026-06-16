@@ -168,7 +168,7 @@ common_args=(--approach "$APPROACH")
 [ -n "$XG_ALPHA" ]    && common_args+=(--xg-alpha "$XG_ALPHA")
 case "$APPROACH" in
   odds|full)
-    # Time capsule: for a past --as-of, use the odds snapshot in force that
+    # Frozen-in-time: for a past --as-of, use the odds snapshot in force that
     # morning (data/input/odds/, see wcpred.data.resolve_odds_path) so later
     # market moves don't leak into a regenerated run.
     ODDS_FILE="$ODDS_CSV"

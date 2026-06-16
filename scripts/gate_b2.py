@@ -1,4 +1,4 @@
-"""Phase B2 gate: posterior propagation vs plug-in mean, controlled pairing.
+"""Phase B2 validation check: posterior propagation vs plug-in mean, controlled pairing.
 
 For each of the six backtest tournaments it fits the Bayesian engine ONCE
 (dynamic random-walk strengths, Phase B1 — the strongest predictive base) and
@@ -9,7 +9,7 @@ treatment, so the comparison is exact (no seed/sampling drift).
 
 Prints per-tournament and pooled RPS / log-loss / Penka points for both
 treatments plus each one's bridge-audit table. Static only, as the whole
-Bayesian engine. Run from the project root; experiment harness, not CLI-wired.
+Bayesian engine. Run from the project root; experiment script, not CLI-wired.
 """
 import numpy as np
 import pandas as pd

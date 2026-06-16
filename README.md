@@ -198,7 +198,7 @@ Two ways to fill it:
 Team names must match the dataset (`United States`, `South Korea`,
 `Czech Republic`, `Ivory Coast`, `Turkey`).
 
-Every `fetch_odds.py` run also saves a time-capsule snapshot under
+Every `fetch_odds.py` run also saves a frozen-in-time snapshot under
 `data/input/odds/odds_<YYYY-MM-DDTHHMM>.csv`. When you regenerate a past day
 (`generate_predictions.sh --as-of DATE`), the pipeline automatically uses the
 snapshot in force that day (latest stamp ≤ DATE 17:00 local, see
@@ -277,7 +277,7 @@ scripts/
 ├── run_webapp.sh           # serve the local web app on :8026
 ├── fetch_odds.py           # data/input/odds.csv via The Odds API
 ├── fetch_xg.py             # data/input/xg.csv via FotMob's public JSON API
-└── build_thirds_table.py   # regenerates wcpred/thirds_table.py
+└── experiments/            # dev-only scripts (e.g. build_thirds_table.py → wcpred/thirds_table.py)
 data/             # all generated files
 ├── input/        # results.csv, odds.csv, xg.csv
 ├── predictions/  # `predict --out` CSVs

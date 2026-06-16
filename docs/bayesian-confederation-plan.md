@@ -5,7 +5,7 @@
 La limitación central del modelo (`docs/known-limitations.md`,
 `docs/connectivity.md`) es que los **offsets de fuerza entre confederaciones
 están débilmente identificados**: solo los escasos partidos "puente" conectan
-los bloques, y con ellos AFC/CAF derivan (Australia por encima de USA) y las
+los bloques, y con ellos AFC/CAF se desplazan (Australia por encima de USA) y las
 comparaciones de élite cross-bloc (Argentina vs España) cargan más
 incertidumbre de la que sugieren los ratings puntuales. El plan de robustez
 (`docs/model-robustness-plan.md`, fases 0-3) probó y rechazó 5 mitigaciones
@@ -23,7 +23,7 @@ mejor el tiempo** (ratings dinámicos en vez de pesos por decaimiento).
 
 Decisiones tomadas en la entrevista:
 - **Tiempo: por fases.** Fase A = prior jerárquico de confederación con el
-  decaimiento exponencial actual como verosimilitud ponderada. Fase B (misma
+  decaimiento exponencial actual como likelihood ponderada. Fase B (misma
   rama, solo si A convence) = fuerzas dinámicas random-walk.
 - **Posterior: media ahora, propagación luego.** Empezar fijando atk/dfn/home/
   rho a la media posterior (drop-in transparente); propagación posterior
@@ -50,7 +50,7 @@ para encajar sin tocar el pipeline aguas abajo.
 
 ### 2. Modelo Stan — `wcpred/stan/dixon_coles.stan`
 
-Verosimilitud Dixon-Coles ponderada (igual que `model.py`): por partido,
+Likelihood Dixon-Coles ponderada (igual que `model.py`): por partido,
 `target += w * (poisson_lpmf(hg | lam) + poisson_lpmf(ag | mu) + log(tau))`,
 con `lam = exp(atk[h] + dfn[a] + home*hadv)`, `mu = exp(atk[a] + dfn[h])` y
 `tau(x,y; lam, mu, rho)` la corrección de marcadores bajos de DC (mismas 4
@@ -63,7 +63,7 @@ Parámetros y prior jerárquico (no centrado):
   Igual para `dfn`.
 - **`atk_conf[C]`, `dfn_conf[C]`: los offsets de confederación** —
   `~ normal(0, sigma_conf)`. Son la pieza nueva: identificados casi solo por
-  partidos puente; con `sigma_conf` moderado los bloques no derivan sin
+  partidos puente; con `sigma_conf` moderado los bloques no se desplazan sin
   evidencia de puentes. Equipos sin confederación inferida → offset fijo 0.
 - `home` (ventaja de local), `rho` (con prior y restricción `tau > 0` vía
   rechazo suave, o muestreado en `[-0.2, 0.2]` como el grid actual).
@@ -100,20 +100,20 @@ Parámetros y prior jerárquico (no centrado):
 - `cmd_backtest`/`cmd_predict`/etc.: pasar `engine=args.engine`. El motor bayes
   **solo se valida en estático** (`--static`); avisar si se pide rodante.
 
-### 5. Validación (gate)
+### 5. Validación
 
 Comparar **bayes estático vs MLE estático** sobre los 6 torneos
 (`backtest --static`), métricas: RPS, log-loss, puntos Penka y la tabla
 `--bridge-audit`. Criterio de adopción (mismo espíritu que el plan): RPS/
 log-loss no empeoran **y** las dos sesgos diagnosticados encogen
 (`bias_a(CONMEBOL–UEFA)` +0.088, `bias_a(CONCACAF–UEFA)` +0.113), o al menos la
-incertidumbre cross-bloc queda mejor reflejada. Canarios: gap AUS−USA y
+incertidumbre cross-bloc queda mejor reflejada. Casos de control: gap AUS−USA y
 ARG−ESP, top-20 sensato.
 
 ### 6. Documentación / trazabilidad
 
 - Reabrir `docs/model-robustness-plan.md` con una **Fase 4 — prior jerárquico
-  de confederación bayesiano (Stan)**: hipótesis, diseño, gate, y registrar
+  de confederación bayesiano (Stan)**: hipótesis, diseño, criterio de validación, y registrar
   resultado en el Decision/Results log en la misma sesión (regla viva del doc).
 - Actualizar `CLAUDE.md` (arquitectura: `model_bayes.py`, `stan/`, `--engine`)
   y `MEMORY.md` si procede.
@@ -153,55 +153,18 @@ ARG−ESP, top-20 sensato.
 
 ## Fase C — encogimiento por conectividad (RECHAZADA, 2026-06-16)
 
-*Proceso completo (diagnóstico, formulaciones, resultados, qué queda por
-probar): [connectivity-shrinkage-experiment.md](connectivity-shrinkage-experiment.md).*
+Ponderar lo que cada equipo hereda del offset de su bloque por su conectividad,
+para anclar a los aislados sin tocar a los bien puenteados. Tres variantes
+opt-in (estáticas, default-off, `.stan` aparte): **A** `offset` por bridge share
+(contraproducente — atenuar un offset negativo *sube* al bloque débil), **B**
+`deviation` por bridge share (limpia pero no baja a Australia), **C'**
+`deviation` por dificultad de rivales `opp_rating` (mejora sobre B y baja el
+rating absoluto, pero no mueve el ranking porque el gauge `sum(atk)=0` re-centra).
 
-
-Motivación (caso Australia, `docs/known-limitations.md`): el offset uniforme de
-confederación de la Fase A está fijado casi por completo por los partidos puente
-de la **élite** del bloque (sólo Japón/Australia/Corea juegan fuera de la AFC) y
-se aplica por igual a los minnows aislados. La hipótesis: ponderar lo que cada
-equipo hereda de su bloque por su **bridge share** (cuota de peso de partidos
-inter-confederación; `confederations.bridge_share`, los mismos pesos `w` que
-ajusta el modelo) — un equipo bien conectado libre, uno aislado anclado. Mapeo
-`c = min(1, bridge_share / BAYES_CONNECT_REF)` (ref=0.4). Dos formulaciones,
-ambas opt-in `--bayes-connect` (estáticas, default-off, archivo `.stan` aparte
-para no tocar el modelo de producción; `--bayes-connect-mode`):
-
-- **A — `offset` (`stan/dixon_coles_connect.stan`):**
-  `atk[t] = c[t]·atk_conf + σ_atk·atk_raw` — atenúa el offset hacia la escala
-  global (0). **RECHAZADA, contraproducente.** El offset de un bloque débil es
-  **negativo** (AFC ≈ −0.54), así que atenuarlo hacia 0 *sube* al bloque:
-  Australia #28→#20, Japón #16→#9, Irán #30→#18, AFC media −0.54→−0.34; y en los
-  bloques fuertes (UEFA, offset positivo) *baja* a outliers legítimos poco
-  puenteados (España #2→#3, Inglaterra). Exactamente al revés del objetivo.
-- **B — `deviation` (`stan/dixon_coles_connect_dev.stan`):**
-  `atk[t] = atk_conf + σ_atk·c[t]·atk_raw` — partial pooling clásico: encoge la
-  desviación del equipo aislado hacia la **media de su bloque** (no hacia 0),
-  preservando el offset. **RECHAZADA, no cumple el objetivo.** Más limpia que A
-  (preserva outliers: España #2, UEFA +0.78→+0.82; los minnows AFC sí van hacia
-  su media: Laos #231→#198, Bhutan #241→#230), pero **tampoco baja a Australia**
-  (#28→#21).
-
-**Diagnóstico raíz (por qué el bridge share es el predictor equivocado):**
-Australia **no es un equipo poco conectado** — su bridge share es **0.47**, de
-los más altos de la AFC (Japón 0.49, Corea 0.47). Lo que la infla no es la
-*cantidad* de puentes sino su *dificultad*: sus puentes son Nueva Zelanda ×5
-(OFC), Curaçao 5-1, Canadá, Camerún, Túnez, y sólo pierde con los muy top (3-7-2
-vs UEFA/CONMEBOL fuertes). Por eso **ningún** encogimiento por bridge share —ni
-A ni B— la toca; A incluso la premia por su alta conectividad.
-
-**C' — encoger por dificultad de rivales (`--bayes-connect-by opp`): RECHAZADA.**
-El predictor correcto: la desviación (estilo B) gateada por `opp_rating`
-(`confederations.opponent_rating`, de un pre-fit dc exógeno;
-`c = min(1, opp/BAYES_CONNECT_OPP_REF)`, ref=1.5). `opp_rating` sí separa
-inflados de outliers (España 1.86 vs Australia 1.18), y C' **mejora sobre B** y
-**baja el rating absoluto** de los inflados — pero **no mueve el ranking** de
-Australia (#28→#28; #29 con ref agresivo) y **sigue peor que el base**: el
-ranking es relativo y el gauge `sum(atk)=0` re-centra. Mover el orden exigiría
-actuar sobre la escala entre bloques (offset/`sigma_conf`), ya rechazada.
-
-Métricas backtest (6 torneos, 290 partidos, `--static --engine bayes`):
+Veredicto: **el bridge share es el predictor equivocado** — Australia no está
+poco conectada (share 0.47), está inflada por la *dificultad* de sus puentes; y
+mover el *orden* exigiría actuar sobre la escala entre bloques (offset/`sigma_conf`),
+ya rechazada. Ninguna se adopta.
 
 | config | puntos | RPS | log-loss | Australia |
 |---|---|---|---|---|
@@ -209,17 +172,9 @@ Métricas backtest (6 torneos, 290 partidos, `--static --engine bayes`):
 | B (`deviation`+`bridge`) | 581 | 0.1932 | 2.7950 | #21 ⬆ |
 | C' (`deviation`+`opp`) | 593 | 0.1910 | 2.7855 | #28 |
 
-(A no se backtestea: los rankings ya la muestran contraproducente y dañando
-outliers UEFA.) El base 605 confirma de paso la regenerabilidad: con el knob off
-se usa el path estático intacto. Proceso completo y cierre de la línea en
+Diagnóstico completo, formulaciones, rankings por equipo y flags
+(`BAYES_CONNECT_*`, `--bayes-connect*`):
 [connectivity-shrinkage-experiment.md](connectivity-shrinkage-experiment.md).
-
-Knobs (todos default-off; el bayes de producción se regenera idéntico — usa el
-path estático sin `conf_w`): `BAYES_CONNECT_SHRINK`, `BAYES_CONNECT_REF`,
-`BAYES_CONNECT_MODE`, `BAYES_CONNECT_BY`, `BAYES_CONNECT_OPP_REF` (`config.py`);
-`--bayes-connect` / `--bayes-connect-ref` / `--bayes-connect-mode` /
-`--bayes-connect-by` / `--bayes-connect-opp-ref` (`cli.py`). Helpers
-`confederations.bridge_share` y `confederations.opponent_rating`.
 
 ## Verificación end-to-end
 
@@ -229,7 +184,7 @@ pip install -e ".[bayes]"          # + install_cmdstan una vez
 wcpred backtest --tournament all --static            # baseline MLE
 # 2. Motor bayes (estático) en un torneo, smoke test
 wcpred backtest --tournament wc2022 --static --engine bayes --bridge-audit
-# 3. Gate completo: 6 torneos, comparar RPS/log-loss/puntos/bridge-audit
+# 3. Criterio de validación completo: 6 torneos, comparar RPS/log-loss/puntos/bridge-audit
 wcpred backtest --tournament all --static --engine bayes --bridge-audit
 # 4. Ratings y predicción puntual con el motor bayes
 wcpred ratings --top 20 --engine bayes --as-of 2026-06-13

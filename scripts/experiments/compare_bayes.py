@@ -1,4 +1,4 @@
-"""Gate comparison: MLE vs Bayesian Dixon-Coles, static fit, six tournaments.
+"""Validation check comparison: MLE vs Bayesian Dixon-Coles, static fit, six tournaments.
 
 Phases A and B1 of docs/bayesian-confederation-plan.md. Prints per-tournament
 and pooled RPS / log-loss / Penka points for each engine variant plus the
@@ -10,7 +10,7 @@ bridge-audit table (the cross-confederation regional-bias metric):
   bayes-dyn-prop — Phase B1 + full posterior propagation (Phase B2).
 
 Run from the project root. Not wired into the CLI on purpose — this is an
-experiment harness. Pass a block granularity for the dynamic variant as the
+experiment script. Pass a block granularity for the dynamic variant as the
 first CLI arg (year|halfyear|quarter; default halfyear).
 """
 import sys

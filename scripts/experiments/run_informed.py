@@ -1,6 +1,6 @@
 """Experimento: prior de confederacion INFORMATIVO (no media-cero) en bayes.
 
-Medias de bloque ancladas al Elo in-house (beta auto-calibrada,
+Medias de bloque ancladas al Elo propio (beta auto-calibrada,
 backtest.elo_conf_strength). Dos modos:
   - capped: offsets winsorizados a +-0.4 (doma el pico de CONMEBOL)
   - weak:   solo bajar AFC/OFC/CONCACAF/CAF (UEFA/CONMEBOL data-driven)

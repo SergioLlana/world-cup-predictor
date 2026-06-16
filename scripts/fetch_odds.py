@@ -125,7 +125,7 @@ def main():
         w.writerow(FIELDS)
         w.writerows(table.values())
 
-    # Time-capsule snapshot: keep every fetch under <out dir>/odds/ stamped
+    # Frozen-in-time snapshot: keep every fetch under <out dir>/odds/ stamped
     # with the fetch time, so past --as-of runs can be regenerated with the
     # odds in force then (wcpred.data.resolve_odds_path; format must match).
     snap_dir = os.path.join(os.path.dirname(args.out) or ".", "odds")

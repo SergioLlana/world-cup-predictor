@@ -27,14 +27,13 @@ Australia built a +19 goal difference largely by beating AFC minnows; the USA
 played (and often lost to) Brazil, Portugal, Germany, Belgium and Colombia.
 
 Dixon-Coles *does* discount opponent strength (attack/defence are fit jointly,
-so thrashing a weak team is worth less). But the discount is only as good as the
-**connectivity between confederations**. Australia's schedule is almost entirely
-intra-AFC, and the AFC pool has few recent "bridge" matches against Europe/South
-America (the same gap seen in xG coverage — see `data-sources.md`). With the AFC
-weakly anchored to the global scale, its teams — including the minnows Australia
-beat — are over-rated in absolute terms, so the "weak opponent" discount falls
-short. The result: Australia's easy wins are over-credited relative to the USA's
-losses to elite sides.
+so thrashing a weak team is worth less), but only as well as the **connectivity
+between confederations** allows — and the AFC is weakly bridged to Europe/South
+America (the mechanism, and the conf×conf training-weight matrix that quantifies
+it, are in [connectivity.md](connectivity.md)). Australia's schedule is almost
+entirely intra-AFC, so the minnows it beat are themselves over-rated in absolute
+terms and the "weak opponent" discount falls short: its easy wins are
+over-credited relative to the USA's losses to elite sides.
 
 A second, smaller factor used to be the friendly down-weight: 20 of the USA's
 33 matches were friendlies — exactly the games where it tested itself against
@@ -71,7 +70,7 @@ extent CONMEBOL/CONCACAF/CAF) should be read with this caveat.
    but it worsened RPS, log-loss *and* Superbru points in every grid
    combination (`gd_cap=3` was the worst setting tried; `gd_cap=4` still below
    no cap). Blowout margins carry real signal that Dixon-Coles already
-   discounts adequately. The knob stays available, default `GD_CAP = None`.
+   discounts adequately. The parameter stays available, default `GD_CAP = None`.
 2. **Upweight inter-confederation "bridge" matches** (`CROSS_CONF_WEIGHT`,
    `config.py`/`data.prepare_training`; confederations inferred from
    continental competitions by `confederations.py`) — **tested June 2026 and
@@ -81,63 +80,47 @@ extent CONMEBOL/CONCACAF/CAF) should be read with this caveat.
    fit looked mildly promising (w=1.5: 286.5 pts vs 280.5 baseline, RPS
    0.18849 vs 0.18871), but rolling re-fit — the live protocol — reversed it
    monotonically: 295.5 / 292.5 / 288.5 points and log-loss 2.7702 / 2.7713 /
-   2.7735 at w = 1.0 / 1.5 / 2.0, RPS flat. The knob stays available
+   2.7735 at w = 1.0 / 1.5 / 2.0, RPS flat. The parameter stays available
    (`cross_conf_weights` in `tune`), default `CROSS_CONF_WEIGHT = 1.0`.
    Directional side-finding: the upweight barely narrows the
    Australia-Paraguay gap anyway (both drop ~0.05), because Paraguay's own
    recent bridge record is genuinely poor (losses to South Korea, USA,
    Morocco, Costa Rica since 2024) — its strength shows in CONMEBOL
    qualifiers, which bridges by definition exclude.
-3. **Shrinkage via data augmentation** (`SHRINKAGE_MODE`/`SHRINKAGE_WEIGHT`,
-   `config.py`/`data.prepare_training`; the pseudo-games / phantom-player
-   scheme of arXiv 2606.03805 — Phase 1 of
-   [model-robustness-plan.md](model-robustness-plan.md)) — **tested June 2026
-   and rejected as default.** Synthetic fractional 1-1 draws (one per team vs
-   a `__phantom__` anchor, or spread over every cross-confederation pair)
-   shrink ratings toward a common center without re-weighting real matches.
-   Rolling re-fit degraded RPS and log-loss monotonically in ε for both modes
-   (baseline 0.1890 / 2.7702 → phantom ε=2: 0.1914 / 2.7851; pseudo ε=2:
-   0.1936 / 2.8039), and — the instructive part — moved the *levels* the
-   wrong way: the compression hits UEFA's elite harder than CONMEBOL's, so
-   the CONMEBOL–UEFA bridge bias grew (+0.088 → +0.104 at pseudo ε=0.5) and
-   the Australia–USA and Argentina–Spain gaps widened. Uniform shrinkage
-   toward a global center is the wrong shape of fix; what is needed is
-   per-confederation *level* correction (the level re-anchoring below). The
-   knobs stay available (`wcpred tune --shrinkage`), default
-   `SHRINKAGE_MODE = None`.
+3. **Shrinkage via data augmentation** (`SHRINKAGE_MODE`/`SHRINKAGE_WEIGHT`;
+   Phase 1 of [model-robustness-plan.md](model-robustness-plan.md)) — **tested
+   June 2026, rejected.** Synthetic fractional 1-1 draws that shrink ratings
+   toward a common center degraded RPS/log-loss monotonically and moved the
+   *levels* the wrong way (the compression hits UEFA's elite harder than
+   CONMEBOL's, so the CONMEBOL–UEFA bias *grew*): uniform shrinkage to a global
+   center is the wrong shape of fix — per-confederation *level* correction (#4)
+   is what's needed. Parameters stay available (`wcpred tune --shrinkage`),
+   default `SHRINKAGE_MODE = None`; full numbers in the plan.
 4. **Per-confederation level re-anchoring, two-timescale**
-   (`CONF_ANCHOR_BETA`/`CONF_ANCHOR_HALF_LIFE_DAYS`, `wcpred/anchor.py` —
-   Phase 2b of [model-robustness-plan.md](model-robustness-plan.md)) —
-   **tested June 2026 and rejected as default.** Confederation levels are
-   estimated on a slow-timescale fit (8-year half-life, where bridge matches
-   are plentiful) and the short-window fit's levels are recentred toward them
-   (±β·Δ/2 on attack/defence; intra-confederation predictions exactly
-   invariant). The first intervention that *improved* rolling RPS and
-   log-loss (0.1890/2.7702 → 0.1887/2.7691 at β=0.75, 597 vs 594 Penka pts)
-   — but it barely moves the diagnosed bias: the long and short windows
-   assign nearly identical confederation levels (deltas ±0.02, regardless of
-   slow-window length — 8y ≈ 16y ≈ no decay at all), because both are
-   anchored by the *same* thin bridges. CONMEBOL–UEFA bridge bias +0.088 →
-   +0.086 (+0.084 in the no-decay limit); CONCACAF–UEFA grew +0.113 →
-   +0.120..+0.125. The knob stays available (`wcpred tune --anchor`,
-   `--anchor-beta`), default `CONF_ANCHOR_BETA = 0.0`. Conclusion: the
-   dataset's internal anchoring information is exhausted — only an external
-   anchor (historical Elo, Phase 3 of the plan) can add more.
-5. **External Elo prior** (`ELO_PRIOR_TAU`/`ELO_PATH`, `model.DixonColes.fit`;
-   eloratings.net snapshots via `scripts/fetch_elo.py` — Phase 3 of
-   [model-robustness-plan.md](model-robustness-plan.md)) — **tested June 2026
-   and rejected as default.** A penalty pulls each team's strength toward an
-   affine transform of its historical Elo rating (`a + b·elo`, profiled on the
-   training window; snapshots resolved causally per re-fit). Decades of
-   accumulated bridges do add real information — Penka points jump +14..+22
-   (594 → 608-616, exact picks 37 → 39-40) and the AFC audit pairs improve —
-   but log-loss degrades monotonically in τ (2.7702 → 2.7824 at τ=10), RPS is
-   flat-to-worse, and the two *diagnosed* bridge biases grow at every τ
-   (CONMEBOL–UEFA +0.088 → +0.095..+0.098, CONCACAF–UEFA +0.113 →
-   +0.130..+0.146): eloratings.net shares the same regional bias on those
-   pairs (consistent with the football-rankings.info regional-bias test), so
-   an Elo anchor cannot correct it. The knobs stay available (`wcpred tune
-   --elo`, `--elo-tau`), default `ELO_PRIOR_TAU = 0.0`.
+   (`CONF_ANCHOR_BETA`/`CONF_ANCHOR_HALF_LIFE_DAYS`, `wcpred/anchor.py`; Phase 2b
+   of [model-robustness-plan.md](model-robustness-plan.md)) — **tested June
+   2026, rejected.** The only intervention to *improve* rolling RPS/log-loss
+   (0.1887/2.7691 at β=0.75 vs 0.1890/2.7702), but it barely moves the diagnosed
+   bias: the long and short windows assign nearly identical confederation levels
+   because both hang on the *same* thin bridges. Parameter stays available
+   (`wcpred tune --anchor`), default `CONF_ANCHOR_BETA = 0.0`. Conclusion: the
+   dataset's internal anchoring information is exhausted; full numbers in the
+   plan.
+5. **External Elo prior** (Phase 3 of
+   [model-robustness-plan.md](model-robustness-plan.md)) — **tested June 2026,
+   rejected, and since removed from the codebase.** A penalty pulled each
+   team's strength toward an affine transform of its historical eloratings.net
+   rating (`a + b·elo`, profiled on the training window; snapshots resolved
+   causally per re-fit). Decades of accumulated bridges did add real
+   information — Penka points jumped +14..+22 (594 → 608-616, exact picks
+   37 → 39-40) and the AFC audit pairs improved — but log-loss degraded
+   monotonically in τ (2.7702 → 2.7824 at τ=10), RPS was flat-to-worse, and
+   the two *diagnosed* bridge biases grew at every τ (CONMEBOL–UEFA +0.088 →
+   +0.095..+0.098, CONCACAF–UEFA +0.113 → +0.130..+0.146): eloratings.net
+   shares the same regional bias on those pairs (consistent with the
+   football-rankings.info regional-bias test), so an Elo anchor cannot correct
+   it. With the verdict settled, the prior, its CLI flags and the
+   `fetch_elo.py` scraper were removed.
 6. **Accept as a known limitation** and let home advantage + market odds (for
    imminent fixtures) correct it in practice — the current stance. Since June
    2026 this also covers the group simulation: `groups --approach odds` blends

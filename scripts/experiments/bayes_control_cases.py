@@ -1,8 +1,8 @@
-"""Phase A/B1 canaries + prior diagnostics for the Bayesian engine.
+"""Phase A/B1 control cases + prior diagnostics for the Bayesian engine.
 
 Fits BayesianDixonColes on the live window (as-of today) — both the static
 (Phase A) and dynamic random-walk (Phase B1) time treatments — and reports the
-diagnosed-canary rating gaps (AUS-USA, ARG-ESP), the top-10, the learned
+diagnosed-control case rating gaps (AUS-USA, ARG-ESP), the top-10, the learned
 confederation-offset scale sigma_conf, and (dynamic) the random-walk step
 scales sigma_rw_* plus MCMC convergence — the checks
 docs/model-robustness-plan.md requires before any verdict.

@@ -14,7 +14,7 @@ RANKINGS_DIR = "data/rankings"        # `ratings --out`
 RESULTS_PATH = f"{INPUT_DIR}/results.csv"
 ODDS_PATH = f"{INPUT_DIR}/odds.csv"   # live odds (latest fetch)
 
-# Time-capsule odds: every fetch also lands in ODDS_SNAPSHOT_DIR as
+# Frozen-in-time odds: every fetch also lands in ODDS_SNAPSHOT_DIR as
 # odds_<YYYY-MM-DDTHHMM>.csv, so a past `--as-of` run can be reproduced with
 # the odds actually in force then (data.resolve_odds_path). ODDS_CUTOVER is
 # the latest same-day fetch time (local, Europe/Madrid) a regeneration may
@@ -59,14 +59,6 @@ CONF_ANCHOR_BETA = 0.0      # two-timescale confederation re-anchoring
                             # `wcpred tune --anchor`.
 CONF_ANCHOR_HALF_LIFE_DAYS = 2920  # slow-timescale window for the level fit
                                    # (8y; bounded below by TRAIN_START)
-ELO_PRIOR_TAU = 0.0         # external Elo anchor (docs/model-robustness-plan.md
-                            # Phase 3): penalty weight pulling each team's
-                            # strength (atk − dfn) toward a + b·Elo, with a, b
-                            # profiled on the training window — only Elo's
-                            # *relative* levels anchor the model. 0 = off
-                            # (today's model); sweep via `wcpred tune --elo`.
-ELO_PATH = f"{INPUT_DIR}/elo.csv"  # dated Elo snapshots (scripts/fetch_elo.py);
-                                   # data.load_elo resolves the one ≤ as-of
 
 # --- Bayesian engine (--engine bayes) ---
 BAYES_DYNAMIC = False        # Phase B1 (docs/bayesian-confederation-plan.md):
@@ -164,10 +156,9 @@ BAYES_CONNECT_MODE = "offset"  # which quantity the connectivity weight c scales
                                #                pooling). Set via --bayes-connect-mode.
 
 # --- Elo engine (--engine elo) ---
-# An in-house Elo trained on results.csv (NOT scraped — distinct from the
-# external --elo-tau anchor, which loads data/input/elo.csv and stays untouched).
+# An Elo trained on results.csv (NOT scraped).
 # Two extensions over plain eloratings.net: a per-confederation K multiplier and
-# a long-term (median) Elo covariate (EL PAÍS "pedigree" feature). Each team's
+# a long-term (median) Elo covariate (EL PAÍS "trayectoria histórica" feature). Each team's
 # attack/defence is derived from its current + long-term Elo via a 4-parameter
 # GAM-Poisson + Dixon-Coles calibration, so the rest of the pipeline is unchanged.
 # Defaults reproduce the published eloratings.net rule. See docs/elo-engine-plan.md.
@@ -179,15 +170,15 @@ ELO_TRAIN_START = "2006-01-01"  # raw-history start for the Elo *iteration* —
                            # the goal-model calibration): ratings converge after
                            # ~30 matches and the long-term median needs a decade.
 ELO_LONGTERM_YEARS = 10    # trailing window (years) for the long-term (median)
-                           # Elo covariate (the regression-to-the-mean "pedigree").
+                           # Elo covariate (the regression-to-the-mean "trayectoria histórica").
 ELO_CONF_K = {             # per-confederation K multiplier (the extension): a team
     "UEFA": 1.0,           # updates its rating by its OWN confederation's K on top
     "CONMEBOL": 1.0,       # of the tournament base K, so the two sides of a match
     "CONCACAF": 1.0,       # can move by different amounts. All 1.0 = pure
     "CAF": 1.0,            # eloratings.net (no bloc treatment); unknown-conf teams
     "AFC": 1.0,            # use 1.0. NOTE: non-unit values break Elo's zero-sum
-    "OFC": 1.0,            # property (total rating mass drifts) — that is the
-}                          # intended effect, not a bug, when the knob is enabled.
+    "OFC": 1.0,            # property (total rating mass shifts) — that is the
+}                          # intended effect, not a bug, when the parameter is enabled.
 ELO_K_TIERS = {            # base K by tournament type (eloratings.net tiers);
     "world_cup": 60.0,     # tournament_k() maps the martj42 `tournament` string.
     "continental_final": 50.0,

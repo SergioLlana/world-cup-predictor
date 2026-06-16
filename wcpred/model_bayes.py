@@ -20,7 +20,7 @@ Two posterior treatments of the score matrix are available:
 The structural difference from the MLE model is the prior: each team's
 attack/defence carries an additive confederation-level offset that only the
 rare inter-confederation "bridge" matches can move, so intra-confederation
-games cannot drift a whole confederation up or down — the weak-anchoring fix the
+games cannot shift a whole confederation up or down — the weak-anchoring fix the
 internal-data interventions of the (closed) robustness plan could not achieve.
 
 Two time treatments are available:
@@ -90,14 +90,13 @@ class BayesianDixonColes(DixonColes):
     """Dixon-Coles fitted by MCMC with a confederation-offset prior."""
 
     def fit(self, m, chains=4, iter_warmup=500, iter_sampling=500, seed=2026,
-            adapt_delta=0.9, show_progress=False, elo=None, elo_tau=0.0,
+            adapt_delta=0.9, show_progress=False,
             dynamic=None, time_block=None, sigma_conf_scale=None,
             propagate=None, conf_strength=None, connect_shrink=None,
             connect_ref=None, connect_mode=None, connect_by=None,
             connect_opp_ref=None, **stan_kwargs):
         """Sample the Stan model on training frame `m` and adopt posterior
-        means. `elo`/`elo_tau` are accepted for a uniform call signature with
-        DixonColes.fit but ignored (the Bayesian engine has no external prior).
+        means.
 
         dynamic/time_block (resolved from config.BAYES_DYNAMIC /
         config.BAYES_TIME_BLOCK when None) select the time treatment: False =
@@ -222,7 +221,7 @@ class BayesianDixonColes(DixonColes):
             data.update(B=len(blocks), tb=tb.tolist(),
                         w=np.ones(len(hi)).tolist())
         elif connect_shrink:
-            # Phase C: gate a quantity by each team's bridge-match share, mapped
+            # Phase C: scale a quantity by each team's bridge-match share, mapped
             # through connect_ref. c = 1 (full) at/above the reference share,
             # attenuating to 0 for isolated teams. connect_mode picks the
             # quantity: "offset" (A, anchor toward the global scale) or
@@ -231,7 +230,7 @@ class BayesianDixonColes(DixonColes):
             stan_file = _STAN_CONNECT[connect_mode]
             data["w"] = m["w"].to_numpy(float).tolist()
             if connect_by == "opp":
-                # Phase C': gate by schedule difficulty. Pre-fit a plain dc to
+                # Phase C': scale by schedule difficulty. Pre-fit a plain dc to
                 # get exogenous overall ratings (atk − dfn), then each team's
                 # weighted mean opponent rating; c = min(1, opp / opp_ref).
                 pre = DixonColes().fit(m)

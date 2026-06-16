@@ -92,7 +92,7 @@ inter-confederación documentado en `docs/known-limitations.md`.
 
 ---
 
-## Motor `elo` (Elo in-house)
+## Motor `elo` (Elo)
 
 Tiempos: `wcpred tune --elo-engine` completo (rejilla escalar 20 + descenso por
 coordenadas 36 + re-validación rolling de 2 configs) = **41 s**. Salida cruda:
@@ -125,7 +125,7 @@ rps estático 0.1896. **Lectura sobre confederaciones:** el descenso sube la K d
 casi todos los bloques (UEFA/CAF/AFC/OFC = 2.0; los resultados mueven más rápido
 su rating) y **baja la de CONCACAF a 0.5** (sus resultados mueven poco su
 rating). Romper la propiedad de suma cero del Elo (K≠1 por bloque) es el efecto
-buscado: es una palanca directa sobre el sesgo de conectividad débil.
+buscado: es un parámetro directo sobre el sesgo de conectividad débil.
 
 ### Ganador `elo` y re-validación rolling
 
@@ -241,7 +241,7 @@ densos quedan casi neutros; las celdas AFC–CONCACAF / CAF–CONCACAF tienen n=
 son ruido.
 
 **Conclusión sobre confederaciones:** el tuning del Elo (K por bloque) es la
-única palanca de las probadas que **mueve de verdad** las comparaciones
+único parámetro de los probados que **mueve de verdad** las comparaciones
 cruzadas: reduce el sesgo CONMEBOL→UEFA, pero a costa de empeorar AFC→CONCACAF
 (Australia). El `dc` (aun con `cross_conf_w=2.0` + `anchor_beta=1.0`) y el `bayes`
 (aun con el prior informativo de bloque del experimento anterior) apenas mueven
@@ -264,7 +264,7 @@ medias del offset por bloque pasan de 0 a un valor empírico. Cambios en
 
 **Cómo se fijan las medias (empírico, β auto-calibrada):** se ajusta un
 Dixon-Coles, se toma la fuerza de cada equipo (atk−dfn) y se regresa sobre su
-**Elo in-house** (globalmente conectado) → pendiente β; la media de cada bloque
+**Elo** (globalmente conectado) → pendiente β; la media de cada bloque
 es `β·(Elo medio del bloque − Elo medio global)`, repartida ±s/2 en
 ataque/defensa. El orden sale correcto para los bloques débiles (OFC −0.75, AFC
 −0.59, CONCACAF −0.56, CAF −0.16 < UEFA +0.31) **pero CONMEBOL se dispara a
@@ -321,7 +321,7 @@ herramienta equivocada para el sesgo de Australia. El problema es **a nivel de
 equipo** (calendario flojo inflando `atk_raw`), no a nivel de bloque. Domarlo
 exigiría un prior **por equipo** (tirar de cada selección hacia su Elo — la idea
 del `--elo-tau`, ya probada y rechazada por compartir el mismo sesgo), no uno por
-confederación. Se deja como knob opt-in, default-off (modelo regenerable intacto).
+confederación. Se deja como parameter opt-in, default-off (modelo regenerable intacto).
 
 ---
 
@@ -349,7 +349,7 @@ configs efectivas; estáticas ~12 min, dinámicas 31–50 min cada una).
    `cross_conf_w=2.0`. Shrinkage, prior Elo externo, `gd_cap`, y —en bayes—
    `sigma_conf` y `propagate` siguen siendo neutros o negativos.
 3. **El sesgo de confederación no se resuelve con ninguno.** La K por bloque del
-   Elo es la única palanca que mueve los cruces, pero cambia un sesgo por otro
+   Elo es el único parámetro que mueve los cruces, pero cambia un sesgo por otro
    (corrige CONMEBOL→UEFA, agrava Australia→EE. UU.). El experimento del prior de
    confederación informativo (no media-cero) mostró por qué el caso Australia no
    cede: **es un sesgo a nivel de equipo** (calendario flojo inflando la
@@ -364,7 +364,7 @@ ante una mejora clara y rolling-validada. Si en algún momento se quisiera adopt
 algo, el candidato con mejor relación coste/beneficio es el `dc` ganador
 (`HALF_LIFE_DAYS=1095`, `CROSS_CONF_WEIGHT=2.0`, `CONF_ANCHOR_BETA=1.0`), que es
 barato, rolling-validado y empíricamente la mejor combinación — pero la mejora es
-pequeña. Todos los knobs nuevos del experimento de prior informativo quedan
+pequeña. Todos los parameters nuevos del experimento de prior informativo quedan
 opt-in y default-off (modelo regenerable intacto).
 
 _(pendiente)_

@@ -1,7 +1,7 @@
 # Phase 4 tight-`sigma_conf` sensitivity sweep — 2026-06-14
 
 Driver: `run.sh` (six-tournament static backtest of the B1 dynamic Bayesian
-Dixon-Coles at a grid of confederation-offset prior scales) + `canary.py`
+Dixon-Coles at a grid of confederation-offset prior scales) + `control_cases.py`
 (ARG−ESP / AUS−USA gaps, `sigma_conf` posterior, bloc offsets at the live
 as-of). Full verdict in `docs/model-robustness-plan.md`.
 
@@ -24,6 +24,6 @@ Bloc offsets (atk_conf − dfn_conf), as-of 2026-06-14:
 `sigma_conf` and the bloc offsets toward 0 — but pinning the offsets near 0
 makes *both* diagnosed biases grow and degrades RPS/log-loss, because the
 cross-bloc level is forced back into the team ratings the thin bridges drive.
-The bias lives in the team ratings, not the offset scale. Knob kept available,
+The bias lives in the team ratings, not the offset scale. Parameter kept available,
 default `BAYES_SIGMA_CONF_SCALE = 0.5`. Scale 0.5 reproduces the recorded B1 row
 exactly (repro rule 1).

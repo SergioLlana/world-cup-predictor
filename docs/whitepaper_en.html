@@ -385,7 +385,7 @@ footer {
 
 <section id="limitaciones">
   <h2><span class="secno">§6</span>Main limitation: cross-confederation anchoring</h2>
-  <p>Dixon-Coles can only compare teams from different confederations through the "bridge" matches between them: the few games pitting, say, Europe against South America. When those crossings are scarce, the <em>relative scale</em> of two confederations is poorly determined: a handful of results can shift whole blocs, and the weak-opponent discount falls short. The connectivity matrix quantifies it:</p>
+  <p><em>Anchoring</em> a confederation means fixing its level relative to the others, so teams from different blocs are comparable on a single scale. Dixon-Coles can only do this through the "bridge" matches between confederations: the few games pitting, say, Europe against South America. When those crossings are scarce, the <em>relative scale</em> of two confederations is poorly determined: a handful of results can shift whole blocs, and the weak-opponent discount falls short. The connectivity matrix quantifies it:</p>
   <figure>
     <div class="tbl-scroll">
     <table class="heat">
@@ -414,7 +414,7 @@ footer {
 
 <section id="robustez">
   <h2><span class="secno">§7</span>The robustness study and why it was closed</h2>
-  <p>A systematic four-phase study was run against the anchoring problem (<code>docs/model-robustness-plan.md</code>), with a single validation gate — the rolling backtest, measuring RPS and log-loss plus a purpose-built cross-confederation bias audit — and a strict reproducibility rule: every intervention sits behind a switch whose default reproduces the current model exactly.</p>
+  <p>A systematic four-phase study was run against the anchoring problem (<code>docs/model-robustness-plan.md</code>), with a single validation check — the rolling backtest, measuring RPS and log-loss plus a purpose-built cross-confederation bias audit — and a strict reproducibility rule: every intervention sits behind a switch whose default reproduces the current model exactly.</p>
   <figure>
     <table>
       <thead><tr><th>Phase</th><th>Intervention</th><th>Status</th><th>Decisive finding</th></tr></thead>

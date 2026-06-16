@@ -16,10 +16,10 @@ import pandas as pd
 from .anchor import anchor_model
 from .config import (BAYES_SIGMA_CONF_SCALE, CONF_ANCHOR_BETA,
                      CONF_ANCHOR_HALF_LIFE_DAYS, ELO_BASE, ELO_CONF_K, ELO_HA,
-                     ELO_LONGTERM_YEARS, ELO_PATH, ELO_PRIOR_TAU,
-                     ELO_TRAIN_START, MAX_GOALS, SCORING_MODE)
+                     ELO_LONGTERM_YEARS, ELO_TRAIN_START, MAX_GOALS,
+                     SCORING_MODE)
 from .confederations import infer_confederations
-from .data import load_elo, prepare_training
+from .data import prepare_training
 from .model import DixonColes
 from .predict import home_side, predict_match
 from .scoring import points
@@ -61,7 +61,7 @@ def _match_metrics(res, true, scoring=SCORING_MODE, stage="group"):
 def _bridge_record(tournament, r, res, true, hc, ac, rps):
     """One inter-confederation ("bridge") audit record: predicted vs realised.
 
-    Shared by `backtest` and the experiment harnesses (scripts/gate_b2.py) so
+    Shared by `backtest` and the experiment scripts (scripts/gate_b2.py) so
     the schema `bridge_audit` consumes is defined in exactly one place.
     """
     P = res["P"]
@@ -82,7 +82,7 @@ def _pool_metrics(results):
 
     Single source of truth for the RPS/log-loss (match-weighted) + points
     pooling repeated by `tune`, the elo-engine tuners and the experiment
-    harnesses.
+    experiment scripts.
     """
     n = sum(r["matches"] for r in results)
     return {
@@ -104,12 +104,12 @@ def elo_conf_strength(m, df, as_of, longterm_years=None, cap=None, only=None):
     The zero-mean offset prior says "no bloc is stronger absent bridge
     evidence" — exactly where the AFC/OFC schedule-inflation bias lives. This
     derives a non-zero per-bloc mean from a *globally connected* rating (the
-    in-house Elo, which propagates across confederations through the iterative
+    Elo, which propagates across confederations through the iterative
     update), so the prior pulls a poorly-bridged bloc toward its Elo-anchored
     level. Returns ``{confederation: net_strength_offset}`` (zero-sum, log-rate
     units) to feed ``BayesianDixonColes.fit(conf_strength=...)``.
 
-    Magnitude is auto-calibrated, no free knob: fit a plain Dixon-Coles on the
+    Magnitude is auto-calibrated, no free parameter: fit a plain Dixon-Coles on the
     same frame, take each team's strength = atk - dfn, regress it on the team's
     Elo to get the log-rate-per-Elo slope ``beta``, then map each bloc's mean
     Elo gap vs the global mean through ``beta``.
@@ -151,8 +151,7 @@ def elo_conf_strength(m, df, as_of, longterm_years=None, cap=None, only=None):
 def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              xg_alpha=None, scoring=SCORING_MODE, audit=None,
              anchor_beta=CONF_ANCHOR_BETA,
-             anchor_half_life=CONF_ANCHOR_HALF_LIFE_DAYS,
-             elo_tau=ELO_PRIOR_TAU, elo_path=ELO_PATH, engine="dc",
+             anchor_half_life=CONF_ANCHOR_HALF_LIFE_DAYS, engine="dc",
              dynamic=False, time_block=None,
              sigma_conf_scale=BAYES_SIGMA_CONF_SCALE, propagate=False,
              informed_conf=False, connect_shrink=False, connect_ref=None,
@@ -179,14 +178,10 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     re-anchoring after each (re-)fit, with the long fit's cutoff tracking the
     short fit's — the same protocol a live `--as-of` run would use.
 
-    elo_tau > 0 fits each re-fit under the Phase 3 external Elo prior, using
-    the Elo snapshot in force at that cutoff (load_elo, causal like the
-    training window).
-
     engine "bayes" swaps the MLE Dixon-Coles for the Stan
     BayesianDixonColes (hierarchical confederation-offset prior). It is
     static only (rolling=False): a per-matchday MCMC re-fit over six
-    tournaments is prohibitively slow, and the elo/anchor knobs are
+    tournaments is prohibitively slow, and the anchor parameter is
     MLE-specific. dynamic=True (Phase B1, bayes only) replaces the decay
     weighting with a random-walk evolution of team strengths over
     time_block-sized blocks ("year"/"halfyear"/"quarter").
@@ -208,14 +203,14 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
         if rolling:
             raise ValueError("engine='bayes' is static only; pass "
                              "rolling=False (CLI: --static)")
-        if elo_tau or anchor_beta:
-            raise ValueError("elo_tau/anchor_beta are MLE-engine knobs; "
-                             "they have no effect under engine='bayes'")
+        if anchor_beta:
+            raise ValueError("anchor_beta is an MLE-engine parameter; "
+                             "it has no effect under engine='bayes'")
     elif dynamic or propagate or informed_conf or connect_shrink:
         raise ValueError("dynamic=True/propagate=True/informed_conf=True/"
                          "connect_shrink=True only apply to engine='bayes'")
-    if engine == "elo" and (elo_tau or anchor_beta):
-        raise ValueError("elo_tau/anchor_beta are MLE-engine knobs; they have "
+    if engine == "elo" and anchor_beta:
+        raise ValueError("anchor_beta is an MLE-engine parameter; it has "
                          "no effect under engine='elo' (it trains its own Elo)")
     as_of, start, end, name, n_group, n_mid = TOURNAMENTS[tournament]
     matches = df.dropna(subset=["home_score"])
@@ -271,8 +266,7 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
                     longterm_years=elo_longterm_years, ha=elo_ha,
                     elo_history=elo_history)
             else:
-                elo = load_elo(cutoff, elo_path) if elo_tau else None
-                model = DixonColes().fit(tm, elo=elo, elo_tau=elo_tau)
+                model = DixonColes().fit(tm)
             if anchor_beta:
                 anchor_model(model, df, cutoff, beta=anchor_beta,
                              long_half_life=anchor_half_life,
@@ -347,42 +341,39 @@ def bridge_audit(records):
 def tune(df, tournaments=None, gd_caps=(None, 3, 4),
          half_lives=(365, 545, 730, 1095), friendly_weights=(0.5, 0.75, 1.0),
          cross_conf_weights=(1.0,), shrinkages=((None, 0.0),),
-         anchor_betas=(0.0,), elo_taus=(0.0,), rolling=False, verbose=True):
+         anchor_betas=(0.0,), rolling=False, verbose=True):
     """Grid-search training hyperparameters across tournaments (no xG).
 
     Static fit by default to keep the grid cheap; re-validate the winner
     with rolling=True afterwards. Returns a DataFrame sorted by pooled RPS,
     with per-match-pooled metrics across all tournaments.
     `shrinkages` sweeps (SHRINKAGE_MODE, SHRINKAGE_WEIGHT) pairs — the
-    Phase 1 data-augmentation knobs (`wcpred tune --shrinkage`).
+    Phase 1 data-augmentation parameters (`wcpred tune --shrinkage`).
     `anchor_betas` sweeps the Phase 2b confederation re-anchoring blend
     (`wcpred tune --anchor`).
-    `elo_taus` sweeps the Phase 3 external Elo prior weight
-    (`wcpred tune --elo`).
     """
     tournaments = list(tournaments or TOURNAMENTS)
     rows = []
-    for cap, hl, fw, ccw, (sm, sw), ab, et in itertools.product(
+    for cap, hl, fw, ccw, (sm, sw), ab in itertools.product(
             gd_caps, half_lives, friendly_weights, cross_conf_weights,
-            shrinkages, anchor_betas, elo_taus):
+            shrinkages, anchor_betas):
         res = [backtest(df, t, rolling=rolling, gd_cap=cap,
                         half_life=hl, friendly_weight=fw,
                         cross_conf_weight=ccw,
                         shrinkage_mode=sm, shrinkage_weight=sw,
-                        anchor_beta=ab, elo_tau=et)
+                        anchor_beta=ab)
                for t in tournaments]
         row = {
             "gd_cap": cap, "half_life": hl, "friendly_w": fw,
             "cross_conf_w": ccw,
             "shrink_mode": sm, "shrink_w": sw, "anchor_beta": ab,
-            "elo_tau": et,
             **_pool_metrics(res),
         }
         rows.append(row)
         if verbose:
             print(f"gd_cap={cap} half_life={hl} "
                   f"friendly_w={fw} cross_conf_w={ccw} "
-                  f"shrinkage={sm}:{sw} anchor={ab} elo_tau={et}: "
+                  f"shrinkage={sm}:{sw} anchor={ab}: "
                   f"{row['pts_per_match']:.3f} pts/match, "
                   f"rps {row['rps']:.4f}, "
                   f"ll {row['log_loss']:.4f}")

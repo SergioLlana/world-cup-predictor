@@ -1,4 +1,4 @@
-"""In-house Elo engine (--engine elo).
+"""Elo engine (--engine elo).
 
 A drop-in :class:`DixonColes` subclass that trains its own Elo ratings on
 ``results.csv`` (eloratings.net update rule) instead of reading external
@@ -16,7 +16,7 @@ Two extensions over plain eloratings.net, both default-off-equivalent
 * a **per-confederation K** multiplier — each team updates its rating by its own
   confederation's K on top of the tournament base K;
 * a **long-term Elo** covariate — the median of a team's Elo over the trailing
-  ``ELO_LONGTERM_YEARS`` (the "pedigree" regression-to-the-mean feature).
+  ``ELO_LONGTERM_YEARS`` (the "trayectoria histórica" regression-to-the-mean feature).
 
 The Elo iteration runs on the full raw history from ``ELO_TRAIN_START`` (ratings
 need ~30 matches to converge and the long-term median needs a decade); the goal
@@ -140,11 +140,10 @@ def compute_elo(matches, as_of, ha=ELO_HA, conf_k=None, base=ELO_BASE,
 
 
 class EloDixonColes(DixonColes):
-    """Dixon-Coles whose ratings come from an in-house Elo, not goal-MLE."""
+    """Dixon-Coles whose ratings come from an Elo, not goal-MLE."""
 
     def fit(self, m, df=None, as_of=None, ha=None, conf_k=None,
-            longterm_years=None, elo_train_start=None, elo_history=None,
-            elo=None, elo_tau=0.0):
+            longterm_years=None, elo_train_start=None, elo_history=None):
         """``m`` is the decay-weighted calibration frame (prepare_training);
         ``df``/``as_of`` give the raw full history for the Elo iteration.
         ``ha``/``conf_k``/``longterm_years``/``elo_train_start`` default to the
@@ -156,9 +155,6 @@ class EloDixonColes(DixonColes):
         one shared instance so the iteration runs once per tournament, not once
         per matchday. It must have been built with the same ``ha``/``conf_k`` and
         cover ``[elo_train_start, as_of)``.
-
-        ``elo``/``elo_tau`` are accepted for signature parity with
-        ``DixonColes.fit`` but ignored — this engine *is* the Elo anchor.
         """
         if as_of is None:
             raise ValueError("EloDixonColes.fit needs as_of (the cutoff to "

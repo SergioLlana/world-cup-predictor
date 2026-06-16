@@ -9,13 +9,7 @@ from .config import MAX_GOALS
 class DixonColes:
     """Attack/defence ratings per team + home advantage + rho correction."""
 
-    def fit(self, m, elo=None, elo_tau=0.0):
-        """elo/elo_tau (off by default): external Elo prior — penalty
-        elo_tau * sum_i (s_i - a - b*elo_i)^2 on team strength s = atk - dfn,
-        over the teams present in `elo`, with a, b re-profiled by OLS at every
-        evaluation. Profiling makes the penalty invariant to the affine
-        position of the ratings: only Elo's *relative* levels pull the model
-        (docs/model-robustness-plan.md Phase 3)."""
+    def fit(self, m):
         teams = sorted(set(m["home_team"]) | set(m["away_team"]))
         self.idx = {t: i for i, t in enumerate(teams)}
         n = len(teams)
@@ -25,14 +19,6 @@ class DixonColes:
         ag = m["away_score"].to_numpy(float)
         w = m["w"].to_numpy(float)
         hadv = np.where(m["neutral"].to_numpy(bool), 0.0, 1.0)
-
-        ei = np.array([self.idx[t] for t in teams if elo and t in elo], int)
-        if elo_tau and len(ei) > 2:
-            X = np.column_stack([np.ones(len(ei)),
-                                 [elo[teams[i]] for i in ei]])
-            Xp = np.linalg.pinv(X)   # fixed: a, b = Xp @ s at every step
-        else:
-            elo_tau = 0.0
 
         def unpack(p):
             return p[:n], p[n:2 * n], p[2 * n]
@@ -51,12 +37,6 @@ class DixonColes:
             g[2 * n] = np.sum(dl * hadv)
             pen = 100.0 * atk.mean() ** 2          # identifiability
             g[:n] -= 100.0 * 2 * atk.mean() / n
-            if elo_tau:
-                s = atk[ei] - dfn[ei]
-                r = s - X @ (Xp @ s)   # OLS residuals; d pen/d s = 2*tau*r
-                pen += elo_tau * (r @ r)
-                g[ei] -= 2 * elo_tau * r
-                g[n + ei] += 2 * elo_tau * r
             return -(ll.sum() - pen), -g
 
         res = minimize(nll_grad, np.zeros(2 * n + 1), jac=True,

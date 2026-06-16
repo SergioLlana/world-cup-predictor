@@ -1,12 +1,12 @@
-"""Phase 4 tight-sigma_conf canaries + offset characterisation.
+"""Phase 4 tight-sigma_conf control cases + offset characterisation.
 
 For a given prior scale, fit the dynamic (B1) Bayesian Dixon-Coles at the live
 as-of on the full training window and report:
-  - ARG-ESP and AUS-USA overall rating gaps (atk - dfn) — the standing canaries.
+  - ARG-ESP and AUS-USA overall rating gaps (atk - dfn) — the standing control cases.
   - posterior-mean sigma_conf and the per-confederation offset (atk_conf -
     dfn_conf), to see how tightening the prior collapses the bloc levels.
 
-Usage: python canary.py <sigma_conf_scale> <as_of>
+Usage: python control_cases.py <sigma_conf_scale> <as_of>
 """
 import os
 import sys

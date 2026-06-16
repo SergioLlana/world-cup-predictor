@@ -9,7 +9,7 @@
 // state. The confederation offset (atk_conf/dfn_conf) is unchanged — it is a
 // per-bloc level the time-varying team deviations sit on top of, still pinned
 // almost entirely by the rare inter-confederation "bridge" matches, so
-// intra-bloc games cannot drift a whole confederation.
+// intra-bloc games cannot shift a whole confederation.
 //
 // Parameterisation is non-centred throughout (innovations ~ std-normal scaled
 // by sigma) for sampling efficiency; the block-1 deviation keeps the Phase A
@@ -72,7 +72,7 @@ parameters {
   real<lower=1e-3, upper=5> sigma_dfn;
   real<lower=1e-3, upper=2> sigma_rw_atk;  // random-walk step scale (attack)
   real<lower=1e-3, upper=2> sigma_rw_dfn;  // ... (defence)
-  real<lower=1e-3> sigma_conf;             // between-confederation scale (key knob)
+  real<lower=1e-3> sigma_conf;             // between-confederation scale (key parameter)
   real<lower=2, upper=80> nu;              // Student-t dof (bounded: 80 ≈ normal)
 }
 

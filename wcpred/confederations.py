@@ -10,7 +10,7 @@ they belong (Qatar/Japan at the 2019 Copa América, the CONCACAF sides at the
 Used by `data.prepare_training` to upweight inter-confederation "bridge"
 matches (`CROSS_CONF_WEIGHT`): they are the only games anchoring the
 confederations to a common scale, which is what keeps weakly-connected pools
-(AFC above all) from drifting — see docs/known-limitations.md.
+(AFC above all) from shifting — see docs/known-limitations.md.
 """
 import pandas as pd
 

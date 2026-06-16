@@ -9,7 +9,7 @@ from datetime import date
 import numpy as np
 import pandas as pd
 
-from .config import (CROSS_CONF_WEIGHT, ELO_PATH, FRIENDLY_WEIGHT, GD_CAP,
+from .config import (CROSS_CONF_WEIGHT, FRIENDLY_WEIGHT, GD_CAP,
                      HALF_LIFE_DAYS, MIN_MATCHES, ODDS_CUTOVER, ODDS_PATH,
                      ODDS_SNAPSHOT_DIR, RESULTS_PATH, RESULTS_URL,
                      SHRINKAGE_MODE, SHRINKAGE_WEIGHT, TRAIN_START, XG_ALPHA)
@@ -67,7 +67,7 @@ def load_odds(path):
 
 
 def resolve_odds_path(as_of, root=""):
-    """Odds file in force at `as_of`'s generation time — the time-capsule
+    """Odds file in force at `as_of`'s generation time — the frozen-in-time
     counterpart of the training cutoff, so past runs regenerate without
     leaking later market moves.
 
@@ -88,25 +88,6 @@ def resolve_odds_path(as_of, root=""):
                    glob.glob(os.path.join(snap_dir, "odds_*.csv")))
     eligible = [s for s in snaps if s <= cutoff]   # fixed-width timestamps
     return os.path.join(snap_dir, eligible[-1]) if eligible else None
-
-
-def load_elo(as_of, path=ELO_PATH):
-    """{team: elo} from the latest Elo snapshot dated <= `as_of` — the
-    external-anchor counterpart of resolve_odds_path (model-robustness-plan
-    Phase 3). elo.csv (date,team,elo; scripts/fetch_elo.py) holds year-end
-    snapshots plus a fetch-day one; a snapshot dated D reflects matches
-    through D, so taking the latest date <= as_of matches the training
-    cutoff's information set (same same-day pre-kickoff discipline as
-    ODDS_CUTOVER for a snapshot fetched on as_of itself). Returns {} when the
-    file is missing or no snapshot qualifies."""
-    if not os.path.exists(path):
-        return {}
-    e = pd.read_csv(path)
-    e = e[e["date"] <= str(as_of)[:10]]
-    if e.empty:
-        return {}
-    e = e[e["date"] == e["date"].max()]
-    return dict(zip(e["team"], e["elo"].astype(float)))
 
 
 def _shrinkage_rows(m, as_of, mode, weight):

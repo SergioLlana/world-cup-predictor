@@ -21,7 +21,7 @@
 // NOTE: this breaks the exact cancellation of the offset in intra-confederation
 // matches (two same-bloc teams with different conf_w no longer cancel it), so
 // such games now weakly inform the offset. That is intended; --bridge-audit
-// watches for any drift it introduces.
+// watches for any shift it introduces.
 
 functions {
   // Dixon-Coles low-score correction tau(x, y; lam, mu, rho), matching
@@ -74,7 +74,7 @@ parameters {
   real<lower=-0.2, upper=0.2> rho;          // DC correction (MLE grid range)
   real<lower=1e-3> sigma_atk;               // team-level spread (floored off 0)
   real<lower=1e-3> sigma_dfn;
-  real<lower=1e-3> sigma_conf;              // between-confederation scale (key knob)
+  real<lower=1e-3> sigma_conf;              // between-confederation scale (key parameter)
   real<lower=2, upper=80> nu;               // Student-t dof (bounded: 80 ≈ normal)
 }
 

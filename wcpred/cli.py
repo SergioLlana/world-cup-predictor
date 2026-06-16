@@ -24,11 +24,11 @@ from .config import (BAYES_CONNECT_BY, BAYES_CONNECT_MODE,
                      BAYES_CONNECT_SHRINK, BAYES_DYNAMIC,
                      BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
                      BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_HA,
-                     ELO_LONGTERM_YEARS, ELO_PATH, ELO_PRIOR_TAU, GROUPS_DIR,
+                     ELO_LONGTERM_YEARS, GROUPS_DIR,
                      ODDS_WEIGHT, PREDICTIONS_DIR, RANKINGS_DIR, RESULTS_PATH,
                      SCORING_MODE, SIM_DIR, XG_ALPHA)
 from .confederations import infer_confederations
-from .data import (PHANTOM_TEAM, download_results, load_elo, load_odds,
+from .data import (PHANTOM_TEAM, download_results, load_odds,
                    load_results, played_world_cup, prepare_training,
                    upcoming_world_cup)
 from .groups import simulate_groups
@@ -61,10 +61,10 @@ def build_model(df, args):
                              xg_alpha=args.xg_alpha)
     if getattr(args, "engine", "dc") == "bayes":
         # The Bayesian engine has its own confederation-offset prior; the
-        # MLE-only external anchors do not apply.
-        if args.elo_tau or args.anchor_beta:
-            sys.exit("--elo-tau / --anchor-beta are MLE-engine knobs; they "
-                     "have no effect under --engine bayes")
+        # MLE-only re-anchoring does not apply.
+        if args.anchor_beta:
+            sys.exit("--anchor-beta is an MLE-engine parameter; it "
+                     "has no effect under --engine bayes")
         from .model_bayes import BayesianDixonColes
         model = BayesianDixonColes().fit(train, dynamic=args.bayes_dynamic,
                                          time_block=args.bayes_block,
@@ -94,24 +94,18 @@ def build_model(df, args):
     if getattr(args, "bayes_connect", False):
         sys.exit("--bayes-connect only applies to --engine bayes")
     if getattr(args, "engine", "dc") == "elo":
-        # The Elo engine trains its own anchor; the MLE-only external knobs and
+        # The Elo engine trains its own anchor; the MLE-only re-anchoring and
         # the bayes flags do not apply.
-        if args.elo_tau or args.anchor_beta:
-            sys.exit("--elo-tau / --anchor-beta are MLE-engine knobs; they have "
+        if args.anchor_beta:
+            sys.exit("--anchor-beta is an MLE-engine parameter; it has "
                      "no effect under --engine elo (it trains its own Elo)")
         from .model_elo import EloDixonColes
         model = EloDixonColes().fit(train, df=df, as_of=args.as_of)
-        print(f"Elo model: in-house eloratings.net (HA={ELO_HA}, "
+        print(f"Elo model: eloratings.net (HA={ELO_HA}, "
               f"long-term {ELO_LONGTERM_YEARS}y) calibrated on {len(train)} "
               f"matches (as of {args.as_of}, xG={'yes' if xg else 'no'})")
         return model
-    elo = load_elo(args.as_of, args.elo) if args.elo_tau else None
-    if args.elo_tau and not elo:
-        sys.exit(f"--elo-tau needs an Elo snapshot dated <= --as-of in "
-                 f"{args.elo} (run scripts/fetch_elo.py)")
-    model = DixonColes().fit(train, elo=elo, elo_tau=args.elo_tau)
-    if args.elo_tau:
-        print(f"External Elo prior applied (tau={args.elo_tau})")
+    model = DixonColes().fit(train)
     if args.anchor_beta:
         anchor_model(model, df, args.as_of, beta=args.anchor_beta,
                      xg_path=xg, xg_alpha=args.xg_alpha)
@@ -282,15 +276,15 @@ def cmd_backtest(args):
     if args.engine == "bayes" and not args.static:
         sys.exit("--engine bayes is static only; add --static "
                  "(a per-matchday MCMC re-fit is prohibitively slow)")
-    if args.engine == "bayes" and (args.elo_tau or args.anchor_beta):
-        sys.exit("--elo-tau / --anchor-beta are MLE-engine knobs; they have no "
+    if args.engine == "bayes" and args.anchor_beta:
+        sys.exit("--anchor-beta is an MLE-engine parameter; it has no "
                  "effect under --engine bayes")
     if args.engine != "bayes" and (args.bayes_dynamic or args.bayes_propagate
                                    or args.bayes_connect):
         sys.exit("--bayes-dynamic / --bayes-propagate / --bayes-connect only "
                  "apply to --engine bayes")
-    if args.engine == "elo" and (args.elo_tau or args.anchor_beta):
-        sys.exit("--elo-tau / --anchor-beta are MLE-engine knobs; they have no "
+    if args.engine == "elo" and args.anchor_beta:
+        sys.exit("--anchor-beta is an MLE-engine parameter; it has no "
                  "effect under --engine elo (it trains its own Elo)")
     df = load_results(args.data)
     names = list(TOURNAMENTS) if args.tournament == "all" else [args.tournament]
@@ -300,7 +294,6 @@ def cmd_backtest(args):
                      xg_path=args.xg if args.approach in ("xg", "full") else None,
                      xg_alpha=args.xg_alpha, scoring=args.scoring, audit=audit,
                      anchor_beta=args.anchor_beta,
-                     elo_tau=args.elo_tau, elo_path=args.elo,
                      engine=args.engine, dynamic=args.bayes_dynamic,
                      time_block=args.bayes_block,
                      sigma_conf_scale=args.bayes_sigma_conf,
@@ -332,7 +325,7 @@ def cmd_backtest(args):
 def cmd_tune(args):
     df = load_results(args.data)
     if args.elo_engine:
-        # In-house Elo engine (--engine elo): coordinate tuning of the long-term
+        # Elo engine (--engine elo): coordinate tuning of the long-term
         # window, home advantage and the per-confederation K (RPS-driven), then
         # a rolling re-fit re-validation of the winner vs the default config.
         scalar_df, conf_df, best = tune_elo(df, rolling=args.rolling)
@@ -357,7 +350,7 @@ def cmd_tune(args):
         return
     if args.shrinkage:
         # Phase 1 grid (docs/model-robustness-plan.md): sweep the shrinkage
-        # knobs alone, other hyperparameters held at today's defaults.
+        # parameters alone, other hyperparameters held at today's defaults.
         table = tune(df, rolling=args.rolling, gd_caps=(None,),
                      half_lives=(730,), friendly_weights=(1.0,),
                      shrinkages=[(None, 0.0)]
@@ -370,13 +363,6 @@ def cmd_tune(args):
         table = tune(df, rolling=args.rolling, gd_caps=(None,),
                      half_lives=(730,), friendly_weights=(1.0,),
                      anchor_betas=(0.0, 0.25, 0.5, 0.75, 1.0))
-    elif args.elo:
-        # Phase 3 grid (docs/model-robustness-plan.md): sweep the external
-        # Elo prior weight alone, other hyperparameters held at today's
-        # defaults.
-        table = tune(df, rolling=args.rolling, gd_caps=(None,),
-                     half_lives=(730,), friendly_weights=(1.0,),
-                     elo_taus=(0.0, 0.5, 1.0, 2.0, 5.0, 10.0))
     else:
         table = tune(df, rolling=args.rolling)
     print("\nGrid sorted by pooled RPS (lower is better):\n")
@@ -385,7 +371,6 @@ def cmd_tune(args):
     print(f"\nBest by RPS: gd_cap={b.gd_cap} half_life={int(b.half_life)} "
           f"friendly_w={b.friendly_w} cross_conf_w={b.cross_conf_w} "
           f"shrinkage={b.shrink_mode}:{b.shrink_w} anchor={b.anchor_beta} "
-          f"elo_tau={b.elo_tau} "
           f"({b.pts_per_match:.3f} pts/match, rps {b.rps:.4f})")
     print("Re-validate the winner with `wcpred backtest --tournament all` "
           "(rolling re-fit) before changing config.py.")
@@ -410,7 +395,7 @@ def main():
                              "the regenerable production model), 'bayes' = "
                              "Stan Dixon-Coles with a hierarchical "
                              "confederation-offset prior (needs the bayes "
-                             "extra; backtest static only), 'elo' = in-house "
+                             "extra; backtest static only), 'elo' = "
                              "Elo (eloratings.net rule + per-confederation K + "
                              "long-term Elo covariate) feeding a GAM-Poisson "
                              "Dixon-Coles")
@@ -488,12 +473,6 @@ def main():
                         help="Phase 2b confederation re-anchoring blend: 0 = "
                              "off, 1 = adopt the long-window confederation "
                              "levels fully (default: %(default)s)")
-        sp.add_argument("--elo-tau", type=float, default=ELO_PRIOR_TAU,
-                        help="Phase 3 external Elo prior weight: 0 = off "
-                             "(default: %(default)s)")
-        sp.add_argument("--elo", default=ELO_PATH,
-                        help="dated Elo snapshots CSV (date,team,elo; "
-                             "default: %(default)s)")
 
     sp = sub.add_parser("predict", help="predict upcoming WC fixtures")
     common(sp)
@@ -555,18 +534,14 @@ def main():
                          "single pre-tournament fit per config)")
     sp.add_argument("--shrinkage", action="store_true",
                     help="sweep the Phase 1 cross-confederation shrinkage "
-                         "knobs (SHRINKAGE_MODE x SHRINKAGE_WEIGHT) instead "
+                         "parameters (SHRINKAGE_MODE x SHRINKAGE_WEIGHT) instead "
                          "of the standard hyperparameter grid")
     sp.add_argument("--anchor", action="store_true",
                     help="sweep the Phase 2b confederation re-anchoring "
                          "blend (CONF_ANCHOR_BETA) instead of the standard "
                          "hyperparameter grid")
-    sp.add_argument("--elo", action="store_true",
-                    help="sweep the Phase 3 external Elo prior weight "
-                         "(ELO_PRIOR_TAU) instead of the standard "
-                         "hyperparameter grid")
     sp.add_argument("--elo-engine", action="store_true",
-                    help="coordinate-tune the in-house Elo engine "
+                    help="coordinate-tune the Elo engine "
                          "(--engine elo): long-term window, home advantage and "
                          "the per-confederation K (ELO_CONF_K)")
     sp.set_defaults(func=cmd_tune)

@@ -1,25 +1,25 @@
-# Plan: in-house Elo engine (`--engine elo`)
+# Plan: Elo engine (`--engine elo`)
 
 ## Context
 
 `wcpred` predicts WC2026 scorelines with two interchangeable engines selected by
 `--engine`: `dc` (Dixon-Coles MLE, the regenerable default) and `bayes`
 (Stan hierarchical model). This adds a **third, additive engine** that trains its
-**own Elo in-house** (no scraping — the existing `--elo-tau` path scrapes
+**own Elo** (no scraping — the existing `--elo-tau` path scrapes
 eloratings.net and was rejected as a default), inspired by two references:
 
 - **eloratings.net:** the Elo update rule `Rn = Ro + K·(W − We)`, with K by
   tournament type (60/50/40/30/20), a goal-difference multiplier, home advantage
   `+100` to `dr`, and `We = 1/(10^(−dr/400)+1)`.
 - **EL PAÍS model:** a *current* Elo plus a *long-term* (10-year median) Elo as a
-  separate "pedigree" covariate, both feeding a GAM-Poisson + Dixon-Coles goal
+  separate "trayectoria histórica" covariate, both feeding a GAM-Poisson + Dixon-Coles goal
   model.
 
 Decisions: long-term Elo is a **separate covariate** (not a shrinkage blend);
 window **10 years** (configurable). Per-confederation K: **per-team
 own-confederation multiplier × tournament-type K**, defaulting all multipliers to
 `1.0` so the engine reduces *exactly* to eloratings.net (the methodology EL PAÍS
-itself consumes). The per-conf K is an extension — a tunable lever against the
+itself consumes). The per-conf K is an extension — a tunable parameter against the
 documented confederation-bias problem (`docs/known-limitations.md`).
 
 Hard constraint (regenerability rule): the current `dc`/`bayes` engines stay
@@ -35,7 +35,7 @@ and that path stays untouched. The Elo iteration reads the raw `df` from
 `data.load_results` (tournament string → K tier, `neutral` → home advantage,
 integer goals → `W` and the goal-diff multiplier); the goal-model calibration
 uses `prepare_training(df, as_of)`; confederations come from
-`infer_confederations` over the same file. In-house Elo, not downloaded.
+`infer_confederations` over the same file. Elo, not downloaded.
 
 ## Engine contract (verified)
 

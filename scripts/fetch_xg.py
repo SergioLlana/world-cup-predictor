@@ -3,8 +3,7 @@
 FotMob publishes its own xG model for international matches through an
 unauthenticated JSON endpoint. Coverage is partial: continental cups and UEFA
 competitions mostly, ~28% of qualifiers, and NO friendlies at all (verified
-June 2026 -- see docs/data-sources.md). scripts/fetch_sofascore.py is the
-complementary source.
+June 2026 -- see docs/data-sources.md).
 
 Usage:
   python scripts/fetch_xg.py --from 2023-01-01 --to 2026-06-09

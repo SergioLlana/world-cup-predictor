@@ -4,10 +4,12 @@
 
 El motor bayesiano (`--engine bayes`, `wcpred/model_bayes.py` + `stan/dixon_coles.stan`)
 implementa la **Fase A** del plan (`docs/bayesian-confederation-plan.md`): prior
-jerárquico de offset de confederación, plug-in de **medias** posteriores, y el
+jerárquico de offset de confederación, plug-in de **medias** posteriores
+(«plug-in» = sustituir cada parámetro por su media posterior y usar esa única
+estimación, en vez de promediar sobre las muestras del posterior), y el
 **tiempo entra como los pesos de decaimiento exponencial** del MLE. La Fase A fue
 rechazada como default (codifica el sesgo regional vía los puentes), pero el
-usuario señaló desde la entrevista que **la mayor palanca es tratar mejor el
+usuario señaló desde la entrevista que **el parámetro con más efecto es tratar mejor el
 tiempo**: sustituir el decaimiento por ratings dinámicos. Eso es la Fase B.
 
 La Fase B del plan tiene dos partes separables. **Esta iteración implementa solo
@@ -57,7 +59,7 @@ mismos `home`/`rho`/`nu`/`sigma_*`/gauge de offsets). Cambios:
 - Gauge: además de `sum(atk_conf)`/`sum(dfn_conf)` a 0 (heredado), pin suave
   **por bloque** de la parte de desviación de equipo `sum_t u_atk[,b] ~
   normal(0, 0.01*T)` (la degeneración de shift atk+c/dfn−c es por bloque).
-- Verosimilitud: idéntica a la estática pero indexando por bloque,
+- Likelihood: idéntica a la estática pero indexando por bloque,
   `log_lam = atk[hi,tb] + dfn[ai,tb] + home*hadv`, etc. Mantiene `w` (se pasará
   `w=1`; ver §2).
 
@@ -110,15 +112,15 @@ BAYES_TIME_BLOCK = "halfyear"  # granularidad del random-walk: year|halfyear|qua
   Pasar a `BayesianDixonColes().fit`.
 - `cmd_backtest` pasa `dynamic=args.bayes_dynamic, time_block=args.bayes_block`.
 
-### 6. Validación (gate) y trazabilidad
+### 6. Validación y trazabilidad
 
 - Instalar el extra: `.venv/bin/python -m pip install -e ".[bayes]"` (el
   toolchain CmdStan 2.39 ya está en `~/.cmdstan`).
 - Extender `scripts/compare_bayes.py` para añadir una tercera variante
   **bayes-dinámico** (estático, 6 torneos): RPS / log-loss / puntos Penka +
-  `bridge_audit`. Extender `scripts/bayes_canaries.py` para fittear también el
+  `bridge_audit`. Extender `scripts/bayes_control_cases.py` para fittear también el
   dinámico y reportar AUS−USA, ARG−ESP, top-10 y `sigma_rw_*`.
-- Gate (mismo espíritu que todas las fases): adoptar como default solo si
+- Criterio de validación (mismo espíritu que todas las fases): adoptar como default solo si
   RPS/log-loss no empeoran **y** encogen los sesgos diagnosticados
   (CONMEBOL–UEFA +0.103, CONCACAF–UEFA +0.120 en el baseline estático). Si no
   (lo esperable dado el patrón), **queda disponible pero off**.
@@ -136,7 +138,7 @@ BAYES_TIME_BLOCK = "halfyear"  # granularidad del random-walk: year|halfyear|qua
 - `wcpred/config.py` — `BAYES_DYNAMIC`, `BAYES_TIME_BLOCK`.
 - `wcpred/cli.py` — `--bayes-dynamic`/`--bayes-block` + guard + threading.
 - `wcpred/backtest.py` — params `dynamic`/`time_block` + guard.
-- `scripts/compare_bayes.py`, `scripts/bayes_canaries.py` — variante dinámica.
+- `scripts/compare_bayes.py`, `scripts/bayes_control_cases.py` — variante dinámica.
 - `docs/bayesian-confederation-plan.md`, `docs/model-robustness-plan.md`,
   `CLAUDE.md`, `MEMORY.md` — trazabilidad.
 - `pyproject.toml` — sin cambios: `package-data = wcpred/stan/*.stan` ya incluye
@@ -152,15 +154,15 @@ wcpred backtest --tournament wc2022 --static --engine bayes       # Fase A intac
 # 2. Smoke test dinámico en un torneo
 wcpred backtest --tournament wc2022 --static --engine bayes \
        --bayes-dynamic --bridge-audit
-# 3. Gate: 6 torneos, dc-static vs bayes-static vs bayes-dyn
+# 3. Criterio de validación: 6 torneos, dc-static vs bayes-static vs bayes-dyn
 .venv/bin/python scripts/compare_bayes.py        # (extendido con la 3ª variante)
-# 4. Canarios + diagnósticos del random-walk (as-of 2026-06-13)
-.venv/bin/python scripts/bayes_canaries.py
+# 4. Casos de control + diagnósticos del random-walk (as-of 2026-06-13)
+.venv/bin/python scripts/bayes_control_cases.py
 # 5. Predicción puntual con el motor dinámico
 wcpred ratings --top 20 --engine bayes --bayes-dynamic --as-of 2026-06-13
 ```
 
 Criterio de convergencia (workflow bayesiano): revisar `mcmc.diagnose()`
-(R-hat<1.01, ESS, divergencias, E-BFMI) en los canarios antes de emitir
+(R-hat<1.01, ESS, divergencias, E-BFMI) en los casos de control antes de emitir
 veredicto; si el random-walk diverge, subir `adapt_delta` y/o suavizar
 `sigma_rw_*`. Registrar el veredicto numérico en el doc vivo.

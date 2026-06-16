@@ -10,7 +10,7 @@
 // (atk_conf / dfn_conf). Intra-confederation matches only inform the
 // team-level deviations — the shared offset cancels in the comparison — so the
 // offsets themselves are pinned almost entirely by the rarer
-// inter-confederation "bridge" matches, and shrink toward 0 (no bloc drift)
+// inter-confederation "bridge" matches, and shrink toward 0 (no bloc shift)
 // when bridges carry no information (sigma_conf small).
 
 functions {
@@ -62,7 +62,7 @@ parameters {
   real<lower=-0.2, upper=0.2> rho;          // DC correction (MLE grid range)
   real<lower=1e-3> sigma_atk;               // team-level spread (floored off 0)
   real<lower=1e-3> sigma_dfn;
-  real<lower=1e-3> sigma_conf;              // between-confederation scale (key knob)
+  real<lower=1e-3> sigma_conf;              // between-confederation scale (key parameter)
   real<lower=2, upper=80> nu;               // Student-t dof (bounded: 80 ≈ normal)
 }
 

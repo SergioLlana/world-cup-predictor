@@ -1,50 +1,28 @@
 # Plan: robustness to weak confederation anchoring — LIVING DOCUMENT
 
-> **Status: ALL PHASES 0-3 COMPLETE (2026-06-12) — every intervention
-> rejected as default; all knobs remain available but off. Phase 3 (external
-> Elo prior) was the last avenue: it adds real information (+14..+22 Penka
-> pts) but log-loss degrades and the two diagnosed bridge biases *grow* —
-> eloratings.net shares the model's regional bias on CONMEBOL/CONCACAF vs
-> UEFA, so no internal or external anchor tested can correct it. The plan is
-> closed; the limitation stands as documented in
-> [known-limitations.md](known-limitations.md), mitigated in practice by the
-> market blend (`ODDS_WEIGHT = 1.0`).** Created
-> 2026-06-12 from the connectivity
-> investigation ([connectivity.md](connectivity.md)) and the literature review
-> (references at the bottom).
+> **Status: CLOSED. Phases 0-4 all implemented and rejected as defaults; their
+> parameters remain available but off — except the Phase 3 external Elo prior,
+> which was since removed from the codebase (2026-06-16).** No internal or
+> external anchor tested corrects the diagnosed CONMEBOL/CONCACAF-vs-UEFA bridge
+> bias without degrading calibration: the dataset's own bridges are too thin,
+> and eloratings.net shares the same regional bias (the external Elo prior added
+> +14..+22 Penka pts but grew both biases and worsened log-loss). The limitation
+> stands as documented in [known-limitations.md](known-limitations.md), mitigated
+> in practice by the market blend (`ODDS_WEIGHT = 1.0`). Created 2026-06-12 from
+> the connectivity investigation ([connectivity.md](connectivity.md)) and the
+> literature review (references at the bottom).
 >
-> **REOPENED 2026-06-13 — Phase 4 (Bayesian hierarchical confederation prior,
-> Stan).** User-directed new approach: a Bayesian Dixon-Coles
-> (`wcpred/model_bayes.py` + `stan/dixon_coles.stan`, opt-in `--engine bayes`,
-> default off) with a per-confederation *offset in the prior* — intra-bloc
-> games cannot move it, only bridges can. **Phase A (offset prior, posterior
-> mean, MLE-style time weights) implemented and validated; rejected as default
-> — same wall.** With `sigma_conf` free it lands at CONMEBOL +1.58 > UEFA
-> +0.83 (it *encodes* the diagnosed regional bias rather than correcting it,
-> because the bridges that identify the offset carry that bias): RPS/log-loss
-> degrade marginally and ARG−ESP widens. **Phase B1 (dynamic random-walk
-> strengths, the user's stated main lever) implemented and validated
-> (2026-06-13); rejected as default but the strongest bayes result yet** — it
-> recovers everything static Phase A lost: static-gate RPS **0.1884** /
-> log-loss **2.7683** (vs dc-static 0.1887/2.7679 — the first bayes variant to
-> match dc on the probabilistic metrics), CONMEBOL–UEFA bias shrinks
-> +0.103→+0.095, but CONCACAF–UEFA *grows* +0.120→+0.133, so the both-biases
-> gate still fails. Opt-in `--bayes-dynamic` (default off). The tight-`sigma_conf`
-> sensitivity (`--bayes-sigma-conf`, `BAYES_SIGMA_CONF_SCALE = 0.5` default; the
-> offset-prior scale is a Stan data input) was **implemented and swept
-> (2026-06-14) — rejected:** pinning the offsets toward 0 works mechanically
-> (`sigma_conf` 0.66→0.05) but makes *both* diagnosed biases grow and degrades
-> RPS/log-loss, confirming the bias lives in the team ratings, not the offset
-> scale. Finally **Phase B2 (full posterior propagation) implemented and
-> validated (2026-06-14) — rejected as default, opt-in `--bayes-propagate`**:
-> averaging the per-draw score matrices (vs plugging in posterior means) is a
-> wash on the probabilistic metrics (RPS 0.1884→0.1886, log-loss 2.7683→2.7681)
-> and the diagnosed biases barely move (CONMEBOL–UEFA +0.095→+0.093, but
-> CONCACAF–UEFA *grows* +0.133→+0.135) — propagation widens the scoreline
-> uncertainty as designed but cannot shift a bias that lives in the unchanged
-> rating means. **Every Phase 4 avenue is now decided; the plan is closed
-> again.** Design notes:
-> [bayesian-confederation-plan.md](bayesian-confederation-plan.md),
+> **Phase 4 (Bayesian hierarchical confederation prior, Stan; opt-in
+> `--engine bayes`, default off)** was the deepest attempt — a per-confederation
+> offset in the prior that only bridge matches can move. **B1 (dynamic
+> random-walk strengths) is the strongest bayes result**: static-validation RPS
+> **0.1884** / log-loss **2.7683**, the first bayes variant to match dc — but the
+> both-biases check still fails (CONMEBOL–UEFA shrinks +0.103→+0.095, CONCACAF–UEFA
+> *grows* +0.120→+0.133). Phase A (static offset prior), the tight-`sigma_conf`
+> sweep and B2 (posterior propagation) all hit the same wall: the bias lives in
+> the team-rating *levels*, not the offset scale or the score-matrix uncertainty.
+> Per-phase numbers are in the Decision log below; design notes in
+> [bayesian-confederation-plan.md](bayesian-confederation-plan.md) and
 > [bayesian-phase-b-plan.md](bayesian-phase-b-plan.md).
 >
 > **Maintenance rule — read this before touching the plan's code.** This file
@@ -60,7 +38,7 @@
 Dixon-Coles compares confederations only through "bridge" matches, and the
 bridges are thin (UEFA spends 3% of its training weight on CONMEBOL — see
 [connectivity.md](connectivity.md)). Cross-bloc rating offsets are therefore
-weakly identified: AFC/CAF teams can drift in bloc (Australia-over-USA,
+weakly identified: AFC/CAF teams can shift in bloc (Australia-over-USA,
 [known-limitations.md](known-limitations.md)) and elite cross-bloc claims
 (Argentina over Spain, June 2026) carry more uncertainty than the point
 ratings suggest. Prior attempts: `GD_CAP` rejected, `CROSS_CONF_WEIGHT`
@@ -68,12 +46,12 @@ rejected under rolling re-fit (both documented in known-limitations.md).
 
 ## Validation protocol (applies to every phase)
 
-- Primary gate: `wcpred backtest --tournament all` **rolling** (the live
+- Primary validation check: `wcpred backtest --tournament all` **rolling** (the live
   protocol). Tune on RPS / log-loss (low variance); points break ties.
 - **Baselines to beat (2026-06 defaults, no xG):** ~594 Penka pts / 290
   matches (≈295.5 Superbru), RPS **0.1890**, log-loss **2.7702**.
-- Secondary gate (new, built in Phase 0): bridge-bias audit metric.
-- Qualitative canaries: Australia–USA gap (should narrow), Argentina–Spain
+- Secondary validation check (new, built in Phase 0): bridge-bias audit metric.
+- Qualitative control cases: Australia–USA gap (should narrow), Argentina–Spain
   gap (should narrow or widen its stated uncertainty), no nonsense in
   `wcpred ratings --top 20`.
 - Mid-tournament adoption: a default change mid-WC2026 makes the evolution
@@ -84,7 +62,7 @@ rejected under rolling re-fit (both documented in known-limitations.md).
 
 The current version's results must remain regenerable at all times:
 
-1. **Every new behaviour ships behind a config knob whose default reproduces
+1. **Every new behaviour ships behind a config parameter whose default reproduces
    today's model exactly** (`SHRINKAGE_MODE = None`, etc.). Verify with a
    before/after `backtest` run at defaults: identical numbers.
 2. **Never overwrite the date-stamped outputs** in `data/predictions/`,
@@ -94,7 +72,7 @@ The current version's results must remain regenerable at all times:
 3. **Never regenerate past snapshots with a changed model.** If a new default
    is adopted, it applies from its adoption date forward only; historical
    CSVs stay as the model that produced them left them (same spirit as the
-   time-capsule odds).
+   frozen-in-time odds).
 4. **Tag the baseline in git before adopting any default change**
    (e.g. `model-baseline-2026-06-12`) so `--as-of` regenerations of the
    pre-change era can be run from the exact code that produced them.
@@ -158,7 +136,7 @@ without re-weighting real matches (the mistake that sank `CROSS_CONF_WEIGHT`)
 and without touching the optimizer.
 
 **Status: complete (2026-06-12) — implemented, validated, rejected as
-default. Knobs remain available, default off.**
+default. Parameters remain available, default off.**
 
 - [x] `config.py`: `SHRINKAGE_MODE = None | "phantom" | "pseudo"` and
       `SHRINKAGE_WEIGHT` (total pseudo-weight per team, in match-equivalents;
@@ -178,13 +156,13 @@ default. Knobs remain available, default off.**
       `PHANTOM_TEAM`; fixtures never name it. Default verified as a byte-
       identical no-op in `prepare_training` and exact baseline reproduction
       in the rolling backtest.)*
-- [x] Wire both knobs into `tune` (grid: ε ∈ {0.25, 0.5, 1, 2} per mode).
+- [x] Wire both parameters into `tune` (grid: ε ∈ {0.25, 0.5, 1, 2} per mode).
       *(2026-06-12: `tune(shrinkages=[(mode, ε), ...])` +
       `wcpred tune --shrinkage` for the Phase 1 grid.)*
 - [x] Rolling-backtest grid; paste numbers into the Results log.
       *(2026-06-12: done — RPS and log-loss degrade monotonically in ε for
       both modes; see Results log.)*
-- [x] Check canaries (Australia–USA, Argentina–Spain, top-20 sanity) and the
+- [x] Check control cases (Australia–USA, Argentina–Spain, top-20 sanity) and the
       Phase 0 audit metric at the winning ε. *(2026-06-12: no winning ε —
       checked at ε ∈ {0.25, 0.5} both modes. All move the WRONG way: gaps
       widen (AUS−USA 0.222→0.288 phantom:2; ARG−ESP 0.174→0.380 pseudo:2,
@@ -231,7 +209,7 @@ short-window atk/dfn. Cheap, interpretable, no optimizer surgery in stage 2.
 (Supported by the `HALF_LIFE_DAYS` grid finding that long windows don't hurt.)
 
 **Status: complete (2026-06-12) — design 2b implemented, validated, rejected
-as default. Knobs remain available, default off (`CONF_ANCHOR_BETA = 0.0`).**
+as default. Parameters remain available, default off (`CONF_ANCHOR_BETA = 0.0`).**
 
 - [x] Record here which design was picked and why. *(2026-06-12: **2b.**
       2a shrinks teams toward their confederation mean — an intra-bloc
@@ -247,7 +225,7 @@ as default. Knobs remain available, default off (`CONF_ANCHOR_BETA = 0.0`).**
       centred; `anchor_model` shifts each team ±β·Δ/2 on atk/dfn post-fit, so
       intra-confederation predictions are exactly invariant — confirmed:
       euro2021/euro2024/copa2021 backtest rows are byte-identical at every β.
-      Knobs: `CONF_ANCHOR_BETA`/`CONF_ANCHOR_HALF_LIFE_DAYS`, CLI
+      Parameters: `CONF_ANCHOR_BETA`/`CONF_ANCHOR_HALF_LIFE_DAYS`, CLI
       `--anchor-beta`, grid via `wcpred tune --anchor`. Repro rule 1
       verified: defaults reproduce the baseline and Phase 0 audit table
       exactly. Phase 1 had no winner, so the comparison is against baseline.)*
@@ -270,10 +248,10 @@ re-weighting history cannot manufacture anchoring information the dataset
 doesn't contain. The β-grid improves RPS/log-loss monotonically
 (0.1890/2.7702 → 0.1886/2.7688 at β=1) with points 597 vs 594 at β=0.5-0.75,
 and 7 of 10 audit pairs improve slightly — but the effect on the diagnosed
-bias is ~3% of its size. Not adopted because the gate criterion failed, the
+bias is ~3% of its size. Not adopted because the validation check failed, the
 gain is far below what would justify a mid-tournament default change, and
 with `ODDS_WEIGHT = 1.0` the live 1X2 comes from the market anyway, making
-the real-pick benefit second-order. Canaries at β=0.75: AUS−USA narrows
+the real-pick benefit second-order. Control cases at β=0.75: AUS−USA narrows
 0.222 → 0.216 ✓, ARG−ESP widens slightly 0.173 → 0.180 ✗, top-20 sane.
 **Conclusion: internal-data avenues (Phases 1-2) are exhausted; only an
 external anchor (Phase 3, historical Elo) can add cross-bloc information.**
@@ -287,7 +265,7 @@ window. The hybrid literature (Groll/Ley/Van Eetvelde et al.) consistently
 finds external ratings the single most valuable covariate.
 
 **Status: complete (2026-06-12) — implemented, validated, rejected as
-default. Knobs remain available, default off (`ELO_PRIOR_TAU = 0.0`,
+default. Parameters remain available, default off (`ELO_PRIOR_TAU = 0.0`,
 `--elo-tau`, `wcpred tune --elo`).** The design call (relaxing
 train-on-goals-only for external Elo, user-directed) is in the Decision log.
 `anchor.anchor_model`'s delta-applier was not needed: the prior enters the
@@ -315,11 +293,11 @@ fit directly as a penalty, which lets the data overrule it per team.
 - [x] Rolling backtest all six tournaments; Results log; Decision log.
       *(2026-06-12: done — grid τ ∈ {0.5, 1, 2, 5, 10}; see both logs.)*
 
-**Acceptance** (gate inherited from Phase 2): `bias_a(CONMEBOL–UEFA)`
+**Acceptance** (validation check inherited from Phase 2): `bias_a(CONMEBOL–UEFA)`
 (+0.088 baseline) and `bias_a(CONCACAF–UEFA)` (+0.113 baseline) must shrink
 without degrading RPS/log-loss. **✗ Not met:** log-loss degrades
 monotonically in τ (2.7702 → 2.7824 at τ=10), RPS flat-to-worse, and both
-gate biases *grow* at every τ (CONMEBOL–UEFA → +0.095..+0.098,
+validation check biases *grow* at every τ (CONMEBOL–UEFA → +0.095..+0.098,
 CONCACAF–UEFA → +0.130..+0.146).
 
 **Findings.** The external anchor does add information the dataset lacks —
@@ -342,10 +320,10 @@ close the plan, keep the limitation documented, and let the market blend
 Dixon-Coles where each team's attack/defence carries an *additive
 confederation-level offset* (`atk_conf`/`dfn_conf`). Intra-confederation
 matches only inform the team-level deviations — the shared offset cancels in
-the comparison — so they cannot drift a whole bloc; only the rare bridges move
-the offset, and with `sigma_conf` small it shrinks toward 0 (no bloc drift).
+the comparison — so they cannot shift a whole bloc; only the rare bridges move
+the offset, and with `sigma_conf` small it shrinks toward 0 (no bloc shift).
 User-directed; "use Stan if you train the Bayesian model"; the user also flags
-**better time treatment** as the biggest lever (deferred to Phase B). This is
+**better time treatment** as the biggest parameter (deferred to Phase B). This is
 *not* the rejected design 2a (shrink teams toward their conf mean — a spread
 intervention): here the offset is a level the team deviations sit *on top of*,
 with Student-t deviations so legitimate outliers (Argentina) are not squashed.
@@ -374,9 +352,9 @@ Design split (entrevista):
 - [x] `--engine {dc,bayes}` on every subcommand + `backtest(engine=...)`
       (bayes static-only, guarded). Repro rule 1 held: `--engine dc` is the
       untouched MLE path.
-- [x] Static gate (six tournaments) + bridge audit + canaries. See logs.
+- [x] Static validation check (six tournaments) + bridge audit + control cases. See logs.
 
-**Acceptance** (gate inherited from Phase 2/3): `bias_a(CONMEBOL–UEFA)` and
+**Acceptance** (validation check inherited from Phase 2/3): `bias_a(CONMEBOL–UEFA)` and
 `bias_a(CONCACAF–UEFA)` must shrink without degrading RPS/log-loss.
 **✗ Not met:** vs the dc **static** baseline (601.0 pts / RPS 0.1887 / ll
 2.7679), bayes scores 605.0 / **0.1905** / **2.7732** — RPS/log-loss degrade.
@@ -389,7 +367,7 @@ carry the diagnosed regional bias, so a *free* `sigma_conf` (posterior mean
 0.547, 95% CI 0.36–0.83) lets the data set the bloc offsets to **CONMEBOL
 +1.58 > UEFA +0.83 > CAF +0.25 > AFC −0.46 > CONCACAF −0.77 > OFC −1.46**
 (atk_conf − dfn_conf, as-of 2026-06-13). The hierarchical prior thus *encodes*
-the CONMEBOL-over-UEFA bias instead of correcting it: canary ARG−ESP widens
+the CONMEBOL-over-UEFA bias instead of correcting it: control case ARG−ESP widens
 0.162 → 0.222, AUS−USA is flat (0.187 → 0.189). Top-10 order preserved (overall
 scale compressed by the Student-t shrinkage). Same root cause as Phases 1-3:
 the dataset's internal anchoring information *is* the bias; no amount of
@@ -402,7 +380,7 @@ fixing it — the open sensitivity below.
 
 ### Phase 4 — B1: dynamic random-walk strengths ✗ REJECTED as default 2026-06-13 (strongest bayes result)
 
-**Goal.** The user's stated main lever: replace the exponential time-decay
+**Goal.** The user's stated main parameter: replace the exponential time-decay
 weighting with an explicit latent evolution of each team's attack/defence —
 `u[i,t] ~ normal(u[i,t-1], sigma_rw)` over discrete time blocks (default
 **half-yearly**, `--bayes-block year|halfyear|quarter`) — and predict from the
@@ -420,16 +398,16 @@ infeasible), as Phase A.
       atk/dfn). Per-file compile cache. `--engine dc` / static bayes untouched.
 - [x] `--bayes-dynamic` / `--bayes-block` on every subcommand;
       `backtest(dynamic=, time_block=)`; guards (dynamic ⇒ bayes ⇒ static).
-- [x] Static gate (six tournaments) + bridge audit + canaries + MCMC diagnose.
+- [x] Static validation check (six tournaments) + bridge audit + control cases + MCMC diagnose.
 
-**Acceptance** (gate inherited from Phase 2/3): `bias_a(CONMEBOL–UEFA)` and
+**Acceptance** (validation check inherited from Phase 2/3): `bias_a(CONMEBOL–UEFA)` and
 `bias_a(CONCACAF–UEFA)` must shrink without degrading RPS/log-loss.
 **✗ Not met:** vs dc-static (601.0 / 0.1887 / 2.7679), bayes-dyn scores
 **604.0 / RPS 0.1884 / ll 2.7683** — RPS improves, log-loss ties (+0.0004).
 CONMEBOL–UEFA shrinks +0.103→**+0.095**, but CONCACAF–UEFA *grows*
-+0.120→**+0.133**. Both biases must shrink; one grows ⇒ gate fails.
++0.120→**+0.133**. Both biases must shrink; one grows ⇒ validation check fails.
 
-**Findings.** Dynamic time is the right lever for *prediction*: it recovers
+**Findings.** Dynamic time is the right parameter for *prediction*: it recovers
 everything static Phase A lost (RPS 0.1905→0.1884, ll 2.7732→2.7683) and is the
 **first bayes variant to match dc-static on the probabilistic metrics** (RPS
 even a hair better). The learned random-walk step is small and smooth
@@ -438,10 +416,10 @@ is genuine temporal structure, not overfitting. But it is *orthogonal* to the
 anchoring problem: `sigma_conf` stays free (≈0.66) and the bloc offsets still
 encode the bridge bias, so CONCACAF–UEFA does not improve. Same wall as Phases
 1-4A — better time helps accuracy but cannot manufacture unbiased cross-bloc
-signal the dataset lacks. Not adopted: the both-biases gate fails, log-loss is
+signal the dataset lacks. Not adopted: the both-biases validation check fails, log-loss is
 at best a tie, and the standing rule bars a mid-WC2026 default change without a
-clean gate pass (live 1X2 is market-driven at `ODDS_WEIGHT = 1.0` regardless).
-Kept available, off, via `--bayes-dynamic`. Canaries (as-of 2026-06-13): see
+clean validation check pass (live 1X2 is market-driven at `ODDS_WEIGHT = 1.0` regardless).
+Kept available, off, via `--bayes-dynamic`. Control cases (as-of 2026-06-13): see
 the Results log row.
 
 ### Phase 4 — tight-`sigma_conf` sensitivity ✗ REJECTED 2026-06-14 (mechanism works; hypothesis refuted)
@@ -469,16 +447,16 @@ structure).
       `fit(sigma_conf_scale=)` / `backtest(sigma_conf_scale=)`. Default 0.5;
       no effect under `--engine dc`.
 - [x] Smoke test (copa2024 static): scale=0.5 → 76.0 / 0.1653 / 2.5090;
-      scale=0.05 → 71.0 / 0.1632 / 2.5126 (knob moves the model). B1 dynamic +
+      scale=0.05 → 71.0 / 0.1632 / 2.5126 (parameter moves the model). B1 dynamic +
       scale=0.05 → 76.0 / 0.1640 / 2.4967 (both Stan files recompile with the
       new data field; works in both time treatments).
 - [x] Sensitivity sweep (six tournaments, static, B1 dynamic on): scale ∈
-      {0.5, 0.25, 0.1, 0.05, 0.01} + bridge audit + canaries (2026-06-14, driver
+      {0.5, 0.25, 0.1, 0.05, 0.01} + bridge audit + control cases (2026-06-14, driver
       `data/experiments/sigma_conf_sweep/`). Results log below.
-- [x] Decision log: does tightening shrink *both* gate biases without degrading
+- [x] Decision log: does tightening shrink *both* validation check biases without degrading
       RPS/log-loss? **No** — exactly the 4A expectation.
 
-**Acceptance** (gate inherited from Phase 2/3): `bias_a(CONMEBOL–UEFA)` and
+**Acceptance** (validation check inherited from Phase 2/3): `bias_a(CONMEBOL–UEFA)` and
 `bias_a(CONCACAF–UEFA)` must shrink without degrading RPS/log-loss.
 **✗ Not met:** tightening grows *both* biases (C–U +0.095→+0.106, CONCACAF–U
 +0.133→+0.160 at scale 0.01) and degrades RPS/log-loss (0.1884/2.7683 →
@@ -491,15 +469,15 @@ near-zero and the order even *flips* to UEFA +0.24 > CONMEBOL +0.10 (no bloc
 structure left). **But pinning the offsets near 0 makes the diagnosed bias
 worse, not better:** the cross-bloc level the offset used to carry is forced
 back into the team-level ratings, which the (now unregularised by a bloc prior)
-bridges fit even more directly — so both gate biases grow, RPS/log-loss degrade,
-and the canaries widen monotonically (ARG−ESP +0.087→+0.162, AUS−USA
+bridges fit even more directly — so both validation check biases grow, RPS/log-loss degrade,
+and the control cases widen monotonically (ARG−ESP +0.087→+0.162, AUS−USA
 +0.145→+0.234 as scale 0.5→0.01). This is the decisive confirmation of the 4A
 diagnosis: **the CONMEBOL/CONCACAF-vs-UEFA bias does not live in the
 confederation offset — it lives in the team ratings the thin bridges drive.**
 Neither a free `sigma_conf` (4A/B1: encodes the bias) nor one externally
 constrained toward 0 (here: pushes it into team strengths and grows it) corrects
-the asymmetry. The offset-scale knob is real and works; it is simply not the
-lever for this problem. Knob kept available, default 0.5.
+the asymmetry. The offset-scale parameter is real and works; it is simply not the
+parameter for this problem. Parameter kept available, default 0.5.
 
 ### Phase 4 — B2: full posterior propagation ✗ REJECTED as default 2026-06-14 (clean, but a wash)
 
@@ -523,19 +501,19 @@ the B1 base (the strongest predictive variant). No effect under `--engine dc`.
       `fit(propagate=)` / `backtest(propagate=)` + guards (bayes-only).
 - [x] Smoke test (ARG−ESP, B1 static fit): propagation widens the matrix
       (entropy 2.58→2.62), both matrices normalise, max|ΔP| 0.0056.
-- [x] Paired gate (six tournaments, static, B1 dynamic): one MCMC fit per
+- [x] Paired validation check (six tournaments, static, B1 dynamic): one MCMC fit per
       tournament scored twice — plug-in mean vs propagation — so the comparison
       is exact, no sampling drift (driver `scripts/gate_b2.py`). Results +
       bridge audit below. The plug-in arm reproduces the B1 row exactly (604.0 /
       0.1884 / 2.7683, identical per-tournament rows) ✓.
 - [x] Decision log: adopt / reject.
 
-**Acceptance** (gate inherited from Phase 2/3): `bias_a(CONMEBOL–UEFA)` and
+**Acceptance** (validation check inherited from Phase 2/3): `bias_a(CONMEBOL–UEFA)` and
 `bias_a(CONCACAF–UEFA)` must shrink without degrading RPS/log-loss.
 **✗ Not met:** vs the B1 plug-in arm (604.0 / 0.1884 / 2.7683), propagation
 scores 609.0 / **0.1886** / **2.7681** — RPS a hair worse, log-loss a hair
 better (a wash). CONMEBOL–UEFA shrinks +0.0950→+0.0932 but CONCACAF–UEFA *grows*
-+0.1330→+0.1352; both must shrink ⇒ gate fails.
++0.1330→+0.1352; both must shrink ⇒ validation check fails.
 
 **Findings.** B2 is a clean, well-behaved addition that does exactly what it is
 designed to do and nothing more. It does **not** touch the rating means, so the
@@ -549,7 +527,7 @@ goal-residuals edge toward 0 (CONMEBOL–UEFA goal_res_b 0.326→0.306, CONCACAF
 1.071→1.043) — consistent with a more honest spread, but all within noise. Same
 wall as every Phase 1-4 avenue: the cross-bloc bias lives in the team-rating
 *levels* the thin bridges drive, and no re-treatment of the *uncertainty* around
-those levels can move it. Not adopted: gate fails (one bias grows), RPS is
+those levels can move it. Not adopted: validation check fails (one bias grows), RPS is
 hair-worse, and the standing rule bars a mid-WC2026 default change without a
 clean pass (live 1X2 is market-driven at `ODDS_WEIGHT = 1.0` regardless). Kept
 available, off, via `--bayes-propagate` — the honest posterior-predictive score
@@ -559,7 +537,7 @@ scorelines rather than point picks.
 **Plan status: CLOSED again (2026-06-14).** Every Phase 0-4 avenue (MLE
 shrinkage/anchoring/Elo + Bayesian offset-prior / dynamic time / tight-sigma_conf
 / posterior propagation) is implemented and decided; all rejected as default,
-all kept available behind default-off knobs. The weak-anchoring limitation
+all kept available behind default-off parameters. The weak-anchoring limitation
 stands as documented in [known-limitations.md](known-limitations.md), corrected
 in practice by the market blend.
 
@@ -575,21 +553,21 @@ in practice by the market blend.
 
 | Date | Decision |
 |---|---|
-| 2026-06-12 | Plan created. Order A(audit)→B(augmentation)→gate→C/D, Elo last, per the literature review. |
-| 2026-06-12 | Hard requirement added (user): current version must stay regenerable — knobs default-off, experiment outputs in a separate tree, past snapshots never regenerated with a changed model, git tag before any default change. |
+| 2026-06-12 | Plan created. Order A(audit)→B(augmentation)→validation check→C/D, Elo last, per the literature review. |
+| 2026-06-12 | Hard requirement added (user): current version must stay regenerable — parameters default-off, experiment outputs in a separate tree, past snapshots never regenerated with a changed model, git tag before any default change. |
 | 2026-06-12 | **Phase 0 verdict:** directional anchoring bias confirmed on the two best-sampled pairs (CONMEBOL +8.8pp and CONCACAF +11.3pp overrated vs UEFA) but heterogeneous (AFC−UEFA opposite sign) and individually <1 SE — more *uncertainty* than uniform bias. **Phase 1 (soft shrinkage) justified and is the right shape of fix; Phase 2 (aggressive level correction) conditionally gated — revisit with Phase 1 results using `bias_a(CONMEBOL–UEFA)` and `bias_a(CONCACAF–UEFA)` as the audit metric.** |
-| 2026-06-12 | **Phase 1 verdict: rejected as default; knobs kept available but off** (`SHRINKAGE_MODE = None`). Rolling grid: RPS/log-loss degrade monotonically in ε for both modes; pseudo:0.25's +20 pts dismissed as noise per protocol. Canaries widen and the bridge-audit bias *grows* with ε — uniform shrinkage to a global center compresses UEFA's elite more than CONMEBOL's, the opposite of the Phase 0 correction. Phase 0's "Phase 1 is the right shape of fix" assessment was wrong. **Phase 2 gate: evidence now favours per-confederation level correction (2a or 2b); decide design there with these numbers in hand.** Reproducibility rule 1 verified: defaults are a byte-identical no-op and the rolling backtest reproduces the baseline exactly. |
+| 2026-06-12 | **Phase 1 verdict: rejected as default; parameters kept available but off** (`SHRINKAGE_MODE = None`). Rolling grid: RPS/log-loss degrade monotonically in ε for both modes; pseudo:0.25's +20 pts dismissed as noise per protocol. Control cases widen and the bridge-audit bias *grows* with ε — uniform shrinkage to a global center compresses UEFA's elite more than CONMEBOL's, the opposite of the Phase 0 correction. Phase 0's "Phase 1 is the right shape of fix" assessment was wrong. **Phase 2 validation check: evidence now favours per-confederation level correction (2a or 2b); decide design there with these numbers in hand.** Reproducibility rule 1 verified: defaults are a byte-identical no-op and the rolling backtest reproduces the baseline exactly. |
 | 2026-06-12 | **Phase 2 design call: 2b (two-timescale anchoring), 2a not implemented.** 2a is an intra-confederation spread intervention (teams shrink toward their conf mean) and would reproduce the Phase 1 failure mode — compressing UEFA's elite toward a minnow-heavy mean harder than CONMEBOL's; 2b corrects only the between-confederation levels Phase 0 diagnosed, with no optimizer surgery. |
-| 2026-06-12 | **Phase 2 verdict: rejected as default; knob kept available but off** (`CONF_ANCHOR_BETA = 0.0`, `wcpred tune --anchor`). First intervention to *improve* rolling RPS/log-loss (0.1890/2.7702 → 0.1887/2.7691 at β=0.75, points 597 vs 594), but the gate criterion failed: CONMEBOL–UEFA bias shrinks only +0.088 → +0.086 and CONCACAF–UEFA grows +0.113 → +0.120. Root cause: long- and short-window confederation levels are nearly identical (deltas ±0.02; insensitive to slow-window length 8y vs 16y) — both timescales are anchored by the same thin bridges, so **the dataset's internal anchoring information is exhausted**. Gain too small to justify a mid-WC2026 default change (and live 1X2 is market-driven at `ODDS_WEIGHT = 1.0`). Reproducibility rule 1 verified: defaults reproduce the baseline and the Phase 0 audit table exactly. **Next: Phase 3 (external Elo anchor) is the only remaining avenue; its train-on-goals-only design call must be recorded here first.** |
-| 2026-06-12 | **Phase 3 design call (user-directed: "implement Phase 3"): the train-on-goals-only rule is relaxed for external Elo.** eloratings.net ratings may enter the *fit* as a prior center — a penalty pulling each team's strength (atk − dfn) toward `a + b·elo`, with `a, b` profiled on the training window so only Elo's *relative* levels (decades of accumulated bridges) anchor the model, never its absolute scale. Odds remain predict-time-only. Guardrails: the prior ships behind `ELO_PRIOR_TAU = 0.0` (default off, repro rule 1); Elo snapshots are dated rows in `data/input/elo.csv` and resolved causally (latest snapshot ≤ as-of) at every rolling re-fit, the time-capsule-odds pattern. |
-| 2026-06-12 | **Phase 3 verdict: rejected as default; knobs kept available but off** (`ELO_PRIOR_TAU = 0.0`, `--elo-tau`, `wcpred tune --elo`). Rolling grid τ ∈ {0.5, 1, 2, 5, 10}: log-loss degrades monotonically (2.7702 → 2.7824), RPS flat-to-worse, and the gate failed in *both* pairs — CONMEBOL–UEFA bias grows +0.088 → +0.095..+0.098 and CONCACAF–UEFA +0.113 → +0.130..+0.146 at every τ. Root cause: eloratings.net shares the regional bias on those pairs (the football-rankings.info finding), so an external Elo anchor amplifies rather than corrects it. The +14..+22 Penka points (exact 37 → 39-40) are real but inadmissible per protocol while RPS/log-loss degrade. AFC pairs and AUS−USA do improve — Elo helps where the model *under*rates. **Plan closed: Phases 0-3 exhausted; the limitation stays documented in known-limitations.md (mitigation #5/#6), corrected in practice by the market blend.** Repro rule 1 verified: post-code defaults reproduce the baseline exactly (594.0 / 0.1890 / 2.7702, identical per-tournament rows). |
-| 2026-06-12 | **Phase 2b log-closure review (after the Phase 3 session):** the leftover `/tmp/p2_flat.log` run was identified by exact reproduction as the β=0.75 / slow-half-life-5840d variant already recorded above — nothing was missing from the record. The sensitivity check was additionally extended to the slow window's no-decay limit (every historical bridge weighted equally): 596.0 pts / RPS 0.1886 / ll 2.7690, C–U +0.084, CONCACAF–UEFA +0.125. **Gate verdict re-confirmed and final: Phase 2b stays rejected** — even unlimited use of the window's bridge history cannot shrink the diagnosed biases. The plan remains closed. |
-| 2026-06-13 | **Plan REOPENED (user-directed new approach): Phase 4 — Bayesian Dixon-Coles in Stan with a hierarchical confederation-offset prior.** New module `model_bayes.BayesianDixonColes` + `stan/dixon_coles.stan`, opt-in `--engine bayes` (default `dc`, regenerable). Split A (offset prior, posterior mean, MLE time-weights, static validation) / B (dynamic time + posterior propagation, deferred behind A's gate). Design notes in `docs/bayesian-confederation-plan.md`. Repro rule 1 held: `--engine dc` is the untouched MLE path. |
-| 2026-06-13 | **Phase 4A verdict: rejected as default; engine kept available but off** (`--engine dc` default). Static gate (six tournaments): bayes 605.0 pts / RPS 0.1905 / ll 2.7732 vs dc-static 601.0 / 0.1887 / 2.7679 — RPS/log-loss degrade; CONMEBOL–UEFA +0.103→+0.099 (barely), CONCACAF–UEFA +0.120→+0.124 (grows). Root cause: with `sigma_conf` free (post. mean 0.547) the offset prior is set by the *biased* bridges and lands CONMEBOL +1.58 > UEFA +0.83, **encoding** the regional bias (ARG−ESP canary widens 0.162→0.222). Confirms Phases 1-3: internal-data anchoring is exhausted. **Open: tight-`sigma_conf` sensitivity, and Phase B (dynamic time — the user's stated main lever).** |
-| 2026-06-13 | **Phase 4 B1 verdict (user-directed "implementa la fase B"): rejected as default; opt-in `--bayes-dynamic` (default off).** Dynamic random-walk strengths over half-year blocks replace the decay weighting (new `stan/dixon_coles_dynamic.stan`; `--bayes-block` granularity; static-only like A). Scope per user: **B1 only** (dynamic time), keep the current implementation intact as a flag; B2 (posterior propagation) deferred. Static gate: **604.0 pts / RPS 0.1884 / ll 2.7683** vs dc-static 601.0 / 0.1887 / 2.7679 — **the first bayes variant to match dc on RPS/log-loss** (RPS a hair better, ll tied), recovering all that static A lost. But the both-biases gate still fails: CONMEBOL–UEFA shrinks +0.103→+0.095, CONCACAF–UEFA grows +0.120→+0.133. Dynamic time is the right lever for *accuracy* but is orthogonal to anchoring (`sigma_conf` still free ≈0.66, offsets still encode the bridge bias). `sigma_rw`≈0.05-0.06 log-goals/half-year (small, smooth — genuine temporal structure, not overfit). Not adopted: gate fails, ll at best a tie, no mid-WC2026 default change without a clean pass (live 1X2 is market-driven anyway). Repro: `--engine dc` and static `--engine bayes` byte-identical. Stan numerics: loosely upper-bounded RW scales fix a non-centred warmup `inf+(-inf)=nan`; MCMC clean on treedepth/divergences/E-BFMI, R-hat>1.01 persists on the weakly-identified offset/raw-innovation params (the diagnosis itself, as in 4A). **Open: tight-`sigma_conf` × B1; Phase B2.** |
-| 2026-06-13 | **Phase 4 tight-`sigma_conf` sensitivity — IMPLEMENTED.** The half-normal prior scale on `sigma_conf` (between-confederation offset spread) is now a Stan *data* input `sigma_conf_scale` in both `stan/dixon_coles.stan` and `stan/dixon_coles_dynamic.stan` (was hardcoded 0.5), wired end to end: `config.BAYES_SIGMA_CONF_SCALE = 0.5` (default reproduces today's bayes model), `--bayes-sigma-conf`, `fit(sigma_conf_scale=)`, `backtest(sigma_conf_scale=)`. Shrinking it toward 0 pins the bloc offsets near 0 — the strong "no bloc is systematically stronger" prior the 4A findings flagged as the only mechanism that *could* correct the bias. Repro rule 1: default 0.5 unchanged; no effect under `--engine dc`. Smoke test (copa2024 static): scale 0.5 → 76.0/0.1653/2.5090, scale 0.05 → 71.0/0.1632/2.5126; B1 dynamic + 0.05 → 76.0/0.1640/2.4967 (knob moves the model in both time treatments; both Stan files recompile). |
-| 2026-06-14 | **Phase 4 tight-`sigma_conf` verdict (user-directed "ejecuta el experimento"): rejected; knob kept available, default `BAYES_SIGMA_CONF_SCALE = 0.5`.** Six-tournament sweep, B1 dynamic, scale ∈ {0.5,0.25,0.1,0.05,0.01} (driver `data/experiments/sigma_conf_sweep/`). The mechanism works as designed — `sigma_conf` post. mean collapses 0.657→0.568→0.396→0.275→**0.051** and the bloc offsets shrink to ≈0 (at 0.01 the order even flips to UEFA +0.24 > CONMEBOL +0.10, no bloc structure). **But the gate fails harder, not softer:** both diagnosed biases *grow* (C–U +0.095→+0.106, CONCACAF–U +0.133→+0.160 at 0.01) and RPS/log-loss degrade (0.1884/2.7683 → 0.1888/2.7751); canaries widen monotonically (ARG−ESP +0.087→+0.162, AUS−USA +0.145→+0.234). Pinning the offset to 0 just forces the cross-bloc level back into the team ratings the thin bridges drive — decisive confirmation of the 4A diagnosis that **the bias lives in the team ratings, not the offset scale.** Neither a free nor a constrained-toward-0 `sigma_conf` corrects it. Repro rule 1 verified: scale 0.5 reproduces the B1 row exactly (604.0 / 0.1884 / 2.7683, identical per-tournament rows + bridge audit). **This closes the open tight-`sigma_conf` item; Phase B2 (posterior propagation) remains the only Phase 4 avenue not yet decided.** |
-| 2026-06-14 | **Phase 4 B2 verdict (user-directed "valida la Fase B2"): rejected as default; opt-in `--bayes-propagate` (default off).** Full posterior propagation — `score_matrix` returns the posterior mean of the per-draw Dixon-Coles matrices instead of one matrix from the posterior-mean ratings. Paired six-tournament gate on the B1 dynamic base (one MCMC fit per tournament scored twice, plug-in vs propagation, so the comparison is exact; driver `scripts/gate_b2.py`). vs the B1 plug-in arm (604.0 / 0.1884 / 2.7683): propagation 609.0 / **0.1886** / **2.7681** — RPS a hair worse, ll a hair better (a wash). CONMEBOL–UEFA shrinks +0.0950→+0.0932 but CONCACAF–UEFA grows +0.1330→+0.1352 (both must shrink ⇒ gate fails). Root cause: B2 does not touch the rating means, so the 1X2 *level* and the bias direction are fixed; it only widens the scoreline *spread* (smoke test entropy 2.58→2.62; bridge goal-residuals edge toward 0; exact picks 39→40 — all within noise). Same wall as Phases 1-4: the cross-bloc bias lives in the team-rating levels, and re-treating the *uncertainty* around them cannot move it. Repro rule 1 verified: the plug-in arm reproduces the B1 row exactly (604.0 / 0.1884 / 2.7683). **Plan CLOSED again — every Phase 0-4 avenue implemented and decided, all default-off.** |
+| 2026-06-12 | **Phase 2 verdict: rejected as default; parameter kept available but off** (`CONF_ANCHOR_BETA = 0.0`, `wcpred tune --anchor`). First intervention to *improve* rolling RPS/log-loss (0.1890/2.7702 → 0.1887/2.7691 at β=0.75, points 597 vs 594), but the validation check failed: CONMEBOL–UEFA bias shrinks only +0.088 → +0.086 and CONCACAF–UEFA grows +0.113 → +0.120. Root cause: long- and short-window confederation levels are nearly identical (deltas ±0.02; insensitive to slow-window length 8y vs 16y) — both timescales are anchored by the same thin bridges, so **the dataset's internal anchoring information is exhausted**. Gain too small to justify a mid-WC2026 default change (and live 1X2 is market-driven at `ODDS_WEIGHT = 1.0`). Reproducibility rule 1 verified: defaults reproduce the baseline and the Phase 0 audit table exactly. **Next: Phase 3 (external Elo anchor) is the only remaining avenue; its train-on-goals-only design call must be recorded here first.** |
+| 2026-06-12 | **Phase 3 design call (user-directed: "implement Phase 3"): the train-on-goals-only rule is relaxed for external Elo.** eloratings.net ratings may enter the *fit* as a prior center — a penalty pulling each team's strength (atk − dfn) toward `a + b·elo`, with `a, b` profiled on the training window so only Elo's *relative* levels (decades of accumulated bridges) anchor the model, never its absolute scale. Odds remain predict-time-only. Guardrails: the prior ships behind `ELO_PRIOR_TAU = 0.0` (default off, repro rule 1); Elo snapshots are dated rows in `data/input/elo.csv` and resolved causally (latest snapshot ≤ as-of) at every rolling re-fit, the frozen-in-time-odds pattern. |
+| 2026-06-12 | **Phase 3 verdict: rejected as default; parameters kept available but off** (`ELO_PRIOR_TAU = 0.0`, `--elo-tau`, `wcpred tune --elo`). Rolling grid τ ∈ {0.5, 1, 2, 5, 10}: log-loss degrades monotonically (2.7702 → 2.7824), RPS flat-to-worse, and the validation check failed in *both* pairs — CONMEBOL–UEFA bias grows +0.088 → +0.095..+0.098 and CONCACAF–UEFA +0.113 → +0.130..+0.146 at every τ. Root cause: eloratings.net shares the regional bias on those pairs (the football-rankings.info finding), so an external Elo anchor amplifies rather than corrects it. The +14..+22 Penka points (exact 37 → 39-40) are real but inadmissible per protocol while RPS/log-loss degrade. AFC pairs and AUS−USA do improve — Elo helps where the model *under*rates. **Plan closed: Phases 0-3 exhausted; the limitation stays documented in known-limitations.md (mitigation #5/#6), corrected in practice by the market blend.** Repro rule 1 verified: post-code defaults reproduce the baseline exactly (594.0 / 0.1890 / 2.7702, identical per-tournament rows). |
+| 2026-06-12 | **Phase 2b log-closure review (after the Phase 3 session):** the leftover `/tmp/p2_flat.log` run was identified by exact reproduction as the β=0.75 / slow-half-life-5840d variant already recorded above — nothing was missing from the record. The sensitivity check was additionally extended to the slow window's no-decay limit (every historical bridge weighted equally): 596.0 pts / RPS 0.1886 / ll 2.7690, C–U +0.084, CONCACAF–UEFA +0.125. **Validation check verdict re-confirmed and final: Phase 2b stays rejected** — even unlimited use of the window's bridge history cannot shrink the diagnosed biases. The plan remains closed. |
+| 2026-06-13 | **Plan REOPENED (user-directed new approach): Phase 4 — Bayesian Dixon-Coles in Stan with a hierarchical confederation-offset prior.** New module `model_bayes.BayesianDixonColes` + `stan/dixon_coles.stan`, opt-in `--engine bayes` (default `dc`, regenerable). Split A (offset prior, posterior mean, MLE time-weights, static validation) / B (dynamic time + posterior propagation, deferred behind A's validation check). Design notes in `docs/bayesian-confederation-plan.md`. Repro rule 1 held: `--engine dc` is the untouched MLE path. |
+| 2026-06-13 | **Phase 4A verdict: rejected as default; engine kept available but off** (`--engine dc` default). Static validation check (six tournaments): bayes 605.0 pts / RPS 0.1905 / ll 2.7732 vs dc-static 601.0 / 0.1887 / 2.7679 — RPS/log-loss degrade; CONMEBOL–UEFA +0.103→+0.099 (barely), CONCACAF–UEFA +0.120→+0.124 (grows). Root cause: with `sigma_conf` free (post. mean 0.547) the offset prior is set by the *biased* bridges and lands CONMEBOL +1.58 > UEFA +0.83, **encoding** the regional bias (ARG−ESP control case widens 0.162→0.222). Confirms Phases 1-3: internal-data anchoring is exhausted. **Open: tight-`sigma_conf` sensitivity, and Phase B (dynamic time — the user's stated main parameter).** |
+| 2026-06-13 | **Phase 4 B1 verdict (user-directed "implementa la fase B"): rejected as default; opt-in `--bayes-dynamic` (default off).** Dynamic random-walk strengths over half-year blocks replace the decay weighting (new `stan/dixon_coles_dynamic.stan`; `--bayes-block` granularity; static-only like A). Scope per user: **B1 only** (dynamic time), keep the current implementation intact as a flag; B2 (posterior propagation) deferred. Static validation check: **604.0 pts / RPS 0.1884 / ll 2.7683** vs dc-static 601.0 / 0.1887 / 2.7679 — **the first bayes variant to match dc on RPS/log-loss** (RPS a hair better, ll tied), recovering all that static A lost. But the both-biases validation check still fails: CONMEBOL–UEFA shrinks +0.103→+0.095, CONCACAF–UEFA grows +0.120→+0.133. Dynamic time is the right parameter for *accuracy* but is orthogonal to anchoring (`sigma_conf` still free ≈0.66, offsets still encode the bridge bias). `sigma_rw`≈0.05-0.06 log-goals/half-year (small, smooth — genuine temporal structure, not overfit). Not adopted: validation check fails, ll at best a tie, no mid-WC2026 default change without a clean pass (live 1X2 is market-driven anyway). Repro: `--engine dc` and static `--engine bayes` byte-identical. Stan numerics: loosely upper-bounded RW scales fix a non-centred warmup `inf+(-inf)=nan`; MCMC clean on treedepth/divergences/E-BFMI, R-hat>1.01 persists on the weakly-identified offset/raw-innovation params (the diagnosis itself, as in 4A). **Open: tight-`sigma_conf` × B1; Phase B2.** |
+| 2026-06-13 | **Phase 4 tight-`sigma_conf` sensitivity — IMPLEMENTED.** The half-normal prior scale on `sigma_conf` (between-confederation offset spread) is now a Stan *data* input `sigma_conf_scale` in both `stan/dixon_coles.stan` and `stan/dixon_coles_dynamic.stan` (was hardcoded 0.5), wired end to end: `config.BAYES_SIGMA_CONF_SCALE = 0.5` (default reproduces today's bayes model), `--bayes-sigma-conf`, `fit(sigma_conf_scale=)`, `backtest(sigma_conf_scale=)`. Shrinking it toward 0 pins the bloc offsets near 0 — the strong "no bloc is systematically stronger" prior the 4A findings flagged as the only mechanism that *could* correct the bias. Repro rule 1: default 0.5 unchanged; no effect under `--engine dc`. Smoke test (copa2024 static): scale 0.5 → 76.0/0.1653/2.5090, scale 0.05 → 71.0/0.1632/2.5126; B1 dynamic + 0.05 → 76.0/0.1640/2.4967 (parameter moves the model in both time treatments; both Stan files recompile). |
+| 2026-06-14 | **Phase 4 tight-`sigma_conf` verdict (user-directed "ejecuta el experimento"): rejected; parameter kept available, default `BAYES_SIGMA_CONF_SCALE = 0.5`.** Six-tournament sweep, B1 dynamic, scale ∈ {0.5,0.25,0.1,0.05,0.01} (driver `data/experiments/sigma_conf_sweep/`). The mechanism works as designed — `sigma_conf` post. mean collapses 0.657→0.568→0.396→0.275→**0.051** and the bloc offsets shrink to ≈0 (at 0.01 the order even flips to UEFA +0.24 > CONMEBOL +0.10, no bloc structure). **But the validation check fails harder, not softer:** both diagnosed biases *grow* (C–U +0.095→+0.106, CONCACAF–U +0.133→+0.160 at 0.01) and RPS/log-loss degrade (0.1884/2.7683 → 0.1888/2.7751); control cases widen monotonically (ARG−ESP +0.087→+0.162, AUS−USA +0.145→+0.234). Pinning the offset to 0 just forces the cross-bloc level back into the team ratings the thin bridges drive — decisive confirmation of the 4A diagnosis that **the bias lives in the team ratings, not the offset scale.** Neither a free nor a constrained-toward-0 `sigma_conf` corrects it. Repro rule 1 verified: scale 0.5 reproduces the B1 row exactly (604.0 / 0.1884 / 2.7683, identical per-tournament rows + bridge audit). **This closes the open tight-`sigma_conf` item; Phase B2 (posterior propagation) remains the only Phase 4 avenue not yet decided.** |
+| 2026-06-14 | **Phase 4 B2 verdict (user-directed "valida la Fase B2"): rejected as default; opt-in `--bayes-propagate` (default off).** Full posterior propagation — `score_matrix` returns the posterior mean of the per-draw Dixon-Coles matrices instead of one matrix from the posterior-mean ratings. Paired six-tournament validation check on the B1 dynamic base (one MCMC fit per tournament scored twice, plug-in vs propagation, so the comparison is exact; driver `scripts/gate_b2.py`). vs the B1 plug-in arm (604.0 / 0.1884 / 2.7683): propagation 609.0 / **0.1886** / **2.7681** — RPS a hair worse, ll a hair better (a wash). CONMEBOL–UEFA shrinks +0.0950→+0.0932 but CONCACAF–UEFA grows +0.1330→+0.1352 (both must shrink ⇒ validation check fails). Root cause: B2 does not touch the rating means, so the 1X2 *level* and the bias direction are fixed; it only widens the scoreline *spread* (smoke test entropy 2.58→2.62; bridge goal-residuals edge toward 0; exact picks 39→40 — all within noise). Same wall as Phases 1-4: the cross-bloc bias lives in the team-rating levels, and re-treating the *uncertainty* around them cannot move it. Repro rule 1 verified: the plug-in arm reproduces the B1 row exactly (604.0 / 0.1884 / 2.7683). **Plan CLOSED again — every Phase 0-4 avenue implemented and decided, all default-off.** |
 
 ## Results log
 
@@ -606,29 +584,29 @@ the baseline row)*
 | 2026-06-12 | anchor-code defaults (β=0, rolling, all) | **594.0** | 0.1890 | 2.7702 | C–U +0.088 | post-Phase-2-code defaults = baseline + Phase 0 audit table exactly ✓ (repro rule 1) |
 | 2026-06-12 | anchor β=0.25 / 0.5 / 0.75 / 1 (rolling, all) | 594 / 597 / 597 / 591 | 0.1889 / 0.1888 / 0.1887 / 0.1886 | 2.7698 / 2.7694 / 2.7691 / 2.7688 | C–U – / – / +0.086 / +0.085 | RPS+ll improve monotonically in β (first time); CONCACAF–UEFA grows +0.113→+0.120 / +0.123; euro2021/euro2024/copa2021 invariant (intra-conf) ✓ |
 | 2026-06-12 | anchor β=0.75, slow half-life 5840d (rolling, all) | 597.0 | 0.1887 | 2.7690 | C–U +0.085 | ≈ identical to 2920d — slow-window length irrelevant: same bridges anchor both timescales |
-| 2026-06-12 | anchor β=0.75, slow window FLAT (no decay; rolling, all) | 596.0 | 0.1886 | 2.7690 | C–U +0.084 | no-decay limit of the slow window (gate re-check while closing the Phase 2 logs): even weighting every historical bridge equally, C–U shrinks only +0.088 → +0.084 and CONCACAF–UEFA still grows +0.113 → +0.125 — gate verdict confirmed |
+| 2026-06-12 | anchor β=0.75, slow window FLAT (no decay; rolling, all) | 596.0 | 0.1886 | 2.7690 | C–U +0.084 | no-decay limit of the slow window (validation check re-check while closing the Phase 2 logs): even weighting every historical bridge equally, C–U shrinks only +0.088 → +0.084 and CONCACAF–UEFA still grows +0.113 → +0.125 — validation check verdict confirmed |
 | 2026-06-12 | elo-code defaults (τ=0, rolling, all) | **594.0** | 0.18896 | 2.77019 | — | post-Phase-3-code defaults = baseline exactly ✓ (repro rule 1); per-tournament rows identical |
 | 2026-06-12 | elo τ=0.5 / 1 / 2 / 5 / 10 (rolling, all) | 616 / 611 / 615 / 608 / 611 | 0.1892 / 0.1892 / 0.1891 / 0.1890 / 0.1891 | 2.7736 / 2.7750 / 2.7765 / 2.7791 / 2.7824 | C–U +0.095 / – / +0.098 / +0.095 / – | log-loss degrades monotonically in τ; points +14..+22 and exact 37→39/40 (inadmissible per protocol); CONCACAF–UEFA +0.113 → +0.130 / – / +0.142 / +0.146 / – |
 | 2026-06-13 | **dc baseline (STATIC, all)** — Phase 4 apples-to-apples | **601.0** | 0.1887 | 2.7679 | C–U +0.103 | static, not the rolling baseline (594/0.1890/2.7702); bayes is static-only so the comparison is static-vs-static. CONCACAF–UEFA +0.120 |
-| 2026-06-13 | **Phase 4A** bayes `--engine bayes` (STATIC, all) | 605.0 | **0.1905** | **2.7732** | C–U **+0.099** | RPS/ll degrade vs dc-static; CONCACAF–UEFA grows +0.120→+0.124, AFC–UEFA −0.093→−0.081. Canaries (as-of 2026-06-13): AUS−USA 0.187→0.189 (flat), ARG−ESP 0.162→0.222 (widens ✗); sigma_conf 0.547 (CI 0.36-0.83); bloc offsets CONMEBOL +1.58 > UEFA +0.83 > CAF +0.25 > AFC −0.46 > CONCACAF −0.77 > OFC −1.46; top-10 order preserved, scale compressed; MCMC R-hat>1.01 on offset params |
-| 2026-06-13 | **Phase 4 B1** bayes `--bayes-dynamic` halfyear (STATIC, all) | **604.0** | **0.1884** | **2.7683** | C–U **+0.095** | **first bayes to match dc-static** (601.0/0.1887/2.7679): RPS a hair better, ll tied (+0.0004); recovers all of static A's loss (0.1905/2.7732→0.1884/2.7683). CONMEBOL–UEFA shrinks +0.103→+0.095 but CONCACAF–UEFA grows +0.120→**+0.133** (gate fails). Per-tournament: wc2018 132/0.1989/2.8209 · euro2021 100/0.1820/2.8567 · copa2021 67/0.1545/2.5855 · wc2022 108/0.2118/3.0245 · euro2024 121/0.1862/2.5653 · copa2024 76/0.1639/2.4937. sigma_rw_atk 0.049 (CI 0.038-0.059), sigma_rw_dfn 0.058 (smooth, well-identified). Canaries (as-of 2026-06-13): AUS−USA 0.222→**0.157** (narrows ✓), ARG−ESP 0.222(static-A)→**0.092** (does NOT widen ✓); top-10 sane (ARG 2.91, ESP 2.82, BRA, ENG, POR…); sigma_conf 0.667 (CI 0.46-0.98); bloc offsets CONMEBOL +1.76 > UEFA +1.16 > CAF +0.43 > AFC −0.45 > CONCACAF −0.77 > OFC −2.12 (still encodes CONMEBOL>UEFA → CONCACAF–UEFA grows). MCMC (4×500): no divergences, treedepth/E-BFMI/ESS satisfactory; R-hat>1.01 only on composite atk/dfn + sigma_dfn (sparse team-block states; raw innovations converged) |
-| 2026-06-14 | **Phase 4 tight-`sigma_conf` sweep** B1 dynamic, scale 0.5/0.25/0.1/0.05/0.01 (STATIC, all) | 604 / 600 / 591 / 599 / 592 | 0.1884 / 0.1885 / 0.1884 / 0.1884 / **0.1888** | 2.7683 / 2.7685 / 2.7679 / 2.7688 / **2.7751** | C–U +0.095 / +0.095 / +0.095 / +0.096 / **+0.106** | scale 0.5 reproduces the B1 row exactly ✓ (repro rule 1). CONCACAF–U +0.133 / +0.133 / +0.134 / +0.135 / **+0.160** — both biases *grow* as the offset is pinned. sigma_conf post. mean 0.657 / 0.568 / 0.396 / 0.275 / **0.051** (collapses as designed); bloc offsets shrink to ≈0 and at 0.01 flip to UEFA +0.24 > CONMEBOL +0.10 (no bloc structure). Canaries (as-of 2026-06-14) ARG−ESP +0.087 / +0.087 / +0.086 / +0.079 / **+0.162**, AUS−USA +0.190 / +0.145 / +0.155 / +0.166 / **+0.234** (widen at the tight end). Driver: `data/experiments/sigma_conf_sweep/`. **Gate fails (both biases grow, RPS/ll degrade) — mechanism works, hypothesis refuted: the bias is in the team ratings, not the offset scale.** |
-| 2026-06-14 | **Phase 4 B2** propagation `--bayes-propagate` on B1 dynamic (STATIC, all, paired) | 609.0 | **0.1886** | **2.7681** | C–U **+0.0932** | paired gate (`scripts/gate_b2.py`): same MCMC fit scored twice. Plug-in arm reproduces B1 exactly (604.0/0.1884/2.7683) ✓; propagation 609.0/0.1886/2.7681 — RPS +0.0002, ll −0.0002 (wash). CONMEBOL–UEFA +0.0950→+0.0932, CONCACAF–UEFA +0.1330→**+0.1352** (grows → gate fails). exact 39→40. Per-tournament (plug-in→prop): wc2018 132→132 / 0.1989→0.1990 / 2.8209→2.8198 · euro2021 100→108 / 0.1820→0.1822 / 2.8567→2.8571 · copa2021 67→60 / 0.1545→0.1552 / 2.5855→2.5972 · wc2022 108→105 / 0.2118→0.2117 / 3.0245→3.0061 · euro2024 121→117 / 0.1862→0.1864 / 2.5653→2.5784 · copa2024 76→87 / 0.1639→0.1642 / 2.4937→2.4991. Bridge goal-residuals edge toward 0 (honest spread); means unchanged so the bias direction is fixed. Smoke test (ARG−ESP B1 static): entropy 2.58→2.62, max\|ΔP\| 0.0056. |
+| 2026-06-13 | **Phase 4A** bayes `--engine bayes` (STATIC, all) | 605.0 | **0.1905** | **2.7732** | C–U **+0.099** | RPS/ll degrade vs dc-static; CONCACAF–UEFA grows +0.120→+0.124, AFC–UEFA −0.093→−0.081. Control cases (as-of 2026-06-13): AUS−USA 0.187→0.189 (flat), ARG−ESP 0.162→0.222 (widens ✗); sigma_conf 0.547 (CI 0.36-0.83); bloc offsets CONMEBOL +1.58 > UEFA +0.83 > CAF +0.25 > AFC −0.46 > CONCACAF −0.77 > OFC −1.46; top-10 order preserved, scale compressed; MCMC R-hat>1.01 on offset params |
+| 2026-06-13 | **Phase 4 B1** bayes `--bayes-dynamic` halfyear (STATIC, all) | **604.0** | **0.1884** | **2.7683** | C–U **+0.095** | **first bayes to match dc-static** (601.0/0.1887/2.7679): RPS a hair better, ll tied (+0.0004); recovers all of static A's loss (0.1905/2.7732→0.1884/2.7683). CONMEBOL–UEFA shrinks +0.103→+0.095 but CONCACAF–UEFA grows +0.120→**+0.133** (validation check fails). Per-tournament: wc2018 132/0.1989/2.8209 · euro2021 100/0.1820/2.8567 · copa2021 67/0.1545/2.5855 · wc2022 108/0.2118/3.0245 · euro2024 121/0.1862/2.5653 · copa2024 76/0.1639/2.4937. sigma_rw_atk 0.049 (CI 0.038-0.059), sigma_rw_dfn 0.058 (smooth, well-identified). Control cases (as-of 2026-06-13): AUS−USA 0.222→**0.157** (narrows ✓), ARG−ESP 0.222(static-A)→**0.092** (does NOT widen ✓); top-10 sane (ARG 2.91, ESP 2.82, BRA, ENG, POR…); sigma_conf 0.667 (CI 0.46-0.98); bloc offsets CONMEBOL +1.76 > UEFA +1.16 > CAF +0.43 > AFC −0.45 > CONCACAF −0.77 > OFC −2.12 (still encodes CONMEBOL>UEFA → CONCACAF–UEFA grows). MCMC (4×500): no divergences, treedepth/E-BFMI/ESS satisfactory; R-hat>1.01 only on composite atk/dfn + sigma_dfn (sparse team-block states; raw innovations converged) |
+| 2026-06-14 | **Phase 4 tight-`sigma_conf` sweep** B1 dynamic, scale 0.5/0.25/0.1/0.05/0.01 (STATIC, all) | 604 / 600 / 591 / 599 / 592 | 0.1884 / 0.1885 / 0.1884 / 0.1884 / **0.1888** | 2.7683 / 2.7685 / 2.7679 / 2.7688 / **2.7751** | C–U +0.095 / +0.095 / +0.095 / +0.096 / **+0.106** | scale 0.5 reproduces the B1 row exactly ✓ (repro rule 1). CONCACAF–U +0.133 / +0.133 / +0.134 / +0.135 / **+0.160** — both biases *grow* as the offset is pinned. sigma_conf post. mean 0.657 / 0.568 / 0.396 / 0.275 / **0.051** (collapses as designed); bloc offsets shrink to ≈0 and at 0.01 flip to UEFA +0.24 > CONMEBOL +0.10 (no bloc structure). Control cases (as-of 2026-06-14) ARG−ESP +0.087 / +0.087 / +0.086 / +0.079 / **+0.162**, AUS−USA +0.190 / +0.145 / +0.155 / +0.166 / **+0.234** (widen at the tight end). Driver: `data/experiments/sigma_conf_sweep/`. **Validation check fails (both biases grow, RPS/ll degrade) — mechanism works, hypothesis refuted: the bias is in the team ratings, not the offset scale.** |
+| 2026-06-14 | **Phase 4 B2** propagation `--bayes-propagate` on B1 dynamic (STATIC, all, paired) | 609.0 | **0.1886** | **2.7681** | C–U **+0.0932** | paired validation check (`scripts/gate_b2.py`): same MCMC fit scored twice. Plug-in arm reproduces B1 exactly (604.0/0.1884/2.7683) ✓; propagation 609.0/0.1886/2.7681 — RPS +0.0002, ll −0.0002 (wash). CONMEBOL–UEFA +0.0950→+0.0932, CONCACAF–UEFA +0.1330→**+0.1352** (grows → validation check fails). exact 39→40. Per-tournament (plug-in→prop): wc2018 132→132 / 0.1989→0.1990 / 2.8209→2.8198 · euro2021 100→108 / 0.1820→0.1822 / 2.8567→2.8571 · copa2021 67→60 / 0.1545→0.1552 / 2.5855→2.5972 · wc2022 108→105 / 0.2118→0.2117 / 3.0245→3.0061 · euro2024 121→117 / 0.1862→0.1864 / 2.5653→2.5784 · copa2024 76→87 / 0.1639→0.1642 / 2.4937→2.4991. Bridge goal-residuals edge toward 0 (honest spread); means unchanged so the bias direction is fixed. Smoke test (ARG−ESP B1 static): entropy 2.58→2.62, max\|ΔP\| 0.0056. |
 
-Phase 3 canaries (overall rating gaps at as-of 2026-06-12; baseline →
+Phase 3 control cases (overall rating gaps at as-of 2026-06-12; baseline →
 elo τ=0.5/2/5): AUS−USA 0.222 → 0.199/0.169/0.150 (narrows monotonically ✓);
 ARG−ESP 0.174 → 0.189/0.175/0.113 (widens at low τ, narrows from τ≈2 ✗/✓ —
 current Elo has Spain above Argentina, so large τ flips the sign); top-10
 sane at every τ (ARG, ESP, ENG, BRA order preserved). Residual SD of
 strength vs Elo: 0.48 baseline → 0.21 (τ=1) → 0.11 (τ=5).
 
-Phase 2 canaries (overall rating gaps at as-of 2026-06-12; baseline →
+Phase 2 control cases (overall rating gaps at as-of 2026-06-12; baseline →
 anchor β=0.5/0.75/1): AUS−USA 0.222 → 0.218/0.216/0.213 (narrows ✓);
 ARG−ESP 0.173 → 0.178/0.180/0.183 (widens slightly ✗); top-20 order sane at
 β=1. Conf deltas at β=1: AFC +0.006, CAF −0.016, CONCACAF +0.015,
 CONMEBOL −0.012, OFC +0.105, UEFA −0.021.
 
-Phase 1 canaries (overall rating gaps at as-of 2026-06-12; baseline →
+Phase 1 control cases (overall rating gaps at as-of 2026-06-12; baseline →
 phantom:0.25/0.5/1/2 → pseudo:0.25/0.5/1/2): AUS−USA 0.222 →
 0.242/0.255/0.271/0.288 → 0.264/0.286/0.313/0.341; ARG−ESP 0.174 →
 0.208/0.236/0.277/0.318 → 0.259/0.306/0.356/0.380. Both widen in every

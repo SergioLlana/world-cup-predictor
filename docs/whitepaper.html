@@ -385,7 +385,7 @@ footer {
 
 <section id="limitaciones">
   <h2><span class="secno">§6</span>Limitación principal: anclaje entre confederaciones</h2>
-  <p>Dixon-Coles solo puede comparar selecciones de confederaciones distintas a través de los partidos «puente» entre ellas: los pocos encuentros que enfrentan, por ejemplo, a Europa con Sudamérica. Cuando esos cruces escasean, la <em>escala relativa</em> de dos confederaciones queda mal determinada: un puñado de resultados puede desplazar bloques enteros, y el descuento por rival débil se queda corto. La matriz de conectividad lo cuantifica:</p>
+  <p><em>Anclar</em> una confederación significa fijar su nivel respecto al de las demás, de modo que las selecciones de bloques distintos sean comparables en una misma escala. Dixon-Coles solo puede hacerlo a través de los partidos «puente» entre confederaciones: los pocos encuentros que enfrentan, por ejemplo, a Europa con Sudamérica. Cuando esos cruces escasean, la <em>escala relativa</em> de dos confederaciones queda mal determinada: un puñado de resultados puede desplazar bloques enteros, y el descuento por rival débil se queda corto. La matriz de conectividad lo cuantifica:</p>
   <figure>
     <div class="tbl-scroll">
     <table class="heat">
@@ -414,7 +414,7 @@ footer {
 
 <section id="robustez">
   <h2><span class="secno">§7</span>El estudio de robustez y por qué se cerró</h2>
-  <p>Se ejecutó un estudio sistemático de cuatro fases contra el problema del anclaje (<code>docs/model-robustness-plan.md</code>), con una única puerta de validación — el backtest continuo, midiendo RPS y log-loss más una auditoría de sesgo entre confederaciones construida ex&nbsp;profeso — y una regla estricta de reproducibilidad: cada intervención queda tras un interruptor cuyo valor por defecto reproduce el modelo actual exactamente.</p>
+  <p>Se ejecutó un estudio sistemático de cuatro fases contra el problema del anclaje (<code>docs/model-robustness-plan.md</code>), con un único criterio de validación — el backtest continuo, midiendo RPS y log-loss más una auditoría de sesgo entre confederaciones construida ex&nbsp;profeso — y una regla estricta de reproducibilidad: cada intervención queda tras un interruptor cuyo valor por defecto reproduce el modelo actual exactamente.</p>
   <figure>
     <table>
       <thead><tr><th>Fase</th><th>Intervención</th><th>Estado</th><th>Hallazgo decisivo</th></tr></thead>

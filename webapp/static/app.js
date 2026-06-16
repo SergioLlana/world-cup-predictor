@@ -522,9 +522,10 @@ function renderConnectivity() {
   if (!d) { loadConnectivity(); return; }
   el.innerHTML = `
     <h2 class="section">¿Quién ancla a quién? Conectividad entre confederaciones</h2>
-    <p class="note">El modelo solo puede comparar equipos de confederaciones distintas a través de los
-      partidos «puente» entre ellas. Donde hay pocos puentes, la escala de una confederación queda mal
-      anclada al resto y sus ratings pueden inflarse o desinflarse en bloque — la limitación documentada
+    <p class="note">Anclar una confederación es fijar su nivel respecto al de las demás, para que los
+      equipos de bloques distintos sean comparables en una misma escala. El modelo solo puede hacerlo a
+      través de los partidos «puente» entre confederaciones. Donde hay pocos puentes, la escala de una
+      confederación queda mal anclada al resto y sus ratings pueden inflarse o desinflarse en bloque — la limitación documentada
       en <code>docs/known-limitations.md</code> (p. ej. la AFC, y en menor medida la CONMEBOL). El peso es
       el mismo del entrenamiento (decaimiento temporal con vida media de 2 años, datos hasta el
       ${fmtDay(d.as_of)}).</p>
