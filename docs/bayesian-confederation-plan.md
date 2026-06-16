@@ -153,6 +153,10 @@ ARG−ESP, top-20 sensato.
 
 ## Fase C — encogimiento por conectividad (RECHAZADA, 2026-06-16)
 
+*Proceso completo (diagnóstico, formulaciones, resultados, qué queda por
+probar): [connectivity-shrinkage-experiment.md](connectivity-shrinkage-experiment.md).*
+
+
 Motivación (caso Australia, `docs/known-limitations.md`): el offset uniforme de
 confederación de la Fase A está fijado casi por completo por los partidos puente
 de la **élite** del bloque (sólo Japón/Australia/Corea juegan fuera de la AFC) y

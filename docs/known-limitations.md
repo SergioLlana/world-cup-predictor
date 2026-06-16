@@ -4,7 +4,11 @@
 
 *See also [connectivity.md](connectivity.md): the conf×conf bridge-weight
 matrix behind this effect (explorable in the web app's Conectividad tab) and
-the June 2026 Argentina-vs-Spain case study.*
+the June 2026 Argentina-vs-Spain case study; and
+[connectivity-shrinkage-experiment.md](connectivity-shrinkage-experiment.md):
+a rejected attempt to fix Australia's inflation by connectivity-weighted
+shrinkage, and why bridge share is the wrong predictor (it is schedule-
+difficulty inflated, not connectivity-starved).*
 
 **Symptom.** The model ranks **Australia (24th, overall 1.98)** above the
 **USA (43rd, overall 1.66)** and has Australia finishing ahead in Group C, even
