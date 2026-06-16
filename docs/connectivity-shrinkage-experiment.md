@@ -118,24 +118,50 @@ y A incluso la **premia** por su alta conectividad.
 El predictor que sí la separa es la **dificultad media de rivales**
 (`opp_rating`, donde la AFC sale plana y baja), no la conectividad.
 
-## Qué queda por probar (Fase C')
+## Fase C' — encoger por dificultad de rivales (`opp`) — RECHAZADA
 
-La línea de "encoger a los poco anclados" **sigue viva**, pero con el predictor
-correcto. Pendiente:
+Misma idea que B (encoger la **desviación**, que no daña outliers) pero con el
+predictor **correcto**: la dificultad media de calendario `opp_rating`
+(`confederations.opponent_rating`, de un **pre-fit dc** exógeno) en vez del
+bridge share. `c = min(1, opp_rating / BAYES_CONNECT_OPP_REF)` (ref=1.5 ≈ el p75
+de los equipos del Mundial). Opt-in `--bayes-connect --bayes-connect-mode
+deviation --bayes-connect-by opp`. `opp_rating` sí separa: España 1.86 /
+Argentina 1.61 / Brasil 1.99 (libres) vs Australia 1.18 / Irán 0.93 / Corea 1.10
+(encogidos).
 
-1. **Encogimiento por `opp_rating`** en lugar de bridge share: gatear la
-   desviación (estilo B, que no daña outliers) por la dificultad de calendario,
-   no por la cantidad de puentes. Hipótesis: baja a quien acumuló rating contra
-   rivales débiles (Australia) sin castigar a quien juega calendarios duros.
-2. **Compresión de la escala intra-bloque** de las confederaciones con
-   `opp_rating` bajo (un `sigma_atk` por bloque, no global), atacando la
-   dispersión interna que el offset uniforme no puede tocar.
-3. Validar siempre con `--bridge-audit` (tabla de calibración inter-bloque) y el
-   backtest de 6 torneos, vigilando wc2022 (el más sensible a la AFC).
+**Resultado (rankings + backtest 6 torneos):**
 
-Cuidado: el motor `elo` (el del ranking de la web, #13) es un mecanismo distinto
-del `bayes` y no tiene estructura de offset; cualquier mitigación ahí pasa por
-`ELO_CONF_K` (`wcpred tune --elo-engine`), no por esto.
+| config | puntos | RPS | log-loss | Australia |
+|---|---|---|---|---|
+| base bayes | **605** | **0.1905** | **2.7732** | #28 |
+| B (`deviation`+`bridge`) | 581 | 0.1932 | 2.7950 | #21 ⬆ |
+| C' (`deviation`+`opp`) | 593 | 0.1910 | 2.7855 | #28 |
+
+C' es **mejor que B** (el predictor correcto recupera casi todo lo que B perdía)
+y **baja el rating absoluto** de los inflados (Australia +1.25→+1.07, preservando
+España #2 / Argentina #1), pero:
+
+1. **No mueve el ranking de Australia** (#28→#28; con `opp_ref` agresivo 1.8/2.2,
+   #29 — un puesto). El ranking es *relativo* y el gauge `sum(atk)=0` re-centra:
+   encoger la desviación baja a todos los equipos de calendario fácil a la vez,
+   así que el orden apenas cambia.
+2. **Sigue peor que el base** en las tres métricas.
+
+**Conclusión de la línea (cerrada):** el predictor correcto es `opp_rating`, no
+el bridge share — eso quedó demostrado (C' > B). Pero el **mecanismo** de
+encogimiento por equipo no puede reordenar el ranking: para mover a Australia
+*respecto a* los equipos de calendario duro habría que actuar sobre la **escala
+relativa entre bloques** (el offset / `sigma_conf`), y esa vía ya se exploró y
+rechazó en las Fases A/4 (codifica el sesgo, empeora el gate). El `bayes` ya
+sitúa a Australia en #28, que es razonable; el problema agudo y visible (#13) es
+del motor **`elo`**, mecanismo aparte sin offset — su única palanca es
+`ELO_CONF_K` (`wcpred tune --elo-engine`).
+
+Lo único no agotado, si se reabre: **`sigma_atk` por bloque** (no global) para
+*comprimir* la dispersión interna de las confederaciones de calendario fácil —
+ataca la dispersión, no el offset ni la desviación individual. Pero el patrón de
+tres rechazos sugiere bajo retorno. Validar siempre con `--bridge-audit` y el
+backtest de 6 torneos (vigilar wc2022, el más sensible a la AFC).
 
 ## Reproducir
 

@@ -124,6 +124,29 @@ BAYES_CONNECT_REF = 0.4        # bridge share at which a team earns the FULL
                                # proportionally. Lower = more teams fully trusted.
                                # Only used when BAYES_CONNECT_SHRINK; sweep via
                                # --bayes-connect-ref.
+BAYES_CONNECT_BY = "bridge"    # which predictor drives the connectivity weight c
+                               # (only used when BAYES_CONNECT_SHRINK):
+                               #   "bridge" — bridge-match share
+                               #             (confederations.bridge_share);
+                               #             c = min(1, share / BAYES_CONNECT_REF).
+                               #             REJECTED: Australia's bridge share is
+                               #             high, so it is the wrong predictor.
+                               #   "opp"    — Phase C': weighted mean opponent
+                               #             rating (schedule difficulty,
+                               #             confederations.opponent_rating, from
+                               #             a pre-fit dc); c = min(1, opp_rating /
+                               #             BAYES_CONNECT_OPP_REF). Low opp_rating
+                               #             (soft schedule, e.g. Australia) →
+                               #             shrunk; this is the predictor that
+                               #             separates inflated teams from
+                               #             legitimate outliers (Spain/Argentina,
+                               #             hard schedules). Set via
+                               #             --bayes-connect-by.
+BAYES_CONNECT_OPP_REF = 1.5    # opp_rating earning the full weight when
+                               # BAYES_CONNECT_BY="opp": c = min(1, opp / ref).
+                               # ~1.5 ≈ the WC-team p75; teams below it (soft
+                               # schedules) are attenuated. Sweep via
+                               # --bayes-connect-opp-ref.
 BAYES_CONNECT_MODE = "offset"  # which quantity the connectivity weight c scales
                                # (only used when BAYES_CONNECT_SHRINK):
                                #   "offset"    (formulation A,

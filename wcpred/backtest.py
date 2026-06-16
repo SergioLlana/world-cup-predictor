@@ -156,7 +156,8 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              dynamic=False, time_block=None,
              sigma_conf_scale=BAYES_SIGMA_CONF_SCALE, propagate=False,
              informed_conf=False, connect_shrink=False, connect_ref=None,
-             connect_mode=None, bayes_seed=2026,
+             connect_mode=None, connect_by=None, connect_opp_ref=None,
+             bayes_seed=2026,
              elo_conf_k=None, elo_longterm_years=None, elo_ha=None,
              **train_kw):
     """Score every match of a past tournament.
@@ -261,6 +262,7 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
                     sigma_conf_scale=sigma_conf_scale, propagate=propagate,
                     conf_strength=cs, connect_shrink=connect_shrink,
                     connect_ref=connect_ref, connect_mode=connect_mode,
+                    connect_by=connect_by, connect_opp_ref=connect_opp_ref,
                     seed=bayes_seed)
             elif engine == "elo":
                 from .model_elo import EloDixonColes

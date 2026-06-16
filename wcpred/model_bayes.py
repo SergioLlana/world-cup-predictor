@@ -42,10 +42,12 @@ import os
 import numpy as np
 from scipy.stats import poisson
 
-from .config import (BAYES_CONNECT_MODE, BAYES_CONNECT_REF,
+from .config import (BAYES_CONNECT_BY, BAYES_CONNECT_MODE,
+                     BAYES_CONNECT_OPP_REF, BAYES_CONNECT_REF,
                      BAYES_CONNECT_SHRINK, BAYES_DYNAMIC, BAYES_PROPAGATE,
                      BAYES_SIGMA_CONF_SCALE, BAYES_TIME_BLOCK, MAX_GOALS)
-from .confederations import bridge_share, infer_confederations
+from .confederations import (bridge_share, infer_confederations,
+                            opponent_rating)
 from .model import DixonColes
 
 _STAN_DIR = os.path.join(os.path.dirname(__file__), "stan")
@@ -91,7 +93,8 @@ class BayesianDixonColes(DixonColes):
             adapt_delta=0.9, show_progress=False, elo=None, elo_tau=0.0,
             dynamic=None, time_block=None, sigma_conf_scale=None,
             propagate=None, conf_strength=None, connect_shrink=None,
-            connect_ref=None, connect_mode=None, **stan_kwargs):
+            connect_ref=None, connect_mode=None, connect_by=None,
+            connect_opp_ref=None, **stan_kwargs):
         """Sample the Stan model on training frame `m` and adopt posterior
         means. `elo`/`elo_tau` are accepted for a uniform call signature with
         DixonColes.fit but ignored (the Bayesian engine has no external prior).
@@ -114,14 +117,19 @@ class BayesianDixonColes(DixonColes):
         Dixon-Coles matrices.
 
         connect_shrink (resolved from config.BAYES_CONNECT_SHRINK when None) is
-        Phase C: when True, a per-team connectivity weight c = min(1, bridge
-        share / connect_ref) gates how much of a quantity a weakly-bridged team
-        gets, via a separate Stan file. connect_mode (config.BAYES_CONNECT_MODE)
-        picks the quantity: "offset" (formulation A) scales the confederation
-        offset (anchor toward the global scale); "deviation" (formulation B)
-        scales the team's own deviation (partial pooling toward the bloc mean).
-        connect_ref is config.BAYES_CONNECT_REF. Static only — not combinable
-        with dynamic. Extra `stan_kwargs` pass through to `CmdStanModel.sample`.
+        Phase C: when True, a per-team connectivity weight c in [0, 1] gates how
+        much of a quantity a weakly-anchored team gets, via a separate Stan file.
+        connect_mode (config.BAYES_CONNECT_MODE) picks the quantity: "offset"
+        (formulation A) scales the confederation offset (anchor toward the global
+        scale); "deviation" (formulation B) scales the team's own deviation
+        (partial pooling toward the bloc mean). connect_by
+        (config.BAYES_CONNECT_BY) picks the predictor for c: "bridge" =
+        min(1, bridge share / connect_ref); "opp" (Phase C') = min(1, weighted
+        mean opponent rating / connect_opp_ref), from a pre-fit dc, so soft-
+        schedule teams (Australia) shrink while hard-schedule outliers (Spain)
+        stay free. connect_ref/connect_opp_ref are config.BAYES_CONNECT_REF /
+        BAYES_CONNECT_OPP_REF. Static only — not combinable with dynamic. Extra
+        `stan_kwargs` pass through to `CmdStanModel.sample`.
         """
         if dynamic is None:
             dynamic = BAYES_DYNAMIC
@@ -137,6 +145,13 @@ class BayesianDixonColes(DixonColes):
             connect_ref = BAYES_CONNECT_REF
         if connect_mode is None:
             connect_mode = BAYES_CONNECT_MODE
+        if connect_by is None:
+            connect_by = BAYES_CONNECT_BY
+        if connect_opp_ref is None:
+            connect_opp_ref = BAYES_CONNECT_OPP_REF
+        if connect_shrink and connect_by not in ("bridge", "opp"):
+            raise ValueError(f"unknown connect_by {connect_by!r}; choose from "
+                             "('bridge', 'opp')")
         if connect_shrink and dynamic:
             raise ValueError("connect_shrink (Phase C) is static only; it does "
                              "not combine with dynamic random-walk strengths")
@@ -215,9 +230,20 @@ class BayesianDixonColes(DixonColes):
             # decay weights.
             stan_file = _STAN_CONNECT[connect_mode]
             data["w"] = m["w"].to_numpy(float).tolist()
-            share = bridge_share(m, confs)
+            if connect_by == "opp":
+                # Phase C': gate by schedule difficulty. Pre-fit a plain dc to
+                # get exogenous overall ratings (atk − dfn), then each team's
+                # weighted mean opponent rating; c = min(1, opp / opp_ref).
+                pre = DixonColes().fit(m)
+                overall = {t: float(pre.atk[i] - pre.dfn[i])
+                           for t, i in pre.idx.items()}
+                signal = opponent_rating(m, overall)
+                ref = connect_opp_ref
+            else:
+                signal = bridge_share(m, confs)
+                ref = connect_ref
             conf_w = np.clip(
-                [share.get(t, 0.0) / connect_ref for t in teams], 0.0, 1.0)
+                [signal.get(t, 0.0) / ref for t in teams], 0.0, 1.0)
             data["conf_w"] = conf_w.tolist()
             self.conf_w = {t: float(c) for t, c in zip(teams, conf_w)}
         else:
@@ -254,6 +280,7 @@ class BayesianDixonColes(DixonColes):
         self.propagate = propagate
         self.connect_shrink = connect_shrink
         self.connect_mode = connect_mode if connect_shrink else None
+        self.connect_by = connect_by if connect_shrink else None
         self._mcmc = mcmc   # kept for diagnostics
         return self
 

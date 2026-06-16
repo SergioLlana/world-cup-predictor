@@ -189,28 +189,37 @@ los más altos de la AFC (Japón 0.49, Corea 0.47). Lo que la infla no es la
 *cantidad* de puentes sino su *dificultad*: sus puentes son Nueva Zelanda ×5
 (OFC), Curaçao 5-1, Canadá, Camerún, Túnez, y sólo pierde con los muy top (3-7-2
 vs UEFA/CONMEBOL fuertes). Por eso **ningún** encogimiento por bridge share —ni
-A ni B— la toca; A incluso la premia por su alta conectividad. El predictor que
-sí la separa es la **dificultad media de rivales** (`opp_rating`, la AFC sale
-plana y baja), no la conectividad. Una Fase C' tendría que escalar por
-`opp_rating` (o comprimir la escala intra-bloque), no por bridge share.
+A ni B— la toca; A incluso la premia por su alta conectividad.
+
+**C' — encoger por dificultad de rivales (`--bayes-connect-by opp`): RECHAZADA.**
+El predictor correcto: la desviación (estilo B) gateada por `opp_rating`
+(`confederations.opponent_rating`, de un pre-fit dc exógeno;
+`c = min(1, opp/BAYES_CONNECT_OPP_REF)`, ref=1.5). `opp_rating` sí separa
+inflados de outliers (España 1.86 vs Australia 1.18), y C' **mejora sobre B** y
+**baja el rating absoluto** de los inflados — pero **no mueve el ranking** de
+Australia (#28→#28; #29 con ref agresivo) y **sigue peor que el base**: el
+ranking es relativo y el gauge `sum(atk)=0` re-centra. Mover el orden exigiría
+actuar sobre la escala entre bloques (offset/`sigma_conf`), ya rechazada.
 
 Métricas backtest (6 torneos, 290 partidos, `--static --engine bayes`):
 
-| config | puntos Penka | RPS | log-loss |
-|---|---|---|---|
-| base bayes | **605** | **0.1905** | **2.7732** |
-| B (`deviation`) | 581 | 0.1932 | 2.7950 |
+| config | puntos | RPS | log-loss | Australia |
+|---|---|---|---|---|
+| base bayes | **605** | **0.1905** | **2.7732** | #28 |
+| B (`deviation`+`bridge`) | 581 | 0.1932 | 2.7950 | #21 ⬆ |
+| C' (`deviation`+`opp`) | 593 | 0.1910 | 2.7855 | #28 |
 
-B es **peor en las tres** métricas, con el daño concentrado en **wc2022**
-(102→88 pts, RPS 0.2139→0.2229) — el torneo más cargado de AFC, justo el bloque
-que B distorsiona. (A no se backtestea: los rankings ya la muestran
-contraproducente y además daña outliers UEFA.) El base 605 confirma de paso la
-regenerabilidad: con el knob off se usa el path estático intacto.
+(A no se backtestea: los rankings ya la muestran contraproducente y dañando
+outliers UEFA.) El base 605 confirma de paso la regenerabilidad: con el knob off
+se usa el path estático intacto. Proceso completo y cierre de la línea en
+[connectivity-shrinkage-experiment.md](connectivity-shrinkage-experiment.md).
 
 Knobs (todos default-off; el bayes de producción se regenera idéntico — usa el
 path estático sin `conf_w`): `BAYES_CONNECT_SHRINK`, `BAYES_CONNECT_REF`,
-`BAYES_CONNECT_MODE` (`config.py`); `--bayes-connect` / `--bayes-connect-ref` /
-`--bayes-connect-mode` (`cli.py`). Helper `confederations.bridge_share`.
+`BAYES_CONNECT_MODE`, `BAYES_CONNECT_BY`, `BAYES_CONNECT_OPP_REF` (`config.py`);
+`--bayes-connect` / `--bayes-connect-ref` / `--bayes-connect-mode` /
+`--bayes-connect-by` / `--bayes-connect-opp-ref` (`cli.py`). Helpers
+`confederations.bridge_share` y `confederations.opponent_rating`.
 
 ## Verificación end-to-end
 

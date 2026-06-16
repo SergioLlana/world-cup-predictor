@@ -19,7 +19,8 @@ import pandas as pd
 from .anchor import anchor_model
 from .backtest import (TOURNAMENTS, backtest, bridge_audit, elo_report, tune,
                        tune_elo)
-from .config import (BAYES_CONNECT_MODE, BAYES_CONNECT_REF,
+from .config import (BAYES_CONNECT_BY, BAYES_CONNECT_MODE,
+                     BAYES_CONNECT_OPP_REF, BAYES_CONNECT_REF,
                      BAYES_CONNECT_SHRINK, BAYES_DYNAMIC,
                      BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
                      BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_HA,
@@ -71,14 +72,18 @@ def build_model(df, args):
                                          propagate=args.bayes_propagate,
                                          connect_shrink=args.bayes_connect,
                                          connect_ref=args.bayes_connect_ref,
-                                         connect_mode=args.bayes_connect_mode)
+                                         connect_mode=args.bayes_connect_mode,
+                                         connect_by=args.bayes_connect_by,
+                                         connect_opp_ref=args.bayes_connect_opp_ref)
         mode = (f"dynamic random-walk, block={args.bayes_block}"
                 if args.bayes_dynamic else "static decay weights")
         if args.bayes_propagate:
             mode += ", posterior propagation"
         if args.bayes_connect:
-            mode += (f", connectivity {args.bayes_connect_mode} shrinkage "
-                     f"(ref={args.bayes_connect_ref})")
+            _ref = (args.bayes_connect_opp_ref if args.bayes_connect_by == "opp"
+                    else args.bayes_connect_ref)
+            mode += (f", connectivity {args.bayes_connect_mode} shrinkage by "
+                     f"{args.bayes_connect_by} (ref={_ref})")
         print(f"Bayesian model sampled on {len(train)} matches "
               f"({mode}; as of {args.as_of}, xG={'yes' if xg else 'no'})")
         return model
@@ -301,7 +306,10 @@ def cmd_backtest(args):
                      sigma_conf_scale=args.bayes_sigma_conf,
                      propagate=args.bayes_propagate,
                      connect_shrink=args.bayes_connect,
-                     connect_ref=args.bayes_connect_ref)
+                     connect_ref=args.bayes_connect_ref,
+                     connect_mode=args.bayes_connect_mode,
+                     connect_by=args.bayes_connect_by,
+                     connect_opp_ref=args.bayes_connect_opp_ref)
         print(f"Backtest {r['tournament']} ({args.scoring}): "
               f"{r['points']:.1f} pts in "
               f"{r['matches']} matches ({r['points_per_match']:.2f}/match) | "
@@ -449,6 +457,18 @@ def main():
                              "isolated teams toward the global scale; rejected) "
                              "or 'deviation' (B, partial-pool them toward the "
                              "bloc mean) (default: %(default)s)")
+        sp.add_argument("--bayes-connect-by", choices=("bridge", "opp"),
+                        default=BAYES_CONNECT_BY,
+                        help="predictor for the --bayes-connect weight: 'bridge' "
+                             "(bridge-match share; rejected) or 'opp' (Phase C': "
+                             "schedule difficulty = weighted mean opponent "
+                             "rating, so soft-schedule teams shrink) "
+                             "(default: %(default)s)")
+        sp.add_argument("--bayes-connect-opp-ref", type=float,
+                        default=BAYES_CONNECT_OPP_REF,
+                        help="opp_rating earning the full weight for "
+                             "--bayes-connect-by opp: c = min(1, opp/ref) "
+                             "(default: %(default)s)")
         sp.add_argument("--odds", help="odds CSV (home_team,away_team,"
                                        "odds_1,odds_X,odds_2)")
         sp.add_argument("--xg", help="xG CSV (date,home_team,away_team,"
