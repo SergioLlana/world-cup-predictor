@@ -84,7 +84,7 @@ class BayesianDixonColes(DixonColes):
     def fit(self, m, chains=4, iter_warmup=500, iter_sampling=500, seed=2026,
             adapt_delta=0.9, show_progress=False, elo=None, elo_tau=0.0,
             dynamic=None, time_block=None, sigma_conf_scale=None,
-            propagate=None, **stan_kwargs):
+            propagate=None, conf_strength=None, **stan_kwargs):
         """Sample the Stan model on training frame `m` and adopt posterior
         means. `elo`/`elo_tau` are accepted for a uniform call signature with
         DixonColes.fit but ignored (the Bayesian engine has no external prior).
@@ -135,6 +135,22 @@ class BayesianDixonColes(DixonColes):
         conf = np.array([conf_id.get(confs.get(t), 0) for t in teams], int)
         self.conf = {t: confs.get(t) for t in teams}
 
+        # Informative confederation-offset prior MEANS (default zero = the
+        # zero-mean model). conf_strength maps a bloc to a net strength offset
+        # s_c (zero-sum, in log-rate units); it is split +s/2 onto the attack
+        # mean and -s/2 onto the defence mean (a stronger bloc scores more and
+        # concedes less in equal measure), so the prior pulls a poorly-bridged
+        # bloc toward its empirically-anchored level instead of toward 0.
+        mu_atk_conf = np.zeros(len(conf_names))
+        mu_dfn_conf = np.zeros(len(conf_names))
+        if conf_strength:
+            for c, s in conf_strength.items():
+                if c in conf_id:
+                    k = conf_id[c] - 1
+                    mu_atk_conf[k] = 0.5 * s
+                    mu_dfn_conf[k] = -0.5 * s
+        self.conf_strength = conf_strength
+
         data = {
             "N": len(hi), "T": n, "C": len(conf_names),
             "hi": (hi + 1).tolist(), "ai": (ai + 1).tolist(),
@@ -142,6 +158,8 @@ class BayesianDixonColes(DixonColes):
             "ag": np.round(ag).astype(int).tolist(),
             "hadv": hadv.tolist(), "conf": conf.tolist(),
             "sigma_conf_scale": float(sigma_conf_scale),
+            "mu_atk_conf": mu_atk_conf.tolist(),
+            "mu_dfn_conf": mu_dfn_conf.tolist(),
         }
 
         if dynamic:

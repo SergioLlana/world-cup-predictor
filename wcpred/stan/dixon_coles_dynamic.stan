@@ -41,6 +41,8 @@ data {
   vector<lower=0, upper=1>[N] hadv;        // 1 if the home side plays at home
   array[T] int<lower=0, upper=C> conf;     // team confederation (0 = unknown)
   real<lower=0> sigma_conf_scale;          // half-normal prior scale on sigma_conf
+  vector[C] mu_atk_conf;                   // informative prior MEAN per bloc offset
+  vector[C] mu_dfn_conf;                   // (all 0 = today's zero-mean model)
 }
 
 transformed data {
@@ -106,8 +108,8 @@ model {
     to_vector(atk_z[, 2:B]) ~ std_normal();
     to_vector(dfn_z[, 2:B]) ~ std_normal();
   }
-  atk_conf ~ normal(0, sigma_conf);
-  dfn_conf ~ normal(0, sigma_conf);
+  atk_conf ~ normal(mu_atk_conf, sigma_conf);
+  dfn_conf ~ normal(mu_dfn_conf, sigma_conf);
   sigma_atk ~ normal(0, 1);                 // half-normal (lower=0)
   sigma_dfn ~ normal(0, 1);
   sigma_rw_atk ~ normal(0, 0.2);            // half-normal: smooth evolution by default

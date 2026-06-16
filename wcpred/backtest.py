@@ -95,6 +95,59 @@ def _pool_metrics(results):
     }
 
 
+WEAK_BLOCS = ("AFC", "OFC", "CONCACAF", "CAF")  # the thinly-bridged blocs
+
+
+def elo_conf_strength(m, df, as_of, longterm_years=None, cap=None, only=None):
+    """Empirical informative prior MEANS for the Bayesian confederation offsets.
+
+    The zero-mean offset prior says "no bloc is stronger absent bridge
+    evidence" — exactly where the AFC/OFC schedule-inflation bias lives. This
+    derives a non-zero per-bloc mean from a *globally connected* rating (the
+    in-house Elo, which propagates across confederations through the iterative
+    update), so the prior pulls a poorly-bridged bloc toward its Elo-anchored
+    level. Returns ``{confederation: net_strength_offset}`` (zero-sum, log-rate
+    units) to feed ``BayesianDixonColes.fit(conf_strength=...)``.
+
+    Magnitude is auto-calibrated, no free knob: fit a plain Dixon-Coles on the
+    same frame, take each team's strength = atk - dfn, regress it on the team's
+    Elo to get the log-rate-per-Elo slope ``beta``, then map each bloc's mean
+    Elo gap vs the global mean through ``beta``.
+
+    ``cap`` (optional) winsorises every offset to ``[-cap, cap]`` — tames the
+    bloc-composition spike (a small all-strong bloc like CONMEBOL towers over
+    the minnow-laden global mean) while keeping the empirical ordering.
+    ``only`` (optional) restricts the offsets to a set of blocs (the others get
+    a 0 prior mean, i.e. stay data-driven) — e.g. pull down only the
+    thinly-bridged blocs without touching UEFA/CONMEBOL.
+    """
+    from .model_elo import EloHistory
+    dc = DixonColes().fit(m)
+    strength = {t: float(dc.atk[i] - dc.dfn[i]) for t, i in dc.idx.items()}
+    raw = df[(df["date"] >= pd.Timestamp(ELO_TRAIN_START))
+             & (df["date"] < pd.Timestamp(as_of))]
+    ratings, _, _ = EloHistory(raw).at(
+        as_of, ELO_LONGTERM_YEARS if longterm_years is None else longterm_years)
+    confs = infer_confederations(m)
+    teams = [t for t in strength if t in ratings and t in confs]
+    if len(teams) < 5:
+        return {}
+    elo = np.array([ratings[t] for t in teams])
+    st = np.array([strength[t] for t in teams])
+    beta = float(np.polyfit(elo, st, 1)[0])      # log-rate per Elo point
+    global_elo = elo.mean()
+    blocs = sorted(set(confs[t] for t in teams))
+    s = {c: beta * (np.mean([ratings[t] for t in teams if confs[t] == c])
+                    - global_elo) for c in blocs}
+    shift = np.mean(list(s.values()))            # zero-sum across blocs
+    s = {c: v - shift for c, v in s.items()}
+    if only is not None:
+        s = {c: v for c, v in s.items() if c in only}
+    if cap is not None:
+        s = {c: max(-cap, min(cap, v)) for c, v in s.items()}
+    return s
+
+
 def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              xg_alpha=None, scoring=SCORING_MODE, audit=None,
              anchor_beta=CONF_ANCHOR_BETA,
@@ -102,6 +155,7 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              elo_tau=ELO_PRIOR_TAU, elo_path=ELO_PATH, engine="dc",
              dynamic=False, time_block=None,
              sigma_conf_scale=BAYES_SIGMA_CONF_SCALE, propagate=False,
+             informed_conf=False, bayes_seed=2026,
              elo_conf_k=None, elo_longterm_years=None, elo_ha=None,
              **train_kw):
     """Score every match of a past tournament.
@@ -151,9 +205,9 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
         if elo_tau or anchor_beta:
             raise ValueError("elo_tau/anchor_beta are MLE-engine knobs; "
                              "they have no effect under engine='bayes'")
-    elif dynamic or propagate:
-        raise ValueError("dynamic=True/propagate=True only apply to "
-                         "engine='bayes'")
+    elif dynamic or propagate or informed_conf:
+        raise ValueError("dynamic=True/propagate=True/informed_conf=True only "
+                         "apply to engine='bayes'")
     if engine == "elo" and (elo_tau or anchor_beta):
         raise ValueError("elo_tau/anchor_beta are MLE-engine knobs; they have "
                          "no effect under engine='elo' (it trains its own Elo)")
@@ -192,9 +246,15 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
             tm = prepare_training(df, cutoff, xg_path=xg_path, **kw)
             if engine == "bayes":
                 from .model_bayes import BayesianDixonColes
+                cs = None
+                if informed_conf:
+                    cap = 0.4 if informed_conf == "capped" else None
+                    only = WEAK_BLOCS if informed_conf == "weak" else None
+                    cs = elo_conf_strength(tm, df, cutoff, cap=cap, only=only)
                 model = BayesianDixonColes().fit(
                     tm, dynamic=dynamic, time_block=time_block,
-                    sigma_conf_scale=sigma_conf_scale, propagate=propagate)
+                    sigma_conf_scale=sigma_conf_scale, propagate=propagate,
+                    conf_strength=cs, seed=bayes_seed)
             elif engine == "elo":
                 from .model_elo import EloDixonColes
                 model = EloDixonColes().fit(
