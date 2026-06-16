@@ -19,7 +19,9 @@ import pandas as pd
 from .anchor import anchor_model
 from .backtest import (TOURNAMENTS, backtest, bridge_audit, elo_report, tune,
                        tune_elo)
-from .config import (BAYES_DYNAMIC, BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
+from .config import (BAYES_CONNECT_MODE, BAYES_CONNECT_REF,
+                     BAYES_CONNECT_SHRINK, BAYES_DYNAMIC,
+                     BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
                      BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_HA,
                      ELO_LONGTERM_YEARS, ELO_PATH, ELO_PRIOR_TAU, GROUPS_DIR,
                      ODDS_WEIGHT, PREDICTIONS_DIR, RANKINGS_DIR, RESULTS_PATH,
@@ -66,11 +68,17 @@ def build_model(df, args):
         model = BayesianDixonColes().fit(train, dynamic=args.bayes_dynamic,
                                          time_block=args.bayes_block,
                                          sigma_conf_scale=args.bayes_sigma_conf,
-                                         propagate=args.bayes_propagate)
+                                         propagate=args.bayes_propagate,
+                                         connect_shrink=args.bayes_connect,
+                                         connect_ref=args.bayes_connect_ref,
+                                         connect_mode=args.bayes_connect_mode)
         mode = (f"dynamic random-walk, block={args.bayes_block}"
                 if args.bayes_dynamic else "static decay weights")
         if args.bayes_propagate:
             mode += ", posterior propagation"
+        if args.bayes_connect:
+            mode += (f", connectivity {args.bayes_connect_mode} shrinkage "
+                     f"(ref={args.bayes_connect_ref})")
         print(f"Bayesian model sampled on {len(train)} matches "
               f"({mode}; as of {args.as_of}, xG={'yes' if xg else 'no'})")
         return model
@@ -78,6 +86,8 @@ def build_model(df, args):
         sys.exit("--bayes-dynamic only applies to --engine bayes")
     if getattr(args, "bayes_propagate", False):
         sys.exit("--bayes-propagate only applies to --engine bayes")
+    if getattr(args, "bayes_connect", False):
+        sys.exit("--bayes-connect only applies to --engine bayes")
     if getattr(args, "engine", "dc") == "elo":
         # The Elo engine trains its own anchor; the MLE-only external knobs and
         # the bayes flags do not apply.
@@ -270,9 +280,10 @@ def cmd_backtest(args):
     if args.engine == "bayes" and (args.elo_tau or args.anchor_beta):
         sys.exit("--elo-tau / --anchor-beta are MLE-engine knobs; they have no "
                  "effect under --engine bayes")
-    if args.engine != "bayes" and (args.bayes_dynamic or args.bayes_propagate):
-        sys.exit("--bayes-dynamic / --bayes-propagate only apply to "
-                 "--engine bayes")
+    if args.engine != "bayes" and (args.bayes_dynamic or args.bayes_propagate
+                                   or args.bayes_connect):
+        sys.exit("--bayes-dynamic / --bayes-propagate / --bayes-connect only "
+                 "apply to --engine bayes")
     if args.engine == "elo" and (args.elo_tau or args.anchor_beta):
         sys.exit("--elo-tau / --anchor-beta are MLE-engine knobs; they have no "
                  "effect under --engine elo (it trains its own Elo)")
@@ -288,7 +299,9 @@ def cmd_backtest(args):
                      engine=args.engine, dynamic=args.bayes_dynamic,
                      time_block=args.bayes_block,
                      sigma_conf_scale=args.bayes_sigma_conf,
-                     propagate=args.bayes_propagate)
+                     propagate=args.bayes_propagate,
+                     connect_shrink=args.bayes_connect,
+                     connect_ref=args.bayes_connect_ref)
         print(f"Backtest {r['tournament']} ({args.scoring}): "
               f"{r['points']:.1f} pts in "
               f"{r['matches']} matches ({r['points_per_match']:.2f}/match) | "
@@ -417,6 +430,25 @@ def main():
                              "Dixon-Coles matrices (full posterior propagation) "
                              "instead of plugging in the posterior-mean ratings "
                              "(default: off)")
+        sp.add_argument("--bayes-connect", action="store_true",
+                        default=BAYES_CONNECT_SHRINK,
+                        help="Phase C: under --engine bayes, scale each team's "
+                             "confederation offset by its bridge-match share so "
+                             "weakly-connected teams (AFC/OFC minnows) anchor to "
+                             "the global scale instead of their bloc's level "
+                             "(default: off; static only)")
+        sp.add_argument("--bayes-connect-ref", type=float,
+                        default=BAYES_CONNECT_REF,
+                        help="bridge share earning the full confederation offset "
+                             "for --bayes-connect: c = min(1, share/ref) "
+                             "(default: %(default)s)")
+        sp.add_argument("--bayes-connect-mode",
+                        choices=("offset", "deviation"),
+                        default=BAYES_CONNECT_MODE,
+                        help="what --bayes-connect scales: 'offset' (A, anchor "
+                             "isolated teams toward the global scale; rejected) "
+                             "or 'deviation' (B, partial-pool them toward the "
+                             "bloc mean) (default: %(default)s)")
         sp.add_argument("--odds", help="odds CSV (home_team,away_team,"
                                        "odds_1,odds_X,odds_2)")
         sp.add_argument("--xg", help="xG CSV (date,home_team,away_team,"

@@ -151,6 +151,63 @@ ARG−ESP, top-20 sensato.
   cae al path heredado, byte a byte idéntico). Componible con A o B1. Veredicto
   en la sub-fase B2 de `docs/model-robustness-plan.md`.
 
+## Fase C — encogimiento por conectividad (RECHAZADA, 2026-06-16)
+
+Motivación (caso Australia, `docs/known-limitations.md`): el offset uniforme de
+confederación de la Fase A está fijado casi por completo por los partidos puente
+de la **élite** del bloque (sólo Japón/Australia/Corea juegan fuera de la AFC) y
+se aplica por igual a los minnows aislados. La hipótesis: ponderar lo que cada
+equipo hereda de su bloque por su **bridge share** (cuota de peso de partidos
+inter-confederación; `confederations.bridge_share`, los mismos pesos `w` que
+ajusta el modelo) — un equipo bien conectado libre, uno aislado anclado. Mapeo
+`c = min(1, bridge_share / BAYES_CONNECT_REF)` (ref=0.4). Dos formulaciones,
+ambas opt-in `--bayes-connect` (estáticas, default-off, archivo `.stan` aparte
+para no tocar el modelo de producción; `--bayes-connect-mode`):
+
+- **A — `offset` (`stan/dixon_coles_connect.stan`):**
+  `atk[t] = c[t]·atk_conf + σ_atk·atk_raw` — atenúa el offset hacia la escala
+  global (0). **RECHAZADA, contraproducente.** El offset de un bloque débil es
+  **negativo** (AFC ≈ −0.54), así que atenuarlo hacia 0 *sube* al bloque:
+  Australia #28→#20, Japón #16→#9, Irán #30→#18, AFC media −0.54→−0.34; y en los
+  bloques fuertes (UEFA, offset positivo) *baja* a outliers legítimos poco
+  puenteados (España #2→#3, Inglaterra). Exactamente al revés del objetivo.
+- **B — `deviation` (`stan/dixon_coles_connect_dev.stan`):**
+  `atk[t] = atk_conf + σ_atk·c[t]·atk_raw` — partial pooling clásico: encoge la
+  desviación del equipo aislado hacia la **media de su bloque** (no hacia 0),
+  preservando el offset. **RECHAZADA, no cumple el objetivo.** Más limpia que A
+  (preserva outliers: España #2, UEFA +0.78→+0.82; los minnows AFC sí van hacia
+  su media: Laos #231→#198, Bhutan #241→#230), pero **tampoco baja a Australia**
+  (#28→#21).
+
+**Diagnóstico raíz (por qué el bridge share es el predictor equivocado):**
+Australia **no es un equipo poco conectado** — su bridge share es **0.47**, de
+los más altos de la AFC (Japón 0.49, Corea 0.47). Lo que la infla no es la
+*cantidad* de puentes sino su *dificultad*: sus puentes son Nueva Zelanda ×5
+(OFC), Curaçao 5-1, Canadá, Camerún, Túnez, y sólo pierde con los muy top (3-7-2
+vs UEFA/CONMEBOL fuertes). Por eso **ningún** encogimiento por bridge share —ni
+A ni B— la toca; A incluso la premia por su alta conectividad. El predictor que
+sí la separa es la **dificultad media de rivales** (`opp_rating`, la AFC sale
+plana y baja), no la conectividad. Una Fase C' tendría que escalar por
+`opp_rating` (o comprimir la escala intra-bloque), no por bridge share.
+
+Métricas backtest (6 torneos, 290 partidos, `--static --engine bayes`):
+
+| config | puntos Penka | RPS | log-loss |
+|---|---|---|---|
+| base bayes | **605** | **0.1905** | **2.7732** |
+| B (`deviation`) | 581 | 0.1932 | 2.7950 |
+
+B es **peor en las tres** métricas, con el daño concentrado en **wc2022**
+(102→88 pts, RPS 0.2139→0.2229) — el torneo más cargado de AFC, justo el bloque
+que B distorsiona. (A no se backtestea: los rankings ya la muestran
+contraproducente y además daña outliers UEFA.) El base 605 confirma de paso la
+regenerabilidad: con el knob off se usa el path estático intacto.
+
+Knobs (todos default-off; el bayes de producción se regenera idéntico — usa el
+path estático sin `conf_w`): `BAYES_CONNECT_SHRINK`, `BAYES_CONNECT_REF`,
+`BAYES_CONNECT_MODE` (`config.py`); `--bayes-connect` / `--bayes-connect-ref` /
+`--bayes-connect-mode` (`cli.py`). Helper `confederations.bridge_share`.
+
 ## Verificación end-to-end
 
 ```bash

@@ -42,14 +42,20 @@ import os
 import numpy as np
 from scipy.stats import poisson
 
-from .config import (BAYES_DYNAMIC, BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
-                     BAYES_TIME_BLOCK, MAX_GOALS)
-from .confederations import infer_confederations
+from .config import (BAYES_CONNECT_MODE, BAYES_CONNECT_REF,
+                     BAYES_CONNECT_SHRINK, BAYES_DYNAMIC, BAYES_PROPAGATE,
+                     BAYES_SIGMA_CONF_SCALE, BAYES_TIME_BLOCK, MAX_GOALS)
+from .confederations import bridge_share, infer_confederations
 from .model import DixonColes
 
 _STAN_DIR = os.path.join(os.path.dirname(__file__), "stan")
 _STAN_STATIC = os.path.join(_STAN_DIR, "dixon_coles.stan")
 _STAN_DYNAMIC = os.path.join(_STAN_DIR, "dixon_coles_dynamic.stan")
+# Phase C connectivity-shrinkage variants, keyed by config.BAYES_CONNECT_MODE.
+_STAN_CONNECT = {
+    "offset": os.path.join(_STAN_DIR, "dixon_coles_connect.stan"),
+    "deviation": os.path.join(_STAN_DIR, "dixon_coles_connect_dev.stan"),
+}
 
 # Integer block key per match date for the dynamic random-walk's time blocks
 # (pandas to_period multipliers like "2Q" do not aggregate, so derive the key
@@ -84,7 +90,8 @@ class BayesianDixonColes(DixonColes):
     def fit(self, m, chains=4, iter_warmup=500, iter_sampling=500, seed=2026,
             adapt_delta=0.9, show_progress=False, elo=None, elo_tau=0.0,
             dynamic=None, time_block=None, sigma_conf_scale=None,
-            propagate=None, conf_strength=None, **stan_kwargs):
+            propagate=None, conf_strength=None, connect_shrink=None,
+            connect_ref=None, connect_mode=None, **stan_kwargs):
         """Sample the Stan model on training frame `m` and adopt posterior
         means. `elo`/`elo_tau` are accepted for a uniform call signature with
         DixonColes.fit but ignored (the Bayesian engine has no external prior).
@@ -104,8 +111,17 @@ class BayesianDixonColes(DixonColes):
         score-matrix treatment (Phase B2): False = plug-in posterior means (the
         inherited score_matrix, today's bayes model exactly); True = full
         posterior propagation, where score_matrix averages the per-draw
-        Dixon-Coles matrices. Extra `stan_kwargs` pass through to
-        `CmdStanModel.sample`.
+        Dixon-Coles matrices.
+
+        connect_shrink (resolved from config.BAYES_CONNECT_SHRINK when None) is
+        Phase C: when True, a per-team connectivity weight c = min(1, bridge
+        share / connect_ref) gates how much of a quantity a weakly-bridged team
+        gets, via a separate Stan file. connect_mode (config.BAYES_CONNECT_MODE)
+        picks the quantity: "offset" (formulation A) scales the confederation
+        offset (anchor toward the global scale); "deviation" (formulation B)
+        scales the team's own deviation (partial pooling toward the bloc mean).
+        connect_ref is config.BAYES_CONNECT_REF. Static only — not combinable
+        with dynamic. Extra `stan_kwargs` pass through to `CmdStanModel.sample`.
         """
         if dynamic is None:
             dynamic = BAYES_DYNAMIC
@@ -115,6 +131,18 @@ class BayesianDixonColes(DixonColes):
             sigma_conf_scale = BAYES_SIGMA_CONF_SCALE
         if propagate is None:
             propagate = BAYES_PROPAGATE
+        if connect_shrink is None:
+            connect_shrink = BAYES_CONNECT_SHRINK
+        if connect_ref is None:
+            connect_ref = BAYES_CONNECT_REF
+        if connect_mode is None:
+            connect_mode = BAYES_CONNECT_MODE
+        if connect_shrink and dynamic:
+            raise ValueError("connect_shrink (Phase C) is static only; it does "
+                             "not combine with dynamic random-walk strengths")
+        if connect_shrink and connect_mode not in _STAN_CONNECT:
+            raise ValueError(f"unknown connect_mode {connect_mode!r}; choose "
+                             f"from {sorted(_STAN_CONNECT)}")
 
         teams = sorted(set(m["home_team"]) | set(m["away_team"]))
         self.idx = {t: i for i, t in enumerate(teams)}
@@ -178,6 +206,20 @@ class BayesianDixonColes(DixonColes):
             self.blocks = blocks
             data.update(B=len(blocks), tb=tb.tolist(),
                         w=np.ones(len(hi)).tolist())
+        elif connect_shrink:
+            # Phase C: gate a quantity by each team's bridge-match share, mapped
+            # through connect_ref. c = 1 (full) at/above the reference share,
+            # attenuating to 0 for isolated teams. connect_mode picks the
+            # quantity: "offset" (A, anchor toward the global scale) or
+            # "deviation" (B, partial pooling toward the bloc mean). Static
+            # decay weights.
+            stan_file = _STAN_CONNECT[connect_mode]
+            data["w"] = m["w"].to_numpy(float).tolist()
+            share = bridge_share(m, confs)
+            conf_w = np.clip(
+                [share.get(t, 0.0) / connect_ref for t in teams], 0.0, 1.0)
+            data["conf_w"] = conf_w.tolist()
+            self.conf_w = {t: float(c) for t, c in zip(teams, conf_w)}
         else:
             stan_file = _STAN_STATIC
             data["w"] = m["w"].to_numpy(float).tolist()
@@ -210,6 +252,8 @@ class BayesianDixonColes(DixonColes):
         self.rho_draws = rho_draws            # (draws,)
         self.dynamic = dynamic
         self.propagate = propagate
+        self.connect_shrink = connect_shrink
+        self.connect_mode = connect_mode if connect_shrink else None
         self._mcmc = mcmc   # kept for diagnostics
         return self
 

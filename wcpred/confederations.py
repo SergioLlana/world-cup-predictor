@@ -70,3 +70,31 @@ def cross_conf_mask(matches, confs):
     hc = matches["home_team"].map(confs)
     ac = matches["away_team"].map(confs)
     return hc.notna() & ac.notna() & (hc != ac)
+
+
+def bridge_share(matches, confs, weight_col="w"):
+    """{team: fraction of its training weight from inter-confederation matches}.
+
+    A "bridge" match (both confederations known and different) is the only kind
+    of game that anchors a team to the *global* rating scale; intra-confederation
+    games only fix a team's level relative to its own pool. So this share
+    measures how well-connected — and thus how trustworthy in absolute terms — a
+    team's rating is (the `model_bayes` Phase-C connectivity-weighted offset
+    shrinkage scales each team's confederation offset by it). Teams with no
+    bridge weight get 0.0. `weight_col` selects the per-match weight column (the
+    same time-decay `w` the model fits on); equal weights are used when absent.
+
+    Mirrors the per-team `bridge_share` of `webapp/server.py:_connectivity`.
+    """
+    w = (matches[weight_col].astype(float) if weight_col in matches.columns
+         else pd.Series(1.0, index=matches.index))
+    bridge = cross_conf_mask(matches, confs)
+    long = pd.concat([
+        pd.DataFrame({"team": matches["home_team"], "w": w,
+                      "bw": w * bridge.astype(float)}),
+        pd.DataFrame({"team": matches["away_team"], "w": w,
+                      "bw": w * bridge.astype(float)}),
+    ])
+    g = long.groupby("team")
+    share = (g["bw"].sum() / g["w"].sum()).fillna(0.0)
+    return share.to_dict()

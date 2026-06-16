@@ -102,6 +102,43 @@ BAYES_PROPAGATE = False        # Phase B2 (docs/bayesian-confederation-plan.md):
                                # False = plug-in means (today's bayes model
                                # exactly); opt-in via --bayes-propagate. No effect
                                # under --engine dc.
+BAYES_CONNECT_SHRINK = False   # Phase C (docs/bayesian-confederation-plan.md):
+                               # connectivity-weighted offset shrinkage. Scale
+                               # each team's confederation offset by its bridge-
+                               # match share (confederations.bridge_share), so a
+                               # weakly-connected team (the AFC/OFC minnows that
+                               # never play outside their pool) stops inheriting
+                               # its bloc's level and anchors to the global scale
+                               # instead — the Australia-inflation fix the uniform
+                               # offset cannot reach (the uniform offset is pinned
+                               # by the bloc ELITE's bridges and applied to all).
+                               # False = today's bayes model (every team gets the
+                               # FULL offset). Opt-in via --bayes-connect; uses a
+                               # separate Stan file (dixon_coles_connect.stan) so
+                               # the default model stays byte-regenerable. Static
+                               # only (no --bayes-dynamic). No effect under
+                               # --engine dc.
+BAYES_CONNECT_REF = 0.4        # bridge share at which a team earns the FULL
+                               # confederation offset/deviation: c = min(1,
+                               # share / ref). Teams below it are attenuated
+                               # proportionally. Lower = more teams fully trusted.
+                               # Only used when BAYES_CONNECT_SHRINK; sweep via
+                               # --bayes-connect-ref.
+BAYES_CONNECT_MODE = "offset"  # which quantity the connectivity weight c scales
+                               # (only used when BAYES_CONNECT_SHRINK):
+                               #   "offset"    (formulation A,
+                               #                dixon_coles_connect.stan): scale
+                               #                the confederation OFFSET — isolated
+                               #                teams anchor toward the global
+                               #                scale. REJECTED: a weak bloc's
+                               #                offset is negative, so attenuating
+                               #                it toward 0 raises that bloc.
+                               #   "deviation" (formulation B,
+                               #                dixon_coles_connect_dev.stan):
+                               #                scale the team's own DEVIATION —
+                               #                isolated teams are pulled toward
+                               #                their confederation mean (partial
+                               #                pooling). Set via --bayes-connect-mode.
 
 # --- Elo engine (--engine elo) ---
 # An in-house Elo trained on results.csv (NOT scraped — distinct from the

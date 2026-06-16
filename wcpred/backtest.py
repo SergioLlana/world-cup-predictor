@@ -155,7 +155,8 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              elo_tau=ELO_PRIOR_TAU, elo_path=ELO_PATH, engine="dc",
              dynamic=False, time_block=None,
              sigma_conf_scale=BAYES_SIGMA_CONF_SCALE, propagate=False,
-             informed_conf=False, bayes_seed=2026,
+             informed_conf=False, connect_shrink=False, connect_ref=None,
+             connect_mode=None, bayes_seed=2026,
              elo_conf_k=None, elo_longterm_years=None, elo_ha=None,
              **train_kw):
     """Score every match of a past tournament.
@@ -197,6 +198,10 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     propagate=True (Phase B2, bayes only) builds each match's score matrix as
     the posterior mean of the per-draw Dixon-Coles matrices (full posterior
     propagation) instead of plugging in the posterior-mean ratings.
+
+    connect_shrink=True (Phase C, bayes only) scales each team's confederation
+    offset by its bridge-match share (connect_ref = the share earning the full
+    offset), anchoring weakly-connected teams to the global scale. Static only.
     """
     if engine == "bayes":
         if rolling:
@@ -205,9 +210,9 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
         if elo_tau or anchor_beta:
             raise ValueError("elo_tau/anchor_beta are MLE-engine knobs; "
                              "they have no effect under engine='bayes'")
-    elif dynamic or propagate or informed_conf:
-        raise ValueError("dynamic=True/propagate=True/informed_conf=True only "
-                         "apply to engine='bayes'")
+    elif dynamic or propagate or informed_conf or connect_shrink:
+        raise ValueError("dynamic=True/propagate=True/informed_conf=True/"
+                         "connect_shrink=True only apply to engine='bayes'")
     if engine == "elo" and (elo_tau or anchor_beta):
         raise ValueError("elo_tau/anchor_beta are MLE-engine knobs; they have "
                          "no effect under engine='elo' (it trains its own Elo)")
@@ -254,7 +259,9 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
                 model = BayesianDixonColes().fit(
                     tm, dynamic=dynamic, time_block=time_block,
                     sigma_conf_scale=sigma_conf_scale, propagate=propagate,
-                    conf_strength=cs, seed=bayes_seed)
+                    conf_strength=cs, connect_shrink=connect_shrink,
+                    connect_ref=connect_ref, connect_mode=connect_mode,
+                    seed=bayes_seed)
             elif engine == "elo":
                 from .model_elo import EloDixonColes
                 model = EloDixonColes().fit(

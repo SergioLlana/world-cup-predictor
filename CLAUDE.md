@@ -93,7 +93,13 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   half-normal prior whose scale is a tunable knob (`--bayes-sigma-conf` /
   `BAYES_SIGMA_CONF_SCALE`, default 0.5 = today's model; the Phase 4
   tight-`sigma_conf` sensitivity — shrink toward 0 to pin the bloc offsets near
-  0). Needs the `.[bayes]` extra + CmdStan. See `docs/
+  0). Phase C (`--bayes-connect`, `BAYES_CONNECT_SHRINK/_REF/_MODE`, separate
+  `stan/dixon_coles_connect{,_dev}.stan`) scales each team's confederation
+  offset (`mode=offset`, formulation A) or own deviation (`mode=deviation`, B)
+  by its bridge-match share (`confederations.bridge_share`) — both REJECTED
+  (2026-06-16): Australia is schedule-difficulty inflated, not connectivity-
+  starved (its bridge share is high), so neither lowers it; kept default-off.
+  Needs the `.[bayes]` extra + CmdStan. See `docs/
   bayesian-confederation-plan.md`.
 - `model_elo.py` — `EloDixonColes`, an in-house Elo engine (opt-in
   `--engine elo`; default stays `dc`). Trains its OWN Elo on `results.csv` via
