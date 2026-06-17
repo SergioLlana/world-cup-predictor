@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wcpred — White paper: motor Elo, validación y limitaciones</title>
+<meta name="description" content="White paper técnico de wcpred (motor Elo): un Elo propio calibrado a un modelo de goles Dixon-Coles, orientado a puntos esperados Penka para el Mundial 2026 — formulación, validación y limitaciones conocidas.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper:    #f7f2e7;
+  --paper-2:  #efe8d8;
+  --ink:      #1c2419;
+  --ink-soft: #4a5244;
+  --pitch:    #1c5e38;
+  --pitch-2:  #2c7a4b;
+  --clay:     #a33b2e;
+  --gold:     #b08a2e;
+  --rule:     #cdc4ae;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  --serif: "Newsreader", Georgia, serif;
+  --display: "Fraunces", Georgia, serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(28,94,56,.06), transparent 60%),
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(28,36,25,.012) 2px 4px);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 18.5px;
+  line-height: 1.62;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- masthead ---------- */
+header.masthead {
+  border-bottom: 3px double var(--rule);
+  padding: 3.2rem 1.5rem 2.4rem;
+  text-align: center;
+  position: relative;
+}
+.kicker {
+  font-family: var(--mono);
+  font-size: .72rem;
+  letter-spacing: .32em;
+  text-transform: uppercase;
+  color: var(--pitch);
+  margin-bottom: 1.4rem;
+}
+.kicker::before, .kicker::after { content: "—"; color: var(--rule); margin: 0 .8em; }
+h1.title {
+  font-family: var(--display);
+  font-weight: 560;
+  font-size: clamp(2.1rem, 5.4vw, 3.6rem);
+  line-height: 1.08;
+  letter-spacing: -.015em;
+  margin: 0 auto .9rem;
+  max-width: 21ch;
+}
+h1.title em { font-style: italic; color: var(--pitch); }
+.subtitle {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: clamp(1.02rem, 2.4vw, 1.25rem);
+  color: var(--ink-soft);
+  max-width: 52ch;
+  margin: 0 auto 1.8rem;
+}
+.byline {
+  font-family: var(--mono);
+  font-size: .78rem;
+  color: var(--ink-soft);
+  display: flex; gap: 2.2rem; justify-content: center; flex-wrap: wrap;
+}
+.byline b { color: var(--ink); font-weight: 500; }
+
+/* ---------- layout ---------- */
+main { max-width: 47rem; margin: 0 auto; padding: 0 1.4rem 6rem; }
+section { margin-top: 4.2rem; }
+h2 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.72rem;
+  line-height: 1.18;
+  margin: 0 0 1.1rem;
+  display: flex; align-items: baseline; gap: .8rem;
+}
+h2 .secno {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: .95rem;
+  color: var(--pitch);
+  flex: none;
+}
+h3 {
+  font-family: var(--display);
+  font-weight: 560;
+  font-size: 1.18rem;
+  margin: 2.2rem 0 .6rem;
+}
+p { margin: 0 0 1.05rem; }
+a { color: var(--pitch); text-decoration-color: rgba(28,94,56,.35); text-underline-offset: 3px; }
+strong { font-weight: 640; }
+code, .mono {
+  font-family: var(--mono);
+  font-size: .82em;
+  background: var(--paper-2);
+  padding: .1em .35em;
+  border-radius: 3px;
+}
+ul, ol { padding-left: 1.4rem; margin: 0 0 1.05rem; }
+li { margin-bottom: .45rem; }
+
+/* abstract */
+.abstract {
+  margin: 3.4rem auto 0;
+  padding: 1.6rem 1.8rem;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  font-size: .98rem;
+}
+.abstract .lbl {
+  font-family: var(--mono); font-size: .7rem; letter-spacing: .28em;
+  text-transform: uppercase; color: var(--pitch); display: block; margin-bottom: .7rem;
+}
+.abstract p:first-of-type::first-letter {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 3.1em;
+  float: left;
+  line-height: .82;
+  padding: .06em .12em 0 0;
+  color: var(--pitch);
+}
+
+/* TOC */
+nav.toc {
+  margin-top: 2.6rem;
+  columns: 2; column-gap: 2.5rem;
+  font-size: .92rem;
+}
+nav.toc a {
+  display: flex; gap: .7rem; align-items: baseline;
+  text-decoration: none; color: var(--ink);
+  padding: .32rem 0; border-bottom: 1px dotted var(--rule);
+  break-inside: avoid;
+}
+nav.toc a:hover { color: var(--pitch); }
+nav.toc .n { font-family: var(--mono); font-size: .74rem; color: var(--pitch); flex: none; }
+@media (max-width: 600px) { nav.toc { columns: 1; } }
+
+/* tables */
+figure { margin: 1.8rem 0 2rem; }
+figure > table { margin: 0 auto; }
+figcaption {
+  font-size: .84rem; color: var(--ink-soft); margin-top: .7rem;
+  text-align: center; font-style: italic; max-width: 56ch; margin-inline: auto;
+}
+figcaption b { font-style: normal; font-family: var(--mono); font-size: .78rem; color: var(--pitch); }
+table {
+  border-collapse: collapse;
+  font-size: .88rem;
+  width: 100%;
+}
+caption { display: none; }
+th, td { padding: .42rem .7rem; text-align: left; }
+thead th {
+  font-family: var(--mono); font-size: .7rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-soft); font-weight: 500;
+  border-bottom: 2px solid var(--ink);
+}
+tbody tr { border-bottom: 1px solid var(--rule); }
+tbody tr:last-child { border-bottom: 2px solid var(--ink); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: .8rem; }
+tr.hl td { background: rgba(28,94,56,.08); }
+.tbl-scroll { overflow-x: auto; }
+
+/* connectivity heatmap */
+table.heat { width: auto; margin: 0 auto; }
+table.heat th { font-family: var(--mono); font-size: .68rem; }
+table.heat tbody th { border: 0; text-align: right; color: var(--ink); }
+table.heat td {
+  text-align: center; font-family: var(--mono); font-size: .76rem;
+  min-width: 3.4rem; border: 2px solid var(--paper);
+}
+table.heat tbody tr { border: 0; }
+table.heat td.diag { font-weight: 600; }
+
+/* callouts */
+.note, .verdict {
+  margin: 1.8rem 0;
+  padding: 1.1rem 1.4rem;
+  font-size: .95rem;
+  border-left: 4px solid var(--pitch);
+  background: linear-gradient(90deg, rgba(28,94,56,.07), transparent 70%);
+}
+.verdict { border-color: var(--clay); background: linear-gradient(90deg, rgba(163,59,46,.07), transparent 70%); }
+.note .lbl, .verdict .lbl {
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .24em;
+  text-transform: uppercase; display: block; margin-bottom: .4rem;
+}
+.note .lbl { color: var(--pitch); }
+.verdict .lbl { color: var(--clay); }
+.note p:last-child, .verdict p:last-child { margin-bottom: 0; }
+
+/* status chips */
+.chip {
+  font-family: var(--mono); font-size: .66rem; letter-spacing: .1em;
+  text-transform: uppercase; padding: .14em .55em; border-radius: 99px;
+  white-space: nowrap; vertical-align: middle;
+}
+.chip.rej { background: rgba(163,59,46,.12); color: var(--clay); border: 1px solid rgba(163,59,46,.35); }
+.chip.ok  { background: rgba(28,94,56,.12); color: var(--pitch); border: 1px solid rgba(28,94,56,.35); }
+
+/* big stat band */
+.stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1px; background: var(--rule);
+  border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink);
+  margin: 2rem 0;
+}
+.stats > div { background: var(--paper); padding: 1.1rem 1rem .9rem; text-align: center; }
+.stats .v { font-family: var(--display); font-weight: 600; font-size: 1.9rem; color: var(--pitch); line-height: 1; }
+.stats .k { font-family: var(--mono); font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin-top: .5rem; }
+
+/* equation block */
+.eq {
+  font-family: var(--serif); font-style: italic; text-align: center;
+  margin: 1.6rem 0; font-size: 1.06rem; color: var(--ink);
+}
+.eq .tag { font-family: var(--mono); font-style: normal; font-size: .72rem; color: var(--ink-soft); float: right; }
+
+hr.sep {
+  border: 0; height: 1px; background: var(--rule);
+  margin: 3rem auto; width: 38%;
+  position: relative; overflow: visible;
+}
+hr.sep::after {
+  content: "⚽"; position: absolute; top: -0.72em; left: 50%; transform: translateX(-50%);
+  background: var(--paper); padding: 0 .7em; font-size: .8rem; filter: grayscale(.3);
+}
+
+footer {
+  border-top: 3px double var(--rule);
+  padding: 2.2rem 1.4rem 3.4rem;
+  text-align: center;
+  font-family: var(--mono); font-size: .74rem; color: var(--ink-soft);
+}
+
+@media print {
+  body { background: #fff; font-size: 11pt; }
+  header.masthead { padding-top: 1rem; }
+  nav.toc, hr.sep::after { display: none; }
+  section { break-inside: avoid-page; }
+}
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="kicker">White paper · wcpred · motor Elo</div>
+  <h1 class="title">Un <em>Elo propio</em> calibrado a un modelo de goles para el Mundial&nbsp;2026</h1>
+  <p class="subtitle">El motor <code>elo</code> de wcpred: formulación, validación y limitaciones conocidas</p>
+  <div class="byline">
+    <span>Proyecto <b>wcpred</b></span>
+    <span>Junio de 2026</span>
+    <span>motor <b>elo</b> (opcional)</span>
+  </div>
+</header>
+
+<main>
+
+<div class="abstract">
+  <span class="lbl">Resumen</span>
+  <p>El motor <code>elo</code> es una de las tres alternativas de wcpred para predecir marcadores del Mundial 2026 (junto a <a href="whitepaper_dc.html">Dixon-Coles</a>, el motor por defecto, y el <a href="whitepaper_bayes.html">bayesiano</a>). Funciona en dos pasos: primero calcula un <strong>Elo propio</strong> para cada selección recorriendo el historial de partidos internacionales desde 2006 con la regla pública de eloratings.net; después <strong>calibra un modelo de goles</strong> que convierte las diferencias de Elo en tasas de gol, con la misma corrección Dixon-Coles de marcadores bajos que el motor por defecto. De ahí salen las matrices de marcador con las que se elige la apuesta que <strong>maximiza los puntos esperados</strong> de la porra Penka. Igual que los demás motores, en predicción toma el 1X2 del mercado de apuestas y solo da forma a los marcadores. Validado con el mismo protocolo (reajuste por jornada sobre seis torneos, 290 partidos), la configuración por defecto anota <strong>587 puntos Penka (2,02/partido)</strong>: cerca del Dixon-Coles, algo por detrás. Comparte además su limitación estructural — las confederaciones poco conectadas quedan mal ancladas — aunque ofrece una palanca específica para mitigarla.</p>
+</div>
+
+<nav class="toc">
+  <a href="#problema"><span class="n">§1</span> El problema: optimizar puntos, no aciertos</a>
+  <a href="#modelo"><span class="n">§2</span> El motor Elo en dos pasos</a>
+  <a href="#datos"><span class="n">§3</span> Fuentes de datos y mezcla con el mercado</a>
+  <a href="#simulacion"><span class="n">§4</span> Del partido al torneo: Monte Carlo</a>
+  <a href="#validacion"><span class="n">§5</span> Validación: backtest con reajuste continuo</a>
+  <a href="#limitaciones"><span class="n">§6</span> Limitación principal: anclaje entre confederaciones</a>
+  <a href="#extensiones"><span class="n">§7</span> Las extensiones del motor y el tuning</a>
+  <a href="#otras"><span class="n">§8</span> Otras limitaciones</a>
+</nav>
+
+<section id="problema">
+  <h2><span class="secno">§1</span>El problema: optimizar puntos, no aciertos</h2>
+  <p>El objetivo no es pronosticar bien en abstracto, sino puntuar en una porra concreta. Penka paga en tres niveles — marcador exacto, diferencia de goles correcta (cualquier empate acertado cuenta), y ganador — con importes que crecen por fase:</p>
+  <figure>
+    <table>
+      <thead><tr><th>Resultado</th><th class="num">Grupos</th><th class="num">R32 y octavos</th><th class="num">Cuartos en adelante</th></tr></thead>
+      <tbody>
+        <tr><td>Marcador exacto</td><td class="num">5</td><td class="num">8</td><td class="num">11</td></tr>
+        <tr><td>Diferencia de goles o empate</td><td class="num">3</td><td class="num">5</td><td class="num">7</td></tr>
+        <tr><td>Solo el ganador</td><td class="num">2</td><td class="num">3</td><td class="num">5</td></tr>
+      </tbody>
+    </table>
+    <figcaption><b>Tabla 1.</b> Pagos Penka por fase (<code>config.PENKA_STAGE_POINTS</code>).</figcaption>
+  </figure>
+  <p>La consecuencia clave: <strong>la apuesta óptima no es el marcador más probable</strong>. Un 2-1 cobra el nivel intermedio también desde el 1-0 y el 3-2, porque comparten diferencia de goles; un 1-0, solo desde el 2-1 y el 3-2 entre los marcadores plausibles. El optimizador recorre la matriz completa de probabilidades de marcador <code>P[goles_local, goles_visitante]</code> (rejilla 0..8) y elige la celda con mayor valor esperado bajo el modo de puntuación y la fase del partido. Todo lo demás — el motor, las cuotas, la simulación — existe para estimar bien esa matriz. Lo que cambia entre los tres motores de wcpred es <em>cómo</em> se estima.</p>
+</section>
+
+<section id="modelo">
+  <h2><span class="secno">§2</span>El motor Elo en dos pasos</h2>
+  <p>El motor Dixon-Coles por defecto estima la fuerza de cada selección directamente de los goles. El motor <code>elo</code> añade un paso intermedio: primero resume la historia de cada equipo en un número — su Elo — y luego traduce las diferencias de Elo en goles esperados. La inspiración es doble: la metodología pública de <strong>eloratings.net</strong> y el modelo de <strong>EL&nbsp;PAÍS</strong>, que añade un Elo «de trayectoria histórica» como segunda variable.</p>
+
+  <h3>Paso 1 — un Elo propio desde 2006</h3>
+  <p>Se recorre cronológicamente cada partido internacional jugado desde 2006 y se actualiza el rating de los dos equipos con la regla clásica del Elo:</p>
+  <p class="eq">R<sub>nuevo</sub> = R<sub>viejo</sub> + K · g · (W − W<sub>e</sub>) <span class="tag">eloratings.net</span></p>
+  <p>donde <i>W</i> vale 1 por victoria, 0,5 por empate y 0 por derrota; <i>W<sub>e</sub></i> = 1/(10<sup>−dr/400</sup>+1) es el resultado esperado a partir de la diferencia de rating <i>dr</i> (más una <strong>ventaja de campo de 100&nbsp;puntos</strong> para el local cuando no juega en campo neutral); <i>g</i> amplía el ajuste cuando la victoria es por goleada (×1 si la diferencia es de un gol, ×1,5 si son dos, ×1,75 si son tres, y sigue creciendo); y <i>K</i> marca cuánto mueve cada partido el rating según su importancia:</p>
+  <figure>
+    <table>
+      <thead><tr><th>Tipo de partido</th><th class="num">K</th></tr></thead>
+      <tbody>
+        <tr><td>Mundial</td><td class="num">60</td></tr>
+        <tr><td>Finales continentales (Eurocopa, Copa América, AFCON…)</td><td class="num">50</td></tr>
+        <tr><td>Clasificatorios</td><td class="num">40</td></tr>
+        <tr><td>Otros oficiales</td><td class="num">30</td></tr>
+        <tr><td>Amistosos</td><td class="num">20</td></tr>
+      </tbody>
+    </table>
+    <figcaption><b>Tabla 2.</b> K por importancia del partido (<code>ELO_K_TIERS</code> / <code>ELO_K_FINALS</code>), igual que eloratings.net.</figcaption>
+  </figure>
+  <p>Cada equipo arranca en 1500 puntos. Además del Elo <em>actual</em>, se guarda un Elo <strong>de largo plazo</strong>: la mediana del rating del equipo en los últimos 10 años. Es una medida de prestigio histórico que tira hacia su nivel de fondo a las selecciones con un buen (o mal) momento puntual.</p>
+
+  <h3>Paso 2 — calibrar un modelo de goles</h3>
+  <p>El Elo dice quién es más fuerte, pero no cuántos goles caen. El segundo paso ajusta un modelo de goles — una Poisson ponderada con la misma corrección <i>rho</i> de marcadores bajos y el mismo decaimiento temporal que el motor Dixon-Coles — cuyas tasas dependen de las diferencias de Elo entre los dos equipos:</p>
+  <p class="eq">log λ<sub>local</sub> = β<sub>0</sub> + β<sub>h</sub>·𝟙<sub>casa</sub> + β<sub>e</sub>·Δelo + β<sub>lt</sub>·Δelo<sub>largo</sub></p>
+  <p class="eq">log λ<sub>visitante</sub> = β<sub>0</sub> − β<sub>e</sub>·Δelo − β<sub>lt</sub>·Δelo<sub>largo</sub></p>
+  <p>Δelo es la diferencia de Elo actual entre local y visitante (en centenas), Δelo<sub>largo</sub> la del Elo de largo plazo. Los cuatro coeficientes — la base β<sub>0</sub>, la ventaja de campo β<sub>h</sub>, y los pesos del Elo actual β<sub>e</sub> y del histórico β<sub>lt</sub> — se estiman por máxima verosimilitud sobre el historial ponderado, y luego se ajusta <i>rho</i>. El resultado es una matriz de marcadores idéntica en forma a la del motor por defecto, lista para el resto del pipeline.</p>
+  <figure>
+    <table>
+      <thead><tr><th>Parámetro</th><th class="num">Valor</th><th>Papel</th></tr></thead>
+      <tbody>
+        <tr><td><code>ELO_TRAIN_START</code></td><td class="num">2006</td><td>Desde dónde se itera el Elo.</td></tr>
+        <tr><td><code>ELO_BASE</code></td><td class="num">1500</td><td>Rating inicial de toda selección.</td></tr>
+        <tr><td><code>ELO_HA</code></td><td class="num">100</td><td>Ventaja de campo, en puntos de Elo.</td></tr>
+        <tr><td><code>ELO_LONGTERM_YEARS</code></td><td class="num">10</td><td>Ventana de la mediana histórica.</td></tr>
+        <tr><td><code>ELO_CONF_K</code></td><td class="num">1.0</td><td>Multiplicador de K por confederación (extensión, desactivada — <a href="#extensiones">§7</a>).</td></tr>
+        <tr><td><code>HALF_LIFE_DAYS</code></td><td class="num">730</td><td>Decaimiento del peso en la calibración de goles (igual que el motor por defecto).</td></tr>
+      </tbody>
+    </table>
+    <figcaption><b>Tabla 3.</b> Valores por defecto del motor <code>elo</code>. Salvo la extensión de <code>ELO_CONF_K</code>, reproducen exactamente la regla pública de eloratings.net.</figcaption>
+  </figure>
+  <p>Una nota importante: el Elo se itera sobre los <strong>goles enteros reales</strong> del historial, mientras que la calibración de goles usa el conjunto ponderado por decaimiento. Como en los demás motores, una fecha de corte gobierna todo: solo entran partidos <em>anteriores</em> a ella, de modo que cualquier instantánea pasada se regenera sin fugas de información.</p>
+</section>
+
+<section id="datos">
+  <h2><span class="secno">§3</span>Fuentes de datos y mezcla con el mercado</h2>
+  <h3>Una sola fuente: resultados</h3>
+  <p>El motor <code>elo</code> usa un único fichero, el dataset <a href="https://github.com/martj42/international_results">martj42/international_results</a> (actualización diaria, todos los internacionales desde 1872 más el calendario del Mundial 2026). De ahí salen tanto el Elo (recorriendo los partidos desde 2006) como la calibración del modelo de goles y la asignación de confederaciones. <strong>No se descarga nada más</strong>: el Elo es propio, no el publicado por eloratings.net.</p>
+  <h3>Cuotas de mercado (predicción, no entrenamiento)</h3>
+  <p>Para los partidos con cuotas 1X2 disponibles (mediana entre casas vía The Odds API), se elimina el margen del bookmaker y las probabilidades limpias se convierten en una matriz de marcadores implícita por el mercado, recalibrando las tasas para casar con el 1X2 observado. Con el valor por defecto <code>ODDS_WEIGHT = 1.0</code>, <strong>las probabilidades 1X2 vienen al 100&nbsp;% del mercado</strong>; el motor solo decide cómo se reparten los marcadores dentro de cada desenlace. En resumen: el mercado fija quién gana y el motor, con qué resultado. Cada descarga de cuotas guarda una instantánea con sello temporal, así que al regenerar un día pasado los movimientos posteriores del mercado nunca se filtran.</p>
+  <h3>xG: descartado para 2026</h3>
+  <p>Existe un modo de mezclar el xG de FotMob en la calibración de goles, pero la iteración del Elo siempre usa los goles enteros reales (su señal de victoria/empate/derrota es limpia). El xG se evaluó y se descartó para 2026 por su cobertura parcial — solo desde ~mediados de 2022, sin amistosos y con ~28&nbsp;% de los clasificatorios — y por su coste neto en puntos.</p>
+</section>
+
+<section id="simulacion">
+  <h2><span class="secno">§4</span>Del partido al torneo: Monte Carlo</h2>
+  <p>Sobre las matrices de marcador por partido se montan dos capas de simulación, comunes a los tres motores:</p>
+  <ul>
+    <li><strong>Fase de grupos</strong> — un Monte Carlo de los grupos. Los partidos ya jugados entran con su resultado real; los pendientes se muestrean de sus matrices. Desempates por puntos, diferencia de goles y goles a favor; lo que reste se rompe al azar.</li>
+    <li><strong>Torneo completo</strong> — simulación conjunta de los 12 grupos, asignación de los 8 mejores terceros, cuadro oficial de dieciseisavos hasta la final, y resolución de empates de eliminatoria por prórroga (a 1/3 del ritmo anotador) y penaltis. Usa resultados reales donde ya existen — también en eliminatorias — así que sirve igualmente a mitad de torneo.</li>
+  </ul>
+  <p>El factor «1/3 del ritmo anotador» no se estima de los datos: es pura proporción de tiempo. La prórroga dura 30 minutos frente a los 90 reglamentarios (30/90 = 1/3) y, asumiendo un ritmo por minuto constante, los goles esperados de cada equipo en esa media hora son un tercio de los de un partido completo. Si tras la prórroga el empate persiste, se resuelve como victoria por un gol al 50&nbsp;% para cada lado (penaltis).</p>
+  <p>Las predicciones por partido, en cambio, puntúan el resultado de los 90 minutos — que es lo que pagan Penka y Superbru — así que la prórroga y los penaltis están <strong>desactivados por defecto</strong>.</p>
+</section>
+
+<hr class="sep">
+
+<section id="validacion">
+  <h2><span class="secno">§5</span>Validación: backtest con reajuste continuo</h2>
+  <p>No hay suite de tests: la validación es el backtest. Cubre seis torneos — Mundial 2018, Eurocopa 2021, Copa América 2021, Mundial 2022, Eurocopa 2024 y Copa América 2024 — y por defecto replica el protocolo en vivo: <strong>reajuste continuo por jornada</strong> (<i>rolling re-fit</i>), donde el motor se reentrena antes de cada tanda de partidos usando solo lo jugado hasta entonces. Los niveles de pago Penka se derivan del formato de cada torneo.</p>
+  <div class="stats">
+    <div><div class="v">587</div><div class="k">pts Penka / 290 partidos</div></div>
+    <div><div class="v">40</div><div class="k">marcadores exactos</div></div>
+    <div><div class="v">0,1950</div><div class="k">RPS 1X2</div></div>
+    <div><div class="v">2,8089</div><div class="k">log-loss exacto</div></div>
+  </div>
+  <p>Cada ejecución reporta, además de los puntos, dos métricas de baja varianza: el <em>ranked probability score</em> (RPS) sobre el 1X2 y la log-loss del marcador exacto. La disciplina importa: <strong>se evalúa sobre RPS y log-loss, y los puntos solo desempatan</strong> — sobre ~64 partidos por torneo, los puntos son demasiado ruidosos por sí solos.</p>
+  <h3>Frente al motor por defecto</h3>
+  <p>El motor <code>elo</code> queda <strong>cerca del Dixon-Coles por defecto, pero algo por detrás</strong> en las tres métricas:</p>
+  <figure>
+    <table>
+      <thead><tr><th>Motor (config. por defecto)</th><th class="num">Puntos</th><th class="num">pts/partido</th><th class="num">RPS</th><th class="num">log-loss</th><th class="num">Exactos</th></tr></thead>
+      <tbody>
+        <tr class="hl"><td><a href="whitepaper_dc.html">Dixon-Coles (<code>dc</code>)</a></td><td class="num">594</td><td class="num">2.05</td><td class="num">0.1890</td><td class="num">2.7702</td><td class="num">37</td></tr>
+        <tr><td>Elo (<code>elo</code>)</td><td class="num">587</td><td class="num">2.02</td><td class="num">0.1950</td><td class="num">2.8089</td><td class="num">40</td></tr>
+      </tbody>
+    </table>
+    <figcaption><b>Tabla 4.</b> Backtest con reajuste continuo, seis torneos (290 partidos). El <code>elo</code> acierta más marcadores exactos pero calibra peor el 1X2 (RPS) y el marcador (log-loss), las métricas que mandan.</figcaption>
+  </figure>
+  <p>El paso intermedio del Elo — resumir cada equipo en un número antes de modelar los goles — es a la vez su atractivo (interpretable, alineado con una metodología pública conocida) y su coste: pierde algo de la información que el Dixon-Coles aprovecha al ajustar ataque y defensa directamente sobre los goles. El tuning del motor (<a href="#extensiones">§7</a>) recorta parte de esa distancia, pero no la cierra.</p>
+</section>
+
+<section id="limitaciones">
+  <h2><span class="secno">§6</span>Limitación principal: anclaje entre confederaciones</h2>
+  <p><em>Anclar</em> una confederación significa fijar su nivel respecto al de las demás, de modo que las selecciones de bloques distintos sean comparables en una misma escala. El problema es común a los tres motores, porque todos beben de la misma fuente: los partidos «puente» entre confederaciones — los pocos encuentros que enfrentan, por ejemplo, a Europa con Sudamérica — son escasos. El Elo lo arrastra de forma directa: como el rating se propaga de rival en rival, una confederación que apenas juega fuera de su bloque queda flotando en su propia escala. La matriz de conectividad lo cuantifica:</p>
+  <figure>
+    <div class="tbl-scroll">
+    <table class="heat">
+      <thead><tr><th></th><th>UEFA</th><th>CONMEBOL</th><th>CONCACAF</th><th>CAF</th><th>AFC</th><th>OFC</th></tr></thead>
+      <tbody>
+        <tr><th>UEFA</th><td class="diag" style="background:rgba(28,94,56,.50)">82%</td><td style="background:rgba(163,59,46,.22)">3%</td><td style="background:rgba(28,94,56,.06)">5%</td><td style="background:rgba(28,94,56,.06)">5%</td><td style="background:rgba(28,94,56,.06)">5%</td><td style="background:rgba(28,94,56,.02)">1%</td></tr>
+        <tr><th>CONMEBOL</th><td style="background:rgba(28,94,56,.12)">12%</td><td class="diag" style="background:rgba(28,94,56,.30)">42%</td><td style="background:rgba(28,94,56,.20)">25%</td><td style="background:rgba(28,94,56,.08)">8%</td><td style="background:rgba(28,94,56,.12)">12%</td><td style="background:rgba(28,94,56,.02)">1%</td></tr>
+        <tr><th>CONCACAF</th><td style="background:rgba(28,94,56,.08)">8%</td><td style="background:rgba(28,94,56,.10)">10%</td><td class="diag" style="background:rgba(28,94,56,.44)">70%</td><td style="background:rgba(28,94,56,.05)">4%</td><td style="background:rgba(28,94,56,.07)">7%</td><td style="background:rgba(28,94,56,.02)">1%</td></tr>
+        <tr><th>CAF</th><td style="background:rgba(28,94,56,.06)">6%</td><td style="background:rgba(28,94,56,.03)">2%</td><td style="background:rgba(28,94,56,.04)">3%</td><td class="diag" style="background:rgba(28,94,56,.48)">79%</td><td style="background:rgba(28,94,56,.10)">10%</td><td style="background:rgba(28,94,56,.01)">0%</td></tr>
+        <tr><th>AFC</th><td style="background:rgba(28,94,56,.07)">7%</td><td style="background:rgba(28,94,56,.05)">4%</td><td style="background:rgba(28,94,56,.06)">6%</td><td style="background:rgba(28,94,56,.11)">11%</td><td class="diag" style="background:rgba(28,94,56,.44)">70%</td><td style="background:rgba(28,94,56,.03)">2%</td></tr>
+        <tr><th>OFC</th><td style="background:rgba(28,94,56,.09)">9%</td><td style="background:rgba(28,94,56,.04)">3%</td><td style="background:rgba(28,94,56,.07)">7%</td><td style="background:rgba(28,94,56,.05)">4%</td><td style="background:rgba(28,94,56,.13)">15%</td><td class="diag" style="background:rgba(28,94,56,.40)">61%</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <figcaption><b>Figura 1.</b> Matriz de conectividad confederación×confederación (peso de entrenamiento, filas normalizadas; ~10&nbsp;800 partidos). El puente UEFA–CONMEBOL — el que sostiene cualquier afirmación sobre qué élite es más fuerte — pesa solo un 3&nbsp;% del lado UEFA. Explorable en la pestaña <i>Conectividad</i> de la web app.</figcaption>
+  </figure>
+  <h3>El caso Australia–Estados Unidos</h3>
+  <p>Con su configuración por defecto, el motor <code>elo</code> sitúa a Australia (13.ª, rating global 0,81) por delante de EE.&nbsp;UU. (26.ª, 0,64). Es el mismo artefacto que en el motor por defecto, algo más atenuado: Australia construye su Elo casi en exclusiva contra rivales de la AFC, un bloque casi aislado (70&nbsp;% de partidos internos), mientras EE.&nbsp;UU. juega — y a veces pierde — contra rivales fuertes de fuera de su bloque. Como la AFC apenas se mide con el resto, su escala interna no está bien anclada y sus equipos quedan algo sobrevalorados en términos absolutos. La ventaja de campo y, sobre todo, las cuotas de mercado atenúan el efecto donde existen.</p>
+  <h3>El caso Argentina–España</h3>
+  <p>Por defecto, el <code>elo</code> mantiene a Argentina 1.ª (rating 1,18) por delante de España 2.ª (1,14), igual que el motor por defecto y al revés que el orden de campeón del mercado. La diferencia es estrecha y descansa, otra vez, en los poquísimos partidos que cruzan CONMEBOL con UEFA. Es la misma fragilidad: el orden <em>dentro</em> de cada bloque es fiable, pero el <em>desplazamiento entre escalas</em> es frágil.</p>
+  <div class="note">
+    <span class="lbl">Cómo leerlo</span>
+    <p>Los rankings <em>dentro</em> de cada bloque son fiables; lo frágil es comparar bloques distintos cuando los puentes son finos. La ventaja nominal de Argentina sobre España, o de Australia sobre EE.&nbsp;UU., debe leerse como un empate estadístico con ventaja nominal, no como un orden firme. El motor <code>elo</code> tiene, eso sí, una palanca específica para tocar estas comparaciones que los otros motores no tienen — la K por confederación (<a href="#extensiones">§7</a>).</p>
+  </div>
+</section>
+
+<section id="extensiones">
+  <h2><span class="secno">§7</span>Las extensiones del motor y el tuning</h2>
+  <p>El motor <code>elo</code> incorpora dos extensiones pensadas precisamente contra el sesgo de confederación, además de su Elo base:</p>
+  <ul>
+    <li><strong>Elo de largo plazo</strong> (activo por defecto): la mediana de 10 años entra como segunda variable del modelo de goles. Tira de los equipos hacia su nivel histórico, amortiguando rachas puntuales.</li>
+    <li><strong>K por confederación</strong> (<code>ELO_CONF_K</code>, desactivada por defecto = 1,0): permite que el rating de cada bloque se mueva más rápido o más lento. Rompe a propósito la propiedad de suma cero del Elo, y es la única palanca del proyecto que mueve de verdad las comparaciones entre bloques.</li>
+  </ul>
+  <p>Un tuning sistemático (búsqueda por RPS, re-validada con reajuste continuo) encontró una configuración mejor que la de fábrica — ventana de Elo de 15 años, ventaja de campo de 50&nbsp;puntos y una K por confederación más alta para casi todos los bloques (y más baja para CONCACAF):</p>
+  <figure>
+    <table>
+      <thead><tr><th>Config. <code>elo</code> (reajuste continuo)</th><th class="num">Puntos</th><th class="num">pts/partido</th><th class="num">RPS</th><th class="num">log-loss</th></tr></thead>
+      <tbody>
+        <tr><td>por defecto (10&nbsp;años, HA=100, K=1,0)</td><td class="num">587</td><td class="num">2.02</td><td class="num">0.1950</td><td class="num">2.8089</td></tr>
+        <tr class="hl"><td>tuneada (15&nbsp;años, HA=50, K por conf.↑)</td><td class="num">607</td><td class="num">2.09</td><td class="num">0.1934</td><td class="num">2.7915</td></tr>
+      </tbody>
+    </table>
+    <figcaption><b>Tabla 5.</b> El tuning mejora el <code>elo</code> con claridad (+20 pts, RPS 0,1950→0,1934), pero <strong>sigue por detrás del Dixon-Coles por defecto</strong> (RPS 0,1890). Los valores por defecto se mantienen: la regla de regenerabilidad solo adopta un cambio que supere con claridad al actual tras re-validación continua.</figcaption>
+  </figure>
+  <p>Sobre las confederaciones, la lectura es de doble filo. La K por bloque <strong>reduce el sesgo CONMEBOL→UEFA</strong> (es el único ajuste que llega a invertir el cara a cara Argentina–España, poniendo a España por delante) — pero al subir la K de la AFC <strong>agrava el caso Australia–EE.&nbsp;UU.</strong>. Cambia un sesgo por otro: confirma que el problema de Australia no vive a nivel de bloque sino a nivel de equipo (calendario flojo que infla su rating individual), y por eso ninguna palanca de confederación lo arregla limpiamente.</p>
+</section>
+
+<section id="otras">
+  <h2><span class="secno">§8</span>Otras limitaciones</h2>
+  <ul>
+    <li><strong>Eliminatorias en campo neutral.</strong> La ventaja de anfitrión solo se modela en grupos: el cuadro de eliminatorias es sintético («ganador del grupo E», «mejor tercero asignado al partido 80») sin sede asociada, así que todo cruce se juega neutral. Efecto neto: una pequeña infravaloración de las rondas profundas de EE.&nbsp;UU., México y Canadá.</li>
+    <li><strong>Sin cuotas en cruces potenciales.</strong> Los feeds de cuotas cubren solo partidos programados, de modo que de dieciseisavos en adelante la simulación es solo-motor aunque haya cuotas en la fase de grupos — y hereda íntegro el sesgo del <a href="#limitaciones">apartado 6</a>.</li>
+    <li><strong>Selecciones con pocos partidos.</strong> Un equipo con poca historia se queda cerca del Elo inicial de 1500, lo que puede sobre- o infravalorarlo hasta que acumule resultados.</li>
+    <li><strong>xG sin recorrido</strong> (<a href="#datos">apartado 3</a>): cobertura parcial y coste neto en puntos. Apagado para 2026.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  wcpred · white paper (motor elo) · junio 2026 — fuentes: README.md, docs/elo-engine-plan.md, docs/engine-tuning-2026-06.md, docs/known-limitations.md, docs/connectivity.md
+</footer>
+
+</body>
+</html>
