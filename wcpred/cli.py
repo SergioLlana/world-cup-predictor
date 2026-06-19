@@ -25,8 +25,8 @@ from .config import (BAYES_CONNECT_BY, BAYES_CONNECT_MODE,
                      BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
                      BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_HA,
                      ELO_LONGTERM_YEARS, GROUPS_DIR,
-                     ODDS_WEIGHT, PREDICTIONS_DIR, RANKINGS_DIR, RESULTS_PATH,
-                     SCORING_MODE, SIM_DIR, XG_ALPHA)
+                     ODDS_WEIGHT, PICK_STRATEGY, PREDICTIONS_DIR, RANKINGS_DIR,
+                     RESULTS_PATH, SCORING_MODE, SIM_DIR, XG_ALPHA)
 from .confederations import infer_confederations
 from .data import (PHANTOM_TEAM, download_results, load_odds,
                    load_results, played_world_cup, prepare_training,
@@ -302,7 +302,8 @@ def cmd_backtest(args):
                      connect_ref=args.bayes_connect_ref,
                      connect_mode=args.bayes_connect_mode,
                      connect_by=args.bayes_connect_by,
-                     connect_opp_ref=args.bayes_connect_opp_ref)
+                     connect_opp_ref=args.bayes_connect_opp_ref,
+                     pick_strategy=args.pick_strategy)
         print(f"Backtest {r['tournament']} ({args.scoring}): "
               f"{r['points']:.1f} pts in "
               f"{r['matches']} matches ({r['points_per_match']:.2f}/match) | "
@@ -469,6 +470,13 @@ def main():
                         default=SCORING_MODE,
                         help="game mode whose expected points the picks "
                              "maximise (default: %(default)s)")
+        sp.add_argument("--pick-strategy", choices=("ev", "outcome"),
+                        default=PICK_STRATEGY,
+                        help="how a score matrix becomes a pick: 'ev' = "
+                             "maximise expected points (regenerable default), "
+                             "'outcome' = strategy C, most likely outcome then "
+                             "most likely scoreline within it (+8%% Penka on "
+                             "the backtest; default: %(default)s)")
         sp.add_argument("--anchor-beta", type=float, default=CONF_ANCHOR_BETA,
                         help="Phase 2b confederation re-anchoring blend: 0 = "
                              "off, 1 = adopt the long-window confederation "

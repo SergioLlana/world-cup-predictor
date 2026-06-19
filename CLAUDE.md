@@ -123,8 +123,13 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   re-validation. See `docs/elo-engine-plan.md`, the tuning run results in
   `docs/engine-tuning-2026-06.md` (§Motor `elo`) and the timing + decision
   rationale in `docs/elo-engine-tuning.md`.
-- `scoring.py` — Penka and Superbru points, Closeness Index, expected-points
-  optimiser (`best_prediction(P, mode, stage)`).
+- `scoring.py` — Penka and Superbru points, Closeness Index, and the scoreline
+  pick step (`select_prediction(P, mode, stage, strategy)`, `PICK_STRATEGIES`).
+  Two strategies: `ev` (default, `best_prediction` — `argmax E[pts]`, the
+  regenerable production pick) and `outcome` (strategy C, `best_prediction_outcome`
+  — most likely 1X2 outcome then most likely scoreline within it; +8% Penka on
+  the backtest, opt-in via `--pick-strategy outcome`). It's a post-probability
+  step, independent of the model/tuning. See `docs/pick-strategy.md`.
 - `odds.py` — odds → margin-free 1X2 probs → market-implied score matrix.
 - `predict.py` — pipeline blending model + odds. `ODDS_WEIGHT = 1.0`: the 1X2
   comes fully from the market; the model only shapes scorelines within each
@@ -155,14 +160,20 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   `generate_rankings.sh` once for those engines, in a background thread (a
   multi-step run keeps `running` true until the last step — `_run_proc` no
   longer flips it). Every data endpoint takes `approach` (odds/history) **and** `engine`
-  (dc/elo/bayes, default dc) query params — the CSV filename carries an
-  `_<engine>` segment (`_FILE_RE`), so the UI's engine picker selects which
-  engine's snapshots the dashboard shows. Owns the team →
+  (dc/elo/bayes, **default elo** — `DEFAULT_ENGINE`) query params — the CSV
+  filename carries an `_<engine>` segment (`_FILE_RE`), so the UI's engine picker
+  selects which engine's snapshots the dashboard shows. The scoreline pick
+  strategy (`ev`/`outcome`, default `outcome` — `DEFAULT_STRATEGY`/`STRATEGIES`,
+  exposed in `/api/meta`) is **not** a filename segment: every predictions CSV
+  carries both `pick`/`expected_points` (ev) and `pick_outcome`/
+  `expected_points_outcome` (strategy C) columns, so the UI's strategy toggle
+  just selects the column client-side (no reload). Owns the team →
   flag-code/Spanish-name map (`TEAMS`); odds↔fixture matching reuses
   `predict._norm_team` and tolerates swapped home/away (host MD3 quirk).
   `GET /api/matrix` re-fits the requested engine as of the snapshot in force on
   the match date (lru_cached per as-of + results.csv mtime + engine) to serve
-  the full score matrix behind a pick (bayes needs CmdStan and is slow). `GET /api/connectivity` (Conectividad tab)
+  the full score matrix behind a pick (its `strategy` param picks which scoreline
+  to highlight; bayes needs CmdStan and is slow). `GET /api/connectivity` (Conectividad tab)
   exposes the inter-confederation anchoring evidence behind
   `docs/known-limitations.md`: the conf×conf training-weight matrix (via
   `confederations.infer_confederations`) plus per-WC-team bridge share and
@@ -181,9 +192,13 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
 - `static/` — vanilla JS frontend (`app.js`), no external deps; charts are
   hand-rolled SVG; `flags/` holds the 48 country SVGs (flagcdn). The odds
   toggle switches between the `odds`/`history` CSV variants and the engine
-  picker (header `<select>`) between `dc`/`elo`/`bayes`; the in-memory cache is
-  keyed by `<approach>|<engine>`. The calendar shows each match the prediction
-  from the latest snapshot ≤ its date. The Rankings tab (cached per engine) is
+  picker (header `<select>`) between `dc`/`elo`/`bayes` (default `elo`); the
+  in-memory cache is keyed by `<approach>|<engine>`. A second toggle ("Marcador
+  más probable", default on = strategy C) flips `state.strategy` between
+  `ev`/`outcome`; it only re-renders (no reload) because `pickOf` just reads the
+  `pick` vs `pick_outcome` column already in the loaded picks (old snapshots
+  without the outcome column fall back to `pick`). The calendar shows each match
+  the prediction from the latest snapshot ≤ its date. The Rankings tab (cached per engine) is
   snapshot-driven: it shows the latest `ratings` snapshot's table plus a
   hand-rolled SVG evolution chart (metric picker: rating / Elo / rank / opponent
   difficulty; rank uses an inverted axis) over all snapshots — independent of

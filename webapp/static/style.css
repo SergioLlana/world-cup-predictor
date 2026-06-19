@@ -95,6 +95,20 @@ td.pcell.dark { color: #fff; }
 .evo-legend { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 10px; font-size: 13px; }
 .evo-legend .item { display: flex; align-items: center; gap: 6px; }
 .evo-legend .swatch { width: 14px; height: 4px; border-radius: 2px; }
+/* leyenda conmutable: cada selección es un chip clicable */
+.evo-legend.selectable { gap: 8px 12px; align-items: center; }
+.evo-legend.selectable .team-toggle {
+  cursor: pointer; padding: 2px 7px 2px 5px; border-radius: 999px;
+  border: 1px solid var(--line); user-select: none; transition: background .12s, border-color .12s; }
+.evo-legend.selectable .team-toggle:hover { border-color: var(--muted); }
+.evo-legend.selectable .team-toggle.off { opacity: .55; }
+.evo-legend.selectable .team-toggle.on { background: var(--bg); border-color: var(--muted); font-weight: 600; }
+.evo-legend.selectable .team-toggle .swatch { width: 14px; height: 8px; border-radius: 3px; }
+.evo-clear {
+  cursor: pointer; padding: 3px 10px; font-size: 12.5px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+.evo-clear:hover:not(:disabled) { border-color: var(--muted); }
+.evo-clear:disabled { opacity: .45; cursor: default; }
 
 /* ---------- groups ---------- */
 .groups-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 14px; }

@@ -3,8 +3,8 @@ from functools import lru_cache
 
 import numpy as np
 
-from .config import (CLOSE_MAX, PENKA_STAGE_POINTS, PTS_CLOSE, PTS_EXACT,
-                     PTS_OUTCOME, SCORING_MODE)
+from .config import (CLOSE_MAX, PENKA_STAGE_POINTS, PICK_STRATEGY, PTS_CLOSE,
+                     PTS_EXACT, PTS_OUTCOME, SCORING_MODE)
 
 SCORING_MODES = ("penka", "superbru")
 STAGES = tuple(PENKA_STAGE_POINTS)      # group, r32_r16, qf_plus
@@ -80,6 +80,40 @@ def best_prediction(P, mode=SCORING_MODE, stage="group"):
 def outcome_probs(P):
     """(P_home_win, P_draw, P_away_win)."""
     return np.tril(P, -1).sum(), np.trace(P), np.triu(P, 1).sum()
+
+
+def best_prediction_outcome(P, mode=SCORING_MODE, stage="group"):
+    """Strategy C: pick the most likely 1X2 outcome, then the single most
+    likely scoreline *within* that outcome.
+
+    Beats pure expected-value (`best_prediction`) on Penka because the EV
+    optimiser is too conservative — it defaults to 1-0 — while this picks the
+    favourite's most likely actual winning scoreline (2-0, 2-1, ...), catching
+    more exact/GD hits. +8% Penka on the 290-match backtest. See
+    docs/pick-strategy.md. `mode`/`stage` only set the reported expected
+    points; they do not change the pick (which is purely the modal scoreline of
+    the modal outcome)."""
+    n = P.shape[0]
+    p1, px, p2 = outcome_probs(P)
+    mask = np.zeros_like(P)
+    if px >= p1 and px >= p2:
+        np.fill_diagonal(mask, 1.0)            # draw most likely → diagonal
+    elif p1 >= p2:
+        mask = np.tril(np.ones_like(P), -1)    # home win → below diagonal
+    else:
+        mask = np.triu(np.ones_like(P), 1)     # away win → above diagonal
+    k = int(np.argmax((P * mask).ravel()))
+    ep = float(points_matrix(n, mode, stage)[k] @ P.ravel())
+    return (k // n, k % n), ep
+
+
+PICK_STRATEGIES = {"ev": best_prediction, "outcome": best_prediction_outcome}
+
+
+def select_prediction(P, mode=SCORING_MODE, stage="group",
+                      strategy=PICK_STRATEGY):
+    """Dispatch to the configured scoreline pick strategy ("ev" / "outcome")."""
+    return PICK_STRATEGIES[strategy](P, mode, stage)
 
 
 # --- Optional knockout resolution (off by default; Penka and Superbru score

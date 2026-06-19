@@ -17,7 +17,7 @@ from .anchor import anchor_model
 from .config import (BAYES_SIGMA_CONF_SCALE, CONF_ANCHOR_BETA,
                      CONF_ANCHOR_HALF_LIFE_DAYS, ELO_BASE, ELO_CONF_K, ELO_HA,
                      ELO_LONGTERM_YEARS, ELO_TRAIN_START, MAX_GOALS,
-                     SCORING_MODE)
+                     PICK_STRATEGY, SCORING_MODE)
 from .confederations import infer_confederations
 from .data import prepare_training
 from .model import DixonColes
@@ -158,6 +158,7 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              connect_mode=None, connect_by=None, connect_opp_ref=None,
              bayes_seed=2026,
              elo_conf_k=None, elo_longterm_years=None, elo_ha=None,
+             pick_strategy=PICK_STRATEGY,
              **train_kw):
     """Score every match of a past tournament.
 
@@ -276,7 +277,8 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
             fitted_at = cutoff
         side = home_side(r.home_team, r.away_team, r.country)
         res = predict_match(model, r.home_team, r.away_team, side=side,
-                            scoring=scoring, stage=stage)
+                            scoring=scoring, stage=stage,
+                            pick_strategy=pick_strategy)
         true = (int(r.home_score), int(r.away_score))
         p, ll, rps = _match_metrics(res, true, scoring, stage)
         total += p

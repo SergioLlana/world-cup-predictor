@@ -1,11 +1,11 @@
 """High-level prediction pipeline combining model and odds."""
 import pandas as pd
 
-from .config import (EXTRA_TIME_FRACTION, ODDS_WEIGHT, SCORING_MODE,
-                     WC2026_KNOCKOUT_ROUNDS)
+from .config import (EXTRA_TIME_FRACTION, ODDS_WEIGHT, PICK_STRATEGY,
+                     SCORING_MODE, WC2026_KNOCKOUT_ROUNDS)
 from .odds import devig, market_matrix, to_prob
-from .scoring import (best_prediction, outcome_probs, resolve_extra_time,
-                      resolve_shootout)
+from .scoring import (best_prediction, best_prediction_outcome, outcome_probs,
+                      resolve_extra_time, resolve_shootout, select_prediction)
 
 # WC2026 calendar boundaries for the Penka stage tiers, from the official
 # knockout calendar (config.WC2026_KNOCKOUT_ROUNDS, shared with the webapp).
@@ -42,7 +42,8 @@ def home_side(home_team, away_team, venue_country):
 
 def predict_match(model, home, away, side=None, odds=None,
                   odds_weight=ODDS_WEIGHT, extra_time=False, shootout=False,
-                  scoring=SCORING_MODE, stage="group"):
+                  scoring=SCORING_MODE, stage="group",
+                  pick_strategy=PICK_STRATEGY):
     """Predict one match.
 
     side: 'home', 'away' or None — which listed team is on home soil.
@@ -70,7 +71,7 @@ def predict_match(model, home, away, side=None, odds=None,
         P = resolve_extra_time(P, P_et)
         if shootout:
             P = resolve_shootout(P)
-    pick, ep = best_prediction(P, scoring, stage)
+    pick, ep = select_prediction(P, scoring, stage, pick_strategy)
     p1, px, p2 = outcome_probs(P)
     return {"P": P, "pick": pick, "expected_points": ep,
             "p1": p1, "px": px, "p2": p2, "used_odds": used_odds}
@@ -111,7 +112,13 @@ def odds_lookup_for(odds_df, teams):
 def predict_fixtures(model, fixtures, odds_df=None, odds_weight=ODDS_WEIGHT,
                      extra_time=False, shootout=False, scoring=SCORING_MODE):
     """Predict a fixtures DataFrame; returns a tidy results DataFrame.
-    Each fixture's Penka payout tier comes from its date (wc2026_stage)."""
+    Each fixture's Penka payout tier comes from its date (wc2026_stage).
+
+    Every row carries BOTH pick strategies from the same score matrix:
+    `pick`/`expected_points` are the expected-value pick (`ev`, the regenerable
+    default) and `pick_outcome`/`expected_points_outcome` are strategy C
+    (`best_prediction_outcome`). The webapp toggles which column it shows; see
+    docs/pick-strategy.md."""
     odds_lookup = _build_odds_lookup(odds_df) if odds_df is not None else None
     rows = []
     for _, r in fixtures.iterrows():
@@ -125,13 +132,17 @@ def predict_fixtures(model, fixtures, odds_df=None, odds_weight=ODDS_WEIGHT,
                             odds=odds, odds_weight=odds_weight,
                             extra_time=extra_time, shootout=shootout,
                             scoring=scoring, stage=stage)
+        (pe, pa), ep = best_prediction(res["P"], scoring, stage)
+        (oe, oa), epo = best_prediction_outcome(res["P"], scoring, stage)
         rows.append({
             "date": r.date.date(), "home": r.home_team, "away": r.away_team,
             "stage": stage,
             "P_1": round(res["p1"], 3), "P_X": round(res["px"], 3),
             "P_2": round(res["p2"], 3),
-            "pick": f"{res['pick'][0]}-{res['pick'][1]}",
-            "expected_points": round(res["expected_points"], 3),
+            "pick": f"{pe}-{pa}",
+            "expected_points": round(ep, 3),
+            "pick_outcome": f"{oe}-{oa}",
+            "expected_points_outcome": round(epo, 3),
             "odds_used": res["used_odds"],
         })
     return pd.DataFrame(rows)

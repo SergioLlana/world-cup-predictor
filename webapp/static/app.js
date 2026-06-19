@@ -3,7 +3,8 @@
 
 const state = {
   approach: "odds",          // toggle de cuotas: odds | history
-  engine: "dc",              // motor: dc | elo | bayes
+  engine: "elo",             // motor: dc | elo | bayes
+  strategy: "outcome",       // toggle de estrategia de marcador: ev | outcome
   tab: "champion",
   snapshotDate: null,        // null = último disponible
   evoMetric: "p_champion",
@@ -16,10 +17,21 @@ const state = {
   rankings: {},                        // por motor: {snapshots:[...], live:data|null}
   rankLoading: false,
   rankMetric: "rating",                // métrica de la gráfica de evolución
+  evoSelected: null,                   // Set de equipos resaltados (null = top por defecto)
+  rankSelected: null,                  // idem para la gráfica de rankings
 };
 
 // Etiquetas legibles para cada motor (las claves vienen del backend).
 const ENGINE_LABELS = { dc: "Dixon-Coles", elo: "Elo", bayes: "Bayesiano" };
+// Etiquetas legibles para cada estrategia de selección de marcador.
+const STRATEGY_LABELS = {
+  ev: "máximo valor esperado",
+  outcome: "marcador más probable",
+};
+// Marcador de una fila de picks según la estrategia activa. Las filas nuevas
+// traen pick_outcome; los snapshots antiguos (solo ev) caen a `pick`.
+const pickOf = (row) =>
+  (state.strategy === "outcome" && row.pick_outcome) ? row.pick_outcome : row.pick;
 const cacheKey = (ap = state.approach, eng = state.engine) => `${ap}|${eng}`;
 // Datos del approach+engine vigente; {} si aún no se han cargado.
 const curCache = () => state.cache[cacheKey()] || {};
@@ -187,6 +199,41 @@ const EVO_METRICS = [
 ];
 const PALETTE = ["#0f8a8a", "#e8632c", "#3b6bb5", "#c0392b", "#7d3bb5",
                  "#2e8b57", "#d9a514", "#7a4b2c", "#e054a0", "#44443f"];
+const EVO_DEFAULT_N = 10;        // selección por defecto: las 10 mejores
+const EVO_GRAY = "#cdcbc2";      // color de las selecciones de fondo (no resaltadas)
+
+// color estable por equipo resaltado, en el orden (ordenado por métrica) dado
+function evoColors(selectedOrdered) {
+  const map = {};
+  selectedOrdered.forEach((t, i) => (map[t] = PALETTE[i % PALETTE.length]));
+  return map;
+}
+
+// leyenda interactiva: todas las selecciones como chips conmutables (clic para
+// resaltar/quitar) + botón para deseleccionar todas
+function selectableLegend(teamsOrdered, selected, colorOf) {
+  const clear = `<button class="evo-clear" type="button"${selected.size ? "" : " disabled"}>Deseleccionar todas</button>`;
+  const chips = teamsOrdered.map((t) => {
+    const on = selected.has(t);
+    return `<span class="item team-toggle ${on ? "on" : "off"}" data-team="${t}" title="Clic para ${on ? "quitar" : "resaltar"}">
+      <span class="swatch" style="background:${on ? colorOf[t] : EVO_GRAY}"></span>
+      ${flagImg(t)} ${teamES(t)}</span>`;
+  }).join("");
+  return `<div class="evo-legend selectable">${clear}${chips}</div>`;
+}
+
+// conecta los clics de la leyenda; selKey es "evoSelected" o "rankSelected"
+function wireLegend(el, selected, selKey, rerender) {
+  el.querySelectorAll(".team-toggle").forEach((n) =>
+    n.addEventListener("click", () => {
+      const t = n.dataset.team;
+      if (selected.has(t)) selected.delete(t); else selected.add(t);
+      state[selKey] = selected;
+      rerender();
+    }));
+  const clear = el.querySelector(".evo-clear");
+  if (clear) clear.addEventListener("click", () => { state[selKey] = new Set(); rerender(); });
+}
 
 function renderEvolution() {
   const snaps = curCache().sims;
@@ -195,9 +242,11 @@ function renderEvolution() {
 
   const metric = state.evoMetric;
   const last = snaps[snaps.length - 1];
-  const top = [...last.rows].sort((a, b) => b[metric] - a[metric]).slice(0, 10).map((r) => r.team);
-  const series = top.map((team, i) => ({
-    team, color: PALETTE[i % PALETTE.length],
+  const ordered = [...last.rows].sort((a, b) => b[metric] - a[metric]).map((r) => r.team);
+  const selected = state.evoSelected || new Set(ordered.slice(0, EVO_DEFAULT_N));
+  const colorOf = evoColors(ordered.filter((t) => selected.has(t)));
+  const series = ordered.map((team) => ({
+    team, sel: selected.has(team), color: selected.has(team) ? colorOf[team] : EVO_GRAY,
     values: snaps.map((s) => {
       const row = s.rows.find((r) => r.team === team);
       return row ? row[metric] : null;
@@ -226,7 +275,15 @@ function renderEvolution() {
   });
 
   let lines = "";
-  series.forEach((s) => {
+  // fondo: las selecciones no resaltadas, en gris fino y sin puntos
+  series.filter((s) => !s.sel).forEach((s) => {
+    const pts = s.values.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean);
+    if (pts.length > 1)
+      lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${EVO_GRAY}" stroke-width="1.2" opacity="0.7"/>`;
+  });
+  // primer plano: las resaltadas, en color y con puntos
+  const fg = series.filter((s) => s.sel);
+  fg.forEach((s) => {
     const pts = s.values.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean);
     if (pts.length > 1)
       lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
@@ -236,7 +293,7 @@ function renderEvolution() {
   });
 
   // etiquetas finales sin solaparse: se ordenan por altura y se separan 15px
-  const labels = series
+  const labels = fg
     .filter((s) => s.values[n - 1] != null)
     .map((s) => ({ s, v: s.values[n - 1], ly: y(s.values[n - 1]) }))
     .sort((a, b) => a.ly - b.ly);
@@ -258,19 +315,20 @@ function renderEvolution() {
         <select id="evo-metric">${EVO_METRICS.map(([k, l]) =>
           `<option value="${k}"${k === metric ? " selected" : ""}>${l}</option>`).join("")}</select>
       </label>
-      <span class="note">Top 10 equipos por «${metricLabel}» en el último snapshot
-        (${state.approach === "odds" ? "con cuotas" : "sin cuotas"}).
+      <span class="note">Las ${ordered.length} selecciones (en gris) por «${metricLabel}»
+        (${state.approach === "odds" ? "con cuotas" : "sin cuotas"});
+        resaltadas las ${selected.size} elegidas. Clic en una bandera de la leyenda para
+        resaltarla o quitarla.
         ${n === 1 ? "Solo hay un día generado: la línea crecerá con cada nuevo snapshot." : ""}</span>
     </div>
     <svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${xaxis}${lines}</svg>
-    <div class="evo-legend">${series.map((s) => `
-      <span class="item"><span class="swatch" style="background:${s.color}"></span>
-        ${flagImg(s.team)} ${teamES(s.team)}</span>`).join("")}</div>`;
+    ${selectableLegend(ordered, selected, colorOf)}`;
 
   $("#evo-metric").addEventListener("change", (e) => {
     state.evoMetric = e.target.value;
     renderEvolution();
   });
+  wireLegend(el, selected, "evoSelected", renderEvolution);
 }
 
 // ----------------------------------------------------------------- grupos
@@ -315,15 +373,22 @@ function predictionFor(match) {
   if (row) return { ...row, snapDate: snap.date };
   row = snap.rows.find((r) => r.home === match.away && r.away === match.home);
   if (row) {
-    const [a, b] = row.pick.split("-");
-    return { ...row, P_1: row.P_2, P_2: row.P_1, pick: `${b}-${a}`, snapDate: snap.date };
+    // Partido con local/visitante invertidos respecto al feed: hay que dar la
+    // vuelta a las probabilidades y a AMBOS marcadores antes de elegir cuál
+    // mostrar (pickOf lee pick/pick_outcome ya invertidos).
+    const flip = (s) => s ? s.split("-").reverse().join("-") : s;
+    return {
+      ...row, P_1: row.P_2, P_2: row.P_1,
+      pick: flip(row.pick), pick_outcome: flip(row.pick_outcome),
+      snapDate: snap.date,
+    };
   }
   return null;
 }
 
 function pickBadge(match, pred) {
   if (!match.played || !pred) return "";
-  const [ph, pa] = pred.pick.split("-").map(Number);
+  const [ph, pa] = pickOf(pred).split("-").map(Number);
   if (ph === match.home_score && pa === match.away_score)
     return `<span class="badge exact">Exacta</span>`;
   if (Math.sign(ph - pa) === Math.sign(match.home_score - match.away_score))
@@ -347,7 +412,7 @@ function matchCard(m) {
     </div>` : "";
   const predLine = pred ? `
     <div class="pred-line">
-      <span class="pick-chip">Pred. ${pred.pick}</span>
+      <span class="pick-chip" title="Estrategia: ${STRATEGY_LABELS[state.strategy]}">Pred. ${pickOf(pred)}</span>
       ${pickBadge(m, pred)}
     </div>` : `<div class="pred-line"><span class="xp">Sin predicción para este partido</span></div>`;
   const oddsLine = m.odds ? `
@@ -628,6 +693,9 @@ function renderRankings() {
     asOf = data.live.as_of;
     fromLive = true;
   }
+  // solo las 48 del Mundial (el modelo puntúa muchas más, pero el ranking es del
+  // torneo); el ajuste en vivo ya viene filtrado, así que esto es no-op ahí
+  rows = rows.filter((r) => state.meta.teams[r.team]);
   const hasElo = rows.length > 0 && rows[0].elo != null;
   rows.sort((a, b) => (hasElo ? b.elo - a.elo : b.rating - a.rating));
 
@@ -648,6 +716,8 @@ function renderRankings() {
        <code>scripts/generate_rankings.sh</code> o «Actualizar datos» para ver la evolución)`
     : `snapshot del ${fmtDay(asOf)}`;
 
+  const evoBlock = snaps.length ? rankEvolutionBlock(snaps, hasElo) : null;
+
   el.innerHTML = `
     <h2 class="section">Rankings del modelo · ${engLabel}</h2>
     <p class="note">Fuerza de cada selección según el motor <b>${engLabel}</b>, ordenada por ${sortLabel}
@@ -656,7 +726,7 @@ function renderRankings() {
       El <b>rival medio</b> es el rating medio (ponderado por el peso de entrenamiento) de los equipos
       contra los que ha jugado: una medida de la dificultad media de sus partidos. Usa el selector de
       <b>Motor</b> de la cabecera para cambiar de modelo.</p>
-    ${snaps.length ? rankEvolutionBlock(snaps, hasElo) : ""}
+    ${evoBlock ? evoBlock.html : ""}
     <div class="card" style="overflow-x:auto">
       <h3 class="conn-h3">Clasificación ${fromLive ? "(en vivo)" : `del ${fmtShort(asOf)}`}</h3>
       <table class="probs">
@@ -676,45 +746,48 @@ function renderRankings() {
     state.rankMetric = e.target.value;
     renderRankings();
   });
+  if (evoBlock) wireLegend(el, evoBlock.selected, "rankSelected", renderRankings);
 }
 
-// bloque de la gráfica de evolución: selector de métrica + SVG + leyenda
+// bloque de la gráfica de evolución: selector de métrica + SVG + leyenda.
+// Devuelve {html, selected} para que renderRankings conecte los clics.
 function rankEvolutionBlock(snaps, hasElo) {
   const metrics = rankMetrics(hasElo);
   let metric = state.rankMetric;
   if (!metrics.some(([k]) => k === metric)) metric = state.rankMetric = "rating";
   const isRank = metric === "rank";
   const n = snaps.length;
+  const rankKey = hasElo ? "elo" : "rating";
 
-  // top 10 del último snapshot por la métrica elegida
-  const last = snaps[n - 1].rows.map(normRankRow);
-  const lastVal = (r) => isRank ? null : r[metric];
-  const lastRank = (() => {            // ranking por rating/elo para el modo "Posición"
-    const key = hasElo ? "elo" : "rating";
-    const ord = [...last].sort((a, b) => b[key] - a[key]);
+  // filas normalizadas y posición (por rating/elo) de cada snapshot, una sola vez
+  const snapRows = snaps.map((s) => s.rows.map(normRankRow));
+  const snapRank = snapRows.map((rows) => {
+    const ord = [...rows].sort((a, b) => b[rankKey] - a[rankKey]);
     const pos = {}; ord.forEach((r, i) => (pos[r.team] = i + 1));
     return pos;
-  })();
-  const sortLast = isRank
-    ? [...last].sort((a, b) => lastRank[a.team] - lastRank[b.team])
-    : [...last].sort((a, b) => b[metric] - a[metric]);
-  const top = sortLast.slice(0, 10).map((r) => r.team);
+  });
 
-  // valor por equipo y snapshot (en "Posición", la posición dentro de cada día)
-  const rankIn = (rowsRaw) => {
-    const key = hasElo ? "elo" : "rating";
-    const ord = [...rowsRaw].sort((a, b) => b[key] - a[key]);
-    const pos = {}; ord.forEach((r, i) => (pos[r.team] = i + 1));
-    return pos;
+  // valor por equipo en un snapshot dado
+  const valAt = (j, team) => {
+    if (isRank) return snapRank[j][team] ?? null;
+    const r = snapRows[j].find((x) => x.team === team);
+    return r && r[metric] != null ? r[metric] : null;
   };
-  const series = top.map((team, i) => ({
-    team, color: PALETTE[i % PALETTE.length],
-    values: snaps.map((s) => {
-      const rowsRaw = s.rows.map(normRankRow);
-      if (isRank) { const p = rankIn(rowsRaw)[team]; return p ?? null; }
-      const r = rowsRaw.find((x) => x.team === team);
-      return r && r[metric] != null ? r[metric] : null;
-    }),
+
+  // solo las 48 del Mundial (el modelo puntúa muchas más, pero el ranking es del
+  // torneo), ordenadas por la métrica elegida en el último snapshot. La posición
+  // de "rank" sigue siendo la global (sobre todas las selecciones del snapshot).
+  const lastIdx = n - 1;
+  const ordered = [...snapRows[lastIdx]]
+    .map((r) => r.team)
+    .filter((t) => state.meta.teams[t])
+    .sort((a, b) => isRank ? (snapRank[lastIdx][a] - snapRank[lastIdx][b])
+                           : (valAt(lastIdx, b) - valAt(lastIdx, a)));
+  const selected = state.rankSelected || new Set(ordered.slice(0, EVO_DEFAULT_N));
+  const colorOf = evoColors(ordered.filter((t) => selected.has(t)));
+  const series = ordered.map((team) => ({
+    team, sel: selected.has(team), color: selected.has(team) ? colorOf[team] : EVO_GRAY,
+    values: snaps.map((_, j) => valAt(j, team)),
   }));
 
   const W = 920, H = 430, mL = 54, mR = 150, mT = 16, mB = 40;
@@ -731,7 +804,8 @@ function rankEvolutionBlock(snaps, hasElo) {
 
   let grid = "";
   if (isRank) {
-    for (let v = 1; v <= hi; v++)
+    const rstep = hi > 12 ? Math.max(1, Math.round(niceStep(hi - 1))) : 1;
+    for (let v = 1; v <= hi; v += rstep)
       grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e4e2da"/>
                <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#6b6b66">${v}</text>`;
   } else {
@@ -750,7 +824,15 @@ function rankEvolutionBlock(snaps, hasElo) {
 
   const fmtV = (v) => isRank ? `#${v}` : metric === "elo" ? Math.round(v) : v.toFixed(2);
   let lines = "";
-  series.forEach((s) => {
+  // fondo: selecciones no resaltadas, en gris fino y sin puntos
+  series.filter((s) => !s.sel).forEach((s) => {
+    const pts = s.values.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean);
+    if (pts.length > 1)
+      lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${EVO_GRAY}" stroke-width="1.2" opacity="0.7"/>`;
+  });
+  // primer plano: las resaltadas, en color y con puntos
+  const fg = series.filter((s) => s.sel);
+  fg.forEach((s) => {
     const pts = s.values.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean);
     if (pts.length > 1)
       lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
@@ -759,7 +841,7 @@ function rankEvolutionBlock(snaps, hasElo) {
     });
   });
   // etiquetas finales sin solaparse
-  const labels = series
+  const labels = fg
     .filter((s) => s.values[n - 1] != null)
     .map((s) => ({ s, v: s.values[n - 1], ly: y(s.values[n - 1]) }))
     .sort((a, b) => a.ly - b.ly);
@@ -774,7 +856,7 @@ function rankEvolutionBlock(snaps, hasElo) {
   });
 
   const metricLabel = metrics.find(([k]) => k === metric)[1];
-  return `
+  const html = `
     <div class="card">
       <h3 class="conn-h3">Evolución del ranking</h3>
       <div class="evo-controls">
@@ -782,16 +864,16 @@ function rankEvolutionBlock(snaps, hasElo) {
           <select id="rank-metric">${metrics.map(([k, l]) =>
             `<option value="${k}"${k === metric ? " selected" : ""}>${l}</option>`).join("")}</select>
         </label>
-        <span class="note">Top 10 por «${metricLabel}» en el último snapshot.
+        <span class="note">Las ${ordered.length} selecciones (en gris) por «${metricLabel}»; resaltadas las
+          ${selected.size} elegidas. Clic en una bandera de la leyenda para resaltarla o quitarla.
           ${n === 1 ? "Solo hay un día generado: la línea crecerá con cada nuevo snapshot."
             : `${n} snapshots.`}
           ${isRank ? "Eje invertido: el 1.º arriba." : ""}</span>
       </div>
       <svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${xaxis}${lines}</svg>
-      <div class="evo-legend">${series.map((s) => `
-        <span class="item"><span class="swatch" style="background:${s.color}"></span>
-          ${flagImg(s.team)} ${teamES(s.team)}</span>`).join("")}</div>
+      ${selectableLegend(ordered, selected, colorOf)}
     </div>`;
+  return { html, selected };
 }
 
 // ------------------------------------------------------------------ render
@@ -817,7 +899,8 @@ async function openMatrix(home, away, date) {
   box.innerHTML = `<div class="matrix-loading">Ajustando el modelo… (la primera vez tarda unos segundos)</div>`;
   let d;
   try {
-    const q = new URLSearchParams({ home, away, date, approach: state.approach, engine: state.engine });
+    const q = new URLSearchParams({ home, away, date, approach: state.approach,
+                                    engine: state.engine, strategy: state.strategy });
     d = await fetchJSON(`/api/matrix?${q}`);
   } catch (e) {
     box.innerHTML = `<div class="matrix-loading">Error calculando la matriz: ${e.message}</div>`;
@@ -848,7 +931,7 @@ async function openMatrix(home, away, date) {
     <div class="matrix-sub">Probabilidad (%) de cada marcador exacto · modelo ${ENGINE_LABELS[d.engine] || d.engine} del ${fmtDay(d.as_of)}
       · ${d.odds_used ? "con cuotas de mercado" : "solo modelo"}
       · 1X2: ${pct(d.p1)} / ${pct(d.px)} / ${pct(d.p2)}
-      · Pred. <b>${d.pick}</b> (xPts ${d.expected_points.toFixed(2)})</div>
+      · Pred. <b>${d.pick}</b></div>
     <table class="matrix">
       <tr><th></th><th class="axis" colspan="${n}">Goles de ${teamES(away)} →</th></tr>
       <tr><th class="axis">${teamES(home)} ↓</th>${[...Array(n)].map((_, a) => `<th>${a}</th>`).join("")}</tr>
@@ -959,6 +1042,13 @@ function setupUI() {
     updateEngineNote();
     await loadData();
     buildSnapshotSelect();
+    render();
+  });
+
+  // La estrategia solo cambia qué columna de marcador se muestra (ambas viajan
+  // en los mismos datos), así que no recarga nada: basta repintar.
+  $("#strategy-toggle").addEventListener("change", (e) => {
+    state.strategy = e.target.checked ? "outcome" : "ev";
     render();
   });
 

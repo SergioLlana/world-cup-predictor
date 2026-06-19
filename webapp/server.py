@@ -43,7 +43,14 @@ APPROACHES = ("odds", "history")
 # dc is the production model; elo/bayes are the alternative engines (see
 # CLAUDE.md). generate_predictions.sh stamps every engine into the filename.
 ENGINES = ("dc", "elo", "bayes")
-DEFAULT_ENGINE = "dc"
+DEFAULT_ENGINE = "elo"
+
+# Scoreline pick strategy -> what the UI's strategy toggle selects. Both live in
+# every predictions CSV as separate columns (pick/expected_points for "ev",
+# pick_outcome/expected_points_outcome for "outcome"); the toggle just picks the
+# column to show — see predict.predict_fixtures and docs/pick-strategy.md.
+STRATEGIES = ("ev", "outcome")
+DEFAULT_STRATEGY = "outcome"
 
 # name in the martj42 dataset -> flag file (webapp/static/flags/) + Spanish name
 TEAMS = {
@@ -151,6 +158,11 @@ def _check_engine(engine):
         raise HTTPException(400, f"engine must be one of {ENGINES}")
 
 
+def _check_strategy(strategy):
+    if strategy not in STRATEGIES:
+        raise HTTPException(400, f"strategy must be one of {STRATEGIES}")
+
+
 def _records(df):
     """NaN-safe records: missing cells become None (JSON null). A plain
     `df.where(df.notna(), None)` leaves NaN in object columns, which Starlette's
@@ -176,6 +188,9 @@ def meta():
         "teams": TEAMS,
         "groups": OFFICIAL_GROUPS,
         "engines": list(ENGINES),
+        "default_engine": DEFAULT_ENGINE,
+        "strategies": list(STRATEGIES),
+        "default_strategy": DEFAULT_STRATEGY,
         "snapshots": {
             kind: {ap: {eng: [d for d, _ in _snapshots(kind, ap, eng)]
                         for eng in ENGINES}
@@ -296,12 +311,14 @@ def _model_for(as_of, results_mtime, engine=DEFAULT_ENGINE):
 
 @app.get("/api/matrix")
 def matrix(home: str, away: str, date: str, approach: str = "odds",
-           engine: str = DEFAULT_ENGINE):
+           engine: str = DEFAULT_ENGINE, strategy: str = DEFAULT_STRATEGY):
     """Full score-probability matrix for one fixture, reproducing the pick
     shown in the calendar: model as of the snapshot in force on the match
-    date, with market odds blended in when approach=odds."""
+    date, with market odds blended in when approach=odds. `strategy` (ev/
+    outcome) selects which scoreline pick to highlight."""
     _check_approach(approach)
     _check_engine(engine)
+    _check_strategy(strategy)
     snaps = [d for d, _ in _snapshots("predictions", approach, engine)]
     # No snapshot on/before the match date → fall back to the match date
     # itself, which is still leak-free (training uses matches strictly before
@@ -324,12 +341,13 @@ def matrix(home: str, away: str, date: str, approach: str = "odds",
     try:
         res = predict_match(model, home, away, side=side,
                             odds=tuple(odds) if odds else None,
-                            stage=wc2026_stage(date))
+                            stage=wc2026_stage(date), pick_strategy=strategy)
     except KeyError:
         raise HTTPException(404, f"equipo sin datos de entrenamiento: {home} / {away}")
     return {
         "home": home, "away": away, "as_of": as_of, "side": side,
-        "engine": engine, "odds_used": bool(res["used_odds"]),
+        "engine": engine, "strategy": strategy,
+        "odds_used": bool(res["used_odds"]),
         "pick": f"{res['pick'][0]}-{res['pick'][1]}",
         "expected_points": round(res["expected_points"], 3),
         "p1": round(res["p1"], 4), "px": round(res["px"], 4), "p2": round(res["p2"], 4),

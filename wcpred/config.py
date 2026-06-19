@@ -224,6 +224,17 @@ SCORING_MODE = "penka"      # default pool: picks maximise expected Penka
                             # points. "superbru" restores the old behaviour
                             # (CLI: --scoring superbru).
 
+# --- Scoreline pick strategy ---
+PICK_STRATEGY = "ev"        # how scoring.select_prediction turns a score matrix
+                            # into a pick. "ev" = maximise expected points (the
+                            # regenerable default — keeps past snapshots
+                            # reproducible). "outcome" = strategy C: pick the
+                            # most likely 1X2 outcome, then the most likely
+                            # scoreline within it (CLI: --pick-strategy outcome;
+                            # +8% Penka on the backtest, see docs/
+                            # pick-strategy.md). The model is unchanged; this is
+                            # only the post-probability pick step.
+
 # Penka: exact score / goal-difference-or-draw / winner, with stage-dependent
 # points (exact, gd_or_draw, winner). The middle tier is a correct outcome
 # with the exact goal difference; any correct draw pick qualifies (GD = 0).
