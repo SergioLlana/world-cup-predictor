@@ -72,10 +72,11 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   cannot shift a whole confederation (the robustness-plan Phase 4 attempt at
   the weak-anchoring limitation). Subclasses `DixonColes` — inherits
   `rates`/`matrix_from_rates`, overrides `fit` (MCMC, then adopts posterior-mean
-  atk/dfn/home/rho — Phase A) and `score_matrix` (plug-in mean by default —
-  "plug-in" = plug the single posterior-mean rating straight into one
-  Dixon-Coles matrix, instead of averaging over the posterior draws; full
-  posterior propagation when opted in — Phase B2). Opt-in via
+  atk/dfn/home/rho — Phase A) and `score_matrix` (full posterior propagation by
+  default since 2026-06-19 — averages the per-draw Dixon-Coles matrices; set
+  `BAYES_PROPAGATE=False` to recover the "plug-in" mean = plug the single
+  posterior-mean rating straight into one Dixon-Coles matrix — Phase B2).
+  Opt-in via
   `--engine bayes` (default `dc`, the regenerable production model). Two time
   treatments: the static default (`stan/dixon_coles.stan`) where time enters as
   the MLE decay weights (Phase A), and the dynamic
@@ -83,11 +84,14 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   Phase B1) where each team's strength evolves as a random walk over
   `--bayes-block` time blocks (year/halfyear/quarter, default halfyear) and the
   most recent block is adopted — the decay weighting is then dropped. Two
-  posterior treatments of the score matrix: plug-in posterior means (default)
-  or full posterior propagation (opt-in `--bayes-propagate` / `BAYES_PROPAGATE`,
+  posterior treatments of the score matrix: full posterior propagation
+  (`--bayes-propagate` / `BAYES_PROPAGATE`, **default-on since 2026-06-19**,
   Phase B2) where `score_matrix` returns the posterior mean of the per-draw
   Dixon-Coles matrices, carrying cross-bloc rating uncertainty into the
-  scorelines. The between-confederation offset spread `sigma_conf` carries a
+  scorelines, or the plug-in posterior mean (`BAYES_PROPAGATE=False`). Propagation
+  is accuracy-neutral vs plug-in (609 vs 604 Penka pts, RPS +0.0002, ll −0.0002 —
+  a wash) and does NOT fix the confederation bias, but is the honest
+  posterior-predictive scoreline. The between-confederation offset spread `sigma_conf` carries a
   half-normal prior whose scale is a tunable parameter (`--bayes-sigma-conf` /
   `BAYES_SIGMA_CONF_SCALE`, default 0.5 = today's model; the Phase 4
   tight-`sigma_conf` sensitivity — shrink toward 0 to pin the bloc offsets near

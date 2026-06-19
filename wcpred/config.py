@@ -83,7 +83,7 @@ BAYES_SIGMA_CONF_SCALE = 0.5   # half-normal prior scale on sigma_conf, the
                                # constrained offset scale corrects the diagnosed
                                # CONMEBOL/CONCACAF-vs-UEFA bias. No effect under
                                # --engine dc. Sweep via --bayes-sigma-conf.
-BAYES_PROPAGATE = False        # Phase B2 (docs/bayesian-confederation-plan.md):
+BAYES_PROPAGATE = True         # Phase B2 (docs/bayesian-confederation-plan.md):
                                # full posterior propagation — the score matrix is
                                # the *posterior mean of per-draw Dixon-Coles
                                # matrices* instead of one matrix built from the
@@ -91,9 +91,14 @@ BAYES_PROPAGATE = False        # Phase B2 (docs/bayesian-confederation-plan.md):
                                # Averaging over the MCMC draws carries the
                                # cross-bloc rating uncertainty (widest on the
                                # weakly-identified bridges) into the scorelines.
-                               # False = plug-in means (today's bayes model
-                               # exactly); opt-in via --bayes-propagate. No effect
-                               # under --engine dc.
+                               # DEFAULT-ON (2026-06-19, owner-directed): the
+                               # honest posterior-predictive scoreline. It does
+                               # NOT fix the cross-confederation bias (the reason
+                               # it was rejected as the robustness-plan default)
+                               # but is accuracy-neutral (609 vs 604 Penka pts,
+                               # RPS +0.0002, ll −0.0002 — a wash) and the
+                               # principled Bayesian choice. Set False to recover
+                               # the plug-in mean. No effect under --engine dc.
 BAYES_CONNECT_SHRINK = False   # Phase C (docs/bayesian-confederation-plan.md):
                                # connectivity-weighted offset shrinkage. Scale
                                # each team's confederation offset by its bridge-

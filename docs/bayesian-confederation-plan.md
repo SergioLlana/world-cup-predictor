@@ -146,10 +146,13 @@ ARG−ESP, top-20 sensato.
   Dixon-Coles por draw** en vez de una matriz construida con las medias
   posteriores (plug-in de Fase A/B1). Promediar sobre el posterior arrastra la
   incertidumbre de ratings — máxima en los puentes cross-bloc débilmente
-  identificados — hasta los marcadores, ensanchando la distribución. Opt-in
-  `--bayes-propagate` / `BAYES_PROPAGATE` (default off; con off, `score_matrix`
-  cae al path heredado, byte a byte idéntico). Componible con A o B1. Veredicto
-  en la sub-fase B2 de `docs/model-robustness-plan.md`.
+  identificados — hasta los marcadores, ensanchando la distribución.
+  `--bayes-propagate` / `BAYES_PROPAGATE` **default-on desde 2026-06-19**
+  (decisión del dueño: es la distribución posterior-predictiva honesta y es
+  neutra en precisión — 609 vs 604 pts Penka, RPS +0.0002, ll −0.0002; con
+  `BAYES_PROPAGATE=False`, `score_matrix` cae al path plug-in heredado, byte a
+  byte idéntico). Componible con A o B1. Veredicto en la sub-fase B2 de
+  `docs/model-robustness-plan.md`.
 
 ## Fase C — encogimiento por conectividad (RECHAZADA, 2026-06-16)
 

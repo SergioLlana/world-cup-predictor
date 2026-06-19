@@ -479,7 +479,7 @@ constrained toward 0 (here: pushes it into team strengths and grows it) corrects
 the asymmetry. The offset-scale parameter is real and works; it is simply not the
 parameter for this problem. Parameter kept available, default 0.5.
 
-### Phase 4 — B2: full posterior propagation ✗ REJECTED as default 2026-06-14 (clean, but a wash)
+### Phase 4 — B2: full posterior propagation ✗ REJECTED for anchoring 2026-06-14 → ✓ default-on for the bayes engine 2026-06-19 (owner-directed)
 
 **Goal.** Phases A/B1 plug in the posterior *means* of atk/dfn/home/rho and
 build one Dixon-Coles score matrix from them. B2 instead returns the posterior
@@ -533,6 +533,18 @@ clean pass (live 1X2 is market-driven at `ODDS_WEIGHT = 1.0` regardless). Kept
 available, off, via `--bayes-propagate` — the honest posterior-predictive score
 matrix is there for anyone who wants cross-bloc uncertainty reflected in the
 scorelines rather than point picks.
+
+**Update (2026-06-19, owner-directed): `BAYES_PROPAGATE` flipped default-on.**
+The 2026-06-14 rejection was specifically against the *anchoring* acceptance
+check — propagation does not shrink the cross-bloc bias, so it failed the
+robustness goal. On the separate axis the owner cares about — giving the bayes
+engine the honest posterior-predictive scoreline (carrying rating uncertainty
+into the matrix) — it is the principled choice and accuracy-neutral (609 vs 604
+Penka pts, RPS +0.0002, ll −0.0002, a wash). So it is now the bayes-engine
+default (`config.BAYES_PROPAGATE = True`; `BAYES_PROPAGATE=False` recovers the
+plug-in mean). This does **not** reopen the robustness plan or change the
+anchoring verdict, and `--engine dc` (the production model) is untouched. The
+bayes picks snapshots were regenerated under propagation on the same date.
 
 **Plan status: CLOSED again (2026-06-14).** Every Phase 0-4 avenue (MLE
 shrinkage/anchoring/Elo + Bayesian offset-prior / dynamic time / tight-sigma_conf
@@ -592,6 +604,7 @@ the baseline row)*
 | 2026-06-13 | **Phase 4 B1** bayes `--bayes-dynamic` halfyear (STATIC, all) | **604.0** | **0.1884** | **2.7683** | C–U **+0.095** | **first bayes to match dc-static** (601.0/0.1887/2.7679): RPS a hair better, ll tied (+0.0004); recovers all of static A's loss (0.1905/2.7732→0.1884/2.7683). CONMEBOL–UEFA shrinks +0.103→+0.095 but CONCACAF–UEFA grows +0.120→**+0.133** (validation check fails). Per-tournament: wc2018 132/0.1989/2.8209 · euro2021 100/0.1820/2.8567 · copa2021 67/0.1545/2.5855 · wc2022 108/0.2118/3.0245 · euro2024 121/0.1862/2.5653 · copa2024 76/0.1639/2.4937. sigma_rw_atk 0.049 (CI 0.038-0.059), sigma_rw_dfn 0.058 (smooth, well-identified). Control cases (as-of 2026-06-13): AUS−USA 0.222→**0.157** (narrows ✓), ARG−ESP 0.222(static-A)→**0.092** (does NOT widen ✓); top-10 sane (ARG 2.91, ESP 2.82, BRA, ENG, POR…); sigma_conf 0.667 (CI 0.46-0.98); bloc offsets CONMEBOL +1.76 > UEFA +1.16 > CAF +0.43 > AFC −0.45 > CONCACAF −0.77 > OFC −2.12 (still encodes CONMEBOL>UEFA → CONCACAF–UEFA grows). MCMC (4×500): no divergences, treedepth/E-BFMI/ESS satisfactory; R-hat>1.01 only on composite atk/dfn + sigma_dfn (sparse team-block states; raw innovations converged) |
 | 2026-06-14 | **Phase 4 tight-`sigma_conf` sweep** B1 dynamic, scale 0.5/0.25/0.1/0.05/0.01 (STATIC, all) | 604 / 600 / 591 / 599 / 592 | 0.1884 / 0.1885 / 0.1884 / 0.1884 / **0.1888** | 2.7683 / 2.7685 / 2.7679 / 2.7688 / **2.7751** | C–U +0.095 / +0.095 / +0.095 / +0.096 / **+0.106** | scale 0.5 reproduces the B1 row exactly ✓ (repro rule 1). CONCACAF–U +0.133 / +0.133 / +0.134 / +0.135 / **+0.160** — both biases *grow* as the offset is pinned. sigma_conf post. mean 0.657 / 0.568 / 0.396 / 0.275 / **0.051** (collapses as designed); bloc offsets shrink to ≈0 and at 0.01 flip to UEFA +0.24 > CONMEBOL +0.10 (no bloc structure). Control cases (as-of 2026-06-14) ARG−ESP +0.087 / +0.087 / +0.086 / +0.079 / **+0.162**, AUS−USA +0.190 / +0.145 / +0.155 / +0.166 / **+0.234** (widen at the tight end). Driver: `data/experiments/sigma_conf_sweep/`. **Validation check fails (both biases grow, RPS/ll degrade) — mechanism works, hypothesis refuted: the bias is in the team ratings, not the offset scale.** |
 | 2026-06-14 | **Phase 4 B2** propagation `--bayes-propagate` on B1 dynamic (STATIC, all, paired) | 609.0 | **0.1886** | **2.7681** | C–U **+0.0932** | paired validation check (`scripts/gate_b2.py`): same MCMC fit scored twice. Plug-in arm reproduces B1 exactly (604.0/0.1884/2.7683) ✓; propagation 609.0/0.1886/2.7681 — RPS +0.0002, ll −0.0002 (wash). CONMEBOL–UEFA +0.0950→+0.0932, CONCACAF–UEFA +0.1330→**+0.1352** (grows → validation check fails). exact 39→40. Per-tournament (plug-in→prop): wc2018 132→132 / 0.1989→0.1990 / 2.8209→2.8198 · euro2021 100→108 / 0.1820→0.1822 / 2.8567→2.8571 · copa2021 67→60 / 0.1545→0.1552 / 2.5855→2.5972 · wc2022 108→105 / 0.2118→0.2117 / 3.0245→3.0061 · euro2024 121→117 / 0.1862→0.1864 / 2.5653→2.5784 · copa2024 76→87 / 0.1639→0.1642 / 2.4937→2.4991. Bridge goal-residuals edge toward 0 (honest spread); means unchanged so the bias direction is fixed. Smoke test (ARG−ESP B1 static): entropy 2.58→2.62, max\|ΔP\| 0.0056. |
+| 2026-06-19 | **`BAYES_PROPAGATE` flipped default-on (owner-directed).** Not a robustness change: propagation was rejected on 2026-06-14 only against the *anchoring* check (it doesn't shrink the cross-bloc bias). The owner adopts it as the bayes-engine default on the separate axis of giving the model the honest posterior-predictive scoreline — accuracy-neutral (609 vs 604 pts, RPS +0.0002, ll −0.0002, a wash; see the row above). `config.BAYES_PROPAGATE = True`; `False` recovers the byte-identical plug-in path. `--engine dc` untouched; anchoring verdict and plan-CLOSED status unchanged. Bayes picks snapshots regenerated under propagation the same day. |
 
 Phase 3 control cases (overall rating gaps at as-of 2026-06-12; baseline →
 elo τ=0.5/2/5): AUS−USA 0.222 → 0.199/0.169/0.150 (narrows monotonically ✓);
