@@ -89,8 +89,9 @@ def build_model(df, args):
         return model
     if getattr(args, "bayes_dynamic", False):
         sys.exit("--bayes-dynamic only applies to --engine bayes")
-    if getattr(args, "bayes_propagate", False):
-        sys.exit("--bayes-propagate only applies to --engine bayes")
+    # --bayes-propagate is default-on (BAYES_PROPAGATE), so it is set even when
+    # the user never asked for it; it is a no-op for the non-bayes engines, so
+    # ignore it silently here rather than erroring.
     if getattr(args, "bayes_connect", False):
         sys.exit("--bayes-connect only applies to --engine bayes")
     if getattr(args, "engine", "dc") == "elo":
@@ -279,9 +280,11 @@ def cmd_backtest(args):
     if args.engine == "bayes" and args.anchor_beta:
         sys.exit("--anchor-beta is an MLE-engine parameter; it has no "
                  "effect under --engine bayes")
-    if args.engine != "bayes" and (args.bayes_dynamic or args.bayes_propagate
-                                   or args.bayes_connect):
-        sys.exit("--bayes-dynamic / --bayes-propagate / --bayes-connect only "
+    # --bayes-propagate is default-on (BAYES_PROPAGATE) and a no-op for the
+    # non-bayes engines, so don't error on it here — only the off-by-default
+    # bayes flags signal a genuine engine mismatch.
+    if args.engine != "bayes" and (args.bayes_dynamic or args.bayes_connect):
+        sys.exit("--bayes-dynamic / --bayes-connect only "
                  "apply to --engine bayes")
     if args.engine == "elo" and args.anchor_beta:
         sys.exit("--anchor-beta is an MLE-engine parameter; it has no "
@@ -417,13 +420,13 @@ def main():
                              "confederation offset spread (default: %(default)s "
                              "= today's model; shrink toward 0 to pin the bloc "
                              "offsets near 0)")
-        sp.add_argument("--bayes-propagate", action="store_true",
+        sp.add_argument("--bayes-propagate", action=argparse.BooleanOptionalAction,
                         default=BAYES_PROPAGATE,
                         help="Phase B2: under --engine bayes, build the score "
                              "matrix as the posterior mean of the per-draw "
                              "Dixon-Coles matrices (full posterior propagation) "
                              "instead of plugging in the posterior-mean ratings "
-                             "(default: off)")
+                             "(default: on; --no-bayes-propagate for plug-in)")
         sp.add_argument("--bayes-connect", action="store_true",
                         default=BAYES_CONNECT_SHRINK,
                         help="Phase C: under --engine bayes, scale each team's "

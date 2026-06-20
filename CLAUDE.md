@@ -73,9 +73,12 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   the weak-anchoring limitation). Subclasses `DixonColes` — inherits
   `rates`/`matrix_from_rates`, overrides `fit` (MCMC, then adopts posterior-mean
   atk/dfn/home/rho — Phase A) and `score_matrix` (full posterior propagation by
-  default since 2026-06-19 — averages the per-draw Dixon-Coles matrices; set
-  `BAYES_PROPAGATE=False` to recover the "plug-in" mean = plug the single
-  posterior-mean rating straight into one Dixon-Coles matrix — Phase B2).
+  default since 2026-06-19 — averages the per-draw Dixon-Coles matrices; pass
+  `--no-bayes-propagate` (or set `BAYES_PROPAGATE=False`) to recover the
+  "plug-in" mean = plug the single posterior-mean rating straight into one
+  Dixon-Coles matrix — Phase B2). Because it defaults on, `--bayes-propagate`
+  is a `BooleanOptionalAction` and a no-op for the non-bayes engines (they
+  ignore it rather than erroring).
   Opt-in via
   `--engine bayes` (default `dc`, the regenerable production model). Two time
   treatments: the static default (`stan/dixon_coles.stan`) where time enters as
@@ -88,7 +91,8 @@ Data flows: `data.prepare_training` → `model.DixonColes.fit` →
   (`--bayes-propagate` / `BAYES_PROPAGATE`, **default-on since 2026-06-19**,
   Phase B2) where `score_matrix` returns the posterior mean of the per-draw
   Dixon-Coles matrices, carrying cross-bloc rating uncertainty into the
-  scorelines, or the plug-in posterior mean (`BAYES_PROPAGATE=False`). Propagation
+  scorelines, or the plug-in posterior mean (`--no-bayes-propagate` /
+  `BAYES_PROPAGATE=False`). Propagation
   is accuracy-neutral vs plug-in (609 vs 604 Penka pts, RPS +0.0002, ll −0.0002 —
   a wash) and does NOT fix the confederation bias, but is the honest
   posterior-predictive scoreline. The between-confederation offset spread `sigma_conf` carries a

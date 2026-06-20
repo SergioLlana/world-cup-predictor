@@ -150,8 +150,10 @@ ARG−ESP, top-20 sensato.
   `--bayes-propagate` / `BAYES_PROPAGATE` **default-on desde 2026-06-19**
   (decisión del dueño: es la distribución posterior-predictiva honesta y es
   neutra en precisión — 609 vs 604 pts Penka, RPS +0.0002, ll −0.0002; con
-  `BAYES_PROPAGATE=False`, `score_matrix` cae al path plug-in heredado, byte a
-  byte idéntico). Componible con A o B1. Veredicto en la sub-fase B2 de
+  `--no-bayes-propagate` / `BAYES_PROPAGATE=False`, `score_matrix` cae al path
+  plug-in heredado, byte a byte idéntico; al ser default-on, `--bayes-propagate`
+  es un `BooleanOptionalAction` y un no-op para los motores no-bayes). Componible
+  con A o B1. Veredicto en la sub-fase B2 de
   `docs/model-robustness-plan.md`.
 
 ## Fase C — encogimiento por conectividad (RECHAZADA, 2026-06-16)

@@ -541,7 +541,8 @@ robustness goal. On the separate axis the owner cares about — giving the bayes
 engine the honest posterior-predictive scoreline (carrying rating uncertainty
 into the matrix) — it is the principled choice and accuracy-neutral (609 vs 604
 Penka pts, RPS +0.0002, ll −0.0002, a wash). So it is now the bayes-engine
-default (`config.BAYES_PROPAGATE = True`; `BAYES_PROPAGATE=False` recovers the
+default (`config.BAYES_PROPAGATE = True`; `--no-bayes-propagate` /
+`BAYES_PROPAGATE=False` recovers the
 plug-in mean). This does **not** reopen the robustness plan or change the
 anchoring verdict, and `--engine dc` (the production model) is untouched. The
 bayes picks snapshots were regenerated under propagation on the same date.
