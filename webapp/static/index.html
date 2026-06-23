@@ -1,46 +1,51 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mundial 2026 · Predicciones</title>
+<title>World Cup 2026 · Predictions</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="icon" href="/flags/mx.svg">
 </head>
 <body>
 <header class="topbar">
   <div class="title">
-    <h1>Mundial 2026 · Predicciones</h1>
-    <p class="subtitle">Modelo <span id="engine-note">Dixon-Coles</span> optimizado para Penka · <span id="snapshot-note"></span></p>
+    <h1 data-i18n="title">World Cup 2026 · Predictions</h1>
+    <p class="subtitle"><span data-i18n="subtitle.model">Model</span> <span id="engine-note">Elo</span> <span data-i18n="subtitle.opt">optimised for Penka</span> · <span id="snapshot-note"></span></p>
   </div>
   <div class="controls">
-    <label class="switch" title="Mezclar las cuotas 1X2 del mercado en las predicciones">
+    <label class="switch" data-i18n-title="ctrl.odds_title" title="Blend the market 1X2 odds into the predictions">
       <input type="checkbox" id="odds-toggle" checked>
       <span class="slider"></span>
-      <span class="switch-label">Cuotas de mercado</span>
+      <span class="switch-label" data-i18n="ctrl.odds">Market odds</span>
     </label>
-    <label class="switch" title="Activado: marcador más probable del resultado más probable (estrategia C, +8% Penka en el backtest). Desactivado: marcador de máximo valor esperado de puntos.">
+    <label class="switch" data-i18n-title="ctrl.strategy_title" title="On: most likely score of the most likely result. Off: maximum expected points.">
       <input type="checkbox" id="strategy-toggle" checked>
       <span class="slider"></span>
-      <span class="switch-label">Marcador más probable</span>
+      <span class="switch-label" data-i18n="ctrl.strategy">Most likely score</span>
     </label>
-    <label class="snapshot-picker" title="Motor de predicción">Motor
+    <label class="snapshot-picker" data-i18n-title="ctrl.engine_title" title="Prediction engine"><span data-i18n="ctrl.engine">Engine</span>
       <select id="engine-select"></select>
     </label>
-    <label class="snapshot-picker">Día
+    <label class="snapshot-picker"><span data-i18n="ctrl.day">Day</span>
       <select id="snapshot-select"></select>
     </label>
-    <button id="refresh-btn" class="btn">⟳ Actualizar datos</button>
+    <div class="lang-switch" role="group" aria-label="Language">
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+      <button type="button" class="lang-btn" data-lang="es">ES</button>
+    </div>
+    <button id="refresh-btn" class="btn" data-i18n="ctrl.refresh">⟳ Refresh data</button>
   </div>
 </header>
 
 <nav class="tabs">
-  <button class="tab active" data-tab="champion">¿Quién gana?</button>
-  <button class="tab" data-tab="evolution">Evolución</button>
-  <button class="tab" data-tab="groups">Grupos</button>
-  <button class="tab" data-tab="calendar">Calendario</button>
-  <button class="tab" data-tab="rankings">Rankings</button>
-  <button class="tab" data-tab="connectivity">Conectividad</button>
+  <button class="tab active" data-tab="champion" data-i18n="tab.champion">Who wins?</button>
+  <button class="tab" data-tab="evolution" data-i18n="tab.evolution">Evolution</button>
+  <button class="tab" data-tab="groups" data-i18n="tab.groups">Groups</button>
+  <button class="tab" data-tab="calendar" data-i18n="tab.calendar">Calendar</button>
+  <button class="tab" data-tab="rankings" data-i18n="tab.rankings">Rankings</button>
+  <button class="tab" data-tab="connectivity" data-i18n="tab.connectivity">Connectivity</button>
+  <button class="tab" data-tab="docs" data-i18n="tab.docs">How it works</button>
 </nav>
 
 <main>
@@ -50,41 +55,42 @@
   <section id="tab-calendar" class="panel"></section>
   <section id="tab-rankings" class="panel"></section>
   <section id="tab-connectivity" class="panel"></section>
+  <section id="tab-docs" class="panel"></section>
 </main>
 
 <div id="matrix-modal" class="modal hidden">
   <div class="modal-box matrix-box">
     <div id="matrix-content"></div>
     <div class="modal-actions">
-      <button id="matrix-close" class="btn">Cerrar</button>
+      <button id="matrix-close" class="btn" data-i18n="matrix.close">Close</button>
     </div>
   </div>
 </div>
 
 <div id="refresh-modal" class="modal hidden">
   <div class="modal-box">
-    <h2>Actualizar predicciones</h2>
+    <h2 data-i18n="refresh.title">Refresh predictions</h2>
     <label class="check"><input type="checkbox" id="refresh-inputs" checked>
-      Refrescar datos de entrada (resultados + xG + cuotas)</label>
+      <span data-i18n="refresh.inputs">Refresh input data (results + xG + odds)</span></label>
     <fieldset class="refresh-engines">
-      <legend>Motores a generar</legend>
+      <legend data-i18n="refresh.engines_legend">Engines to generate</legend>
       <label class="check"><input type="checkbox" class="refresh-engine" value="dc" checked> Dixon-Coles</label>
       <label class="check"><input type="checkbox" class="refresh-engine" value="elo"> Elo</label>
-      <label class="check"><input type="checkbox" class="refresh-engine" value="bayes"> Bayesiano <span class="hint">(necesita CmdStan; lento)</span></label>
+      <label class="check"><input type="checkbox" class="refresh-engine" value="bayes"> <span data-i18n="engine.bayes">Bayesian</span> <span class="hint" data-i18n="refresh.engine_bayes_hint">(needs CmdStan; slow)</span></label>
     </fieldset>
-    <label class="check">Simulaciones Monte Carlo
-      <input type="number" id="refresh-sims" placeholder="por defecto" min="1000" step="1000">
+    <label class="check"><span data-i18n="refresh.sims">Monte Carlo simulations</span>
+      <input type="number" id="refresh-sims" data-i18n-ph="refresh.sims_ph" placeholder="default" min="1000" step="1000">
     </label>
-    <p class="hint">Genera los CSV fechados de hoy para ambas variantes (con y sin cuotas)
-       y los motores marcados. Puede tardar varios minutos.</p>
+    <p class="hint" data-i18n="refresh.hint">Generates today's date-stamped CSVs for both variants (with and without odds) and the checked engines. May take several minutes.</p>
     <div class="modal-actions">
-      <button id="refresh-start" class="btn primary">Lanzar</button>
-      <button id="refresh-close" class="btn">Cerrar</button>
+      <button id="refresh-start" class="btn primary" data-i18n="refresh.start">Run</button>
+      <button id="refresh-close" class="btn" data-i18n="refresh.close">Close</button>
     </div>
     <pre id="refresh-log" class="hidden"></pre>
   </div>
 </div>
 
+<script src="/i18n.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

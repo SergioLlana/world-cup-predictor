@@ -1,7 +1,9 @@
 /* Frontend de wcpred: lee la API JSON de webapp/server.py y pinta las vistas.
-   Sin dependencias externas: las gráficas son SVG generado a mano. */
+   Sin dependencias externas: las gráficas son SVG generado a mano. Los textos
+   visibles salen de i18n.js (helper `t`), cargado antes que este fichero. */
 
 const state = {
+  lang: (typeof currentLang === "function" ? currentLang() : "en"), // en | es
   approach: "odds",          // toggle de cuotas: odds | history
   engine: "elo",             // motor: dc | elo | bayes
   strategy: "outcome",       // toggle de estrategia de marcador: ev | outcome
@@ -21,13 +23,10 @@ const state = {
   rankSelected: null,                  // idem para la gráfica de rankings
 };
 
-// Etiquetas legibles para cada motor (las claves vienen del backend).
-const ENGINE_LABELS = { dc: "Dixon-Coles", elo: "Elo", bayes: "Bayesiano" };
-// Etiquetas legibles para cada estrategia de selección de marcador.
-const STRATEGY_LABELS = {
-  ev: "máximo valor esperado",
-  outcome: "marcador más probable",
-};
+// Etiqueta legible de un motor / estrategia (traducidas en i18n.js).
+const engineLabel = (e) => t("engine." + e);
+const strategyLabel = (s) => t("strategy." + s);
+
 // Marcador de una fila de picks según la estrategia activa. Las filas nuevas
 // traen pick_outcome; los snapshots antiguos (solo ev) caen a `pick`.
 const pickOf = (row) =>
@@ -46,11 +45,12 @@ const fetchJSON = async (url) => {
 // ---------------------------------------------------------------- helpers
 
 const teamInfo = (name) => state.meta.teams[name] || { code: null, es: name };
-const teamES = (name) => teamInfo(name).es;
+// nombre de la selección según el idioma: clave martj42 (inglés) o su nombre es
+const teamName = (name) => state.lang === "es" ? teamInfo(name).es : name;
 const flagImg = (name, big = false) => {
-  const t = teamInfo(name);
-  if (!t.code) return "";
-  return `<img class="flag${big ? " big" : ""}" src="/flags/${t.code}.svg" alt="${t.es}">`;
+  const tdata = teamInfo(name);
+  if (!tdata.code) return "";
+  return `<img class="flag${big ? " big" : ""}" src="/flags/${tdata.code}.svg" alt="${teamName(name)}">`;
 };
 
 const pct = (p) => {
@@ -67,13 +67,20 @@ const pcell = (p) => {
   return `<td class="pcell${dark}" style="background:rgba(15,138,138,${a.toFixed(3)})">${pct(p)}</td>`;
 };
 
+const dateLocale = () => state.lang === "es" ? "es-ES" : "en-GB";
+
 const fmtDay = (iso) =>
-  new Intl.DateTimeFormat("es-ES", { weekday: "long", day: "numeric", month: "long" })
+  new Intl.DateTimeFormat(dateLocale(), { weekday: "long", day: "numeric", month: "long" })
     .format(new Date(iso + "T12:00:00"));
 
 const fmtShort = (iso) =>
-  new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short" })
+  new Intl.DateTimeFormat(dateLocale(), { day: "numeric", month: "short" })
     .format(new Date(iso + "T12:00:00"));
+
+// etiqueta de ronda a partir del round_id que envía /api/matches: jN = jornada
+// de grupos; el resto son claves de eliminatoria (r32/r16/qf/sf/p3/f/ko).
+const roundName = (rid) =>
+  /^j\d+$/.test(rid) ? t("round.group", { n: rid.slice(1) }) : t("round." + rid);
 
 // paso "bonito" (1/2/5 × 10^k) para ~6 líneas de rejilla en un rango dado
 function niceStep(span) {
@@ -112,9 +119,11 @@ async function reloadAll() {
   const [meta, matches] = await Promise.all([fetchJSON("/api/meta"), fetchJSON("/api/matches")]);
   state.meta = meta;
   state.matches = matches.matches;
+  applyPublicMode();
   buildEngineSelect();
   await loadData();
   buildSnapshotSelect();
+  renderDocs();
   render();
   // permalink a la matriz de un partido: #match=2026-06-11|Mexico|South Africa
   if (location.hash.startsWith("#match=")) {
@@ -124,11 +133,21 @@ async function reloadAll() {
   }
 }
 
+// Versión pública (WCPRED_PUBLIC en el servidor → meta.public): sin botón de
+// actualizar datos ni pestaña de Conectividad.
+function applyPublicMode() {
+  if (!state.meta || !state.meta.public) return;
+  $("#refresh-btn")?.remove();
+  document.querySelector('.tab[data-tab="connectivity"]')?.remove();
+  $("#tab-connectivity")?.remove();
+  if (state.tab === "connectivity") activateTab("champion");
+}
+
 function buildEngineSelect() {
   const engines = state.meta.engines || ["dc"];
   const sel = $("#engine-select");
   sel.innerHTML = engines
-    .map((e) => `<option value="${e}">${ENGINE_LABELS[e] || e}</option>`)
+    .map((e) => `<option value="${e}">${engineLabel(e)}</option>`)
     .join("");
   if (!engines.includes(state.engine)) state.engine = engines[0];
   sel.value = state.engine;
@@ -137,7 +156,7 @@ function buildEngineSelect() {
 
 function updateEngineNote() {
   const note = $("#engine-note");
-  if (note) note.textContent = ENGINE_LABELS[state.engine] || state.engine;
+  if (note) note.textContent = engineLabel(state.engine);
 }
 
 function buildSnapshotSelect() {
@@ -149,38 +168,35 @@ function buildSnapshotSelect() {
   if (wanted) sel.value = wanted;
   state.snapshotDate = wanted || null;
   $("#snapshot-note").textContent = wanted
-    ? `predicciones del ${fmtDay(wanted)}`
-    : "sin predicciones generadas todavía";
+    ? t("snapshot.predictions", { date: fmtDay(wanted) })
+    : t("snapshot.none");
 }
 
 // ----------------------------------------------------------- ¿Quién gana?
 
 const SIM_COLS = [
-  ["p_win_group", "Gana grupo"],
-  ["p_r16", "Octavos"],
-  ["p_qf", "Cuartos"],
-  ["p_sf", "Semis"],
-  ["p_final", "Final"],
-  ["p_champion", "Campeón"],
+  ["p_win_group", "sim.win_group"],
+  ["p_r16", "sim.r16"],
+  ["p_qf", "sim.qf"],
+  ["p_sf", "sim.sf"],
+  ["p_final", "sim.final"],
+  ["p_champion", "sim.champion"],
 ];
 
 function renderChampion() {
   const snap = pickSnapshot(curCache().sims, state.snapshotDate);
   const el = $("#tab-champion");
-  if (!snap) { el.innerHTML = `<p class="note">No hay simulaciones generadas. Usa «Actualizar datos».</p>`; return; }
+  if (!snap) { el.innerHTML = `<p class="note">${t("champion.none")}</p>`; return; }
   const rows = [...snap.rows].sort((a, b) => b.p_champion - a.p_champion);
   el.innerHTML = `
-    <h2 class="section">¿Quién ganará el Mundial?</h2>
-    <p class="note">Probabilidades de alcanzar cada ronda según ${snap.rows.length ? "la" : ""} simulación
-       Monte Carlo del torneo completo (snapshot del ${fmtDay(snap.date)},
-       ${state.approach === "odds" ? "con cuotas de mercado" : "solo modelo, sin cuotas"}).
-       Los partidos ya jugados entran con su resultado real.</p>
+    <h2 class="section">${t("champion.title")}</h2>
+    <p class="note">${t("champion.intro", { date: fmtDay(snap.date), odds: state.approach === "odds" })}</p>
     <div class="card" style="overflow-x:auto">
       <table class="probs">
-        <thead><tr><th class="team-col">Equipo</th>
-          ${SIM_COLS.map(([, h]) => `<th>${h}</th>`).join("")}</tr></thead>
+        <thead><tr><th class="team-col">${t("col.team")}</th>
+          ${SIM_COLS.map(([, h]) => `<th>${t(h)}</th>`).join("")}</tr></thead>
         <tbody>${rows.map((r) => `
-          <tr><td class="team-cell">${flagImg(r.team)}${teamES(r.team)}
+          <tr><td class="team-cell">${flagImg(r.team)}${teamName(r.team)}
                 <span class="group-chip">${r.group}</span></td>
             ${SIM_COLS.map(([k]) => pcell(r[k])).join("")}</tr>`).join("")}
         </tbody>
@@ -191,11 +207,11 @@ function renderChampion() {
 // -------------------------------------------------------------- evolución
 
 const EVO_METRICS = [
-  ["p_champion", "Campeón"],
-  ["p_final", "Llega a la final"],
-  ["p_sf", "Semifinalista"],
-  ["p_qf", "Cuartofinalista"],
-  ["p_knockout", "Pasa de grupo"],
+  ["p_champion", "evo.m.champion"],
+  ["p_final", "evo.m.final"],
+  ["p_sf", "evo.m.sf"],
+  ["p_qf", "evo.m.qf"],
+  ["p_knockout", "evo.m.knockout"],
 ];
 const PALETTE = ["#0f8a8a", "#e8632c", "#3b6bb5", "#c0392b", "#7d3bb5",
                  "#2e8b57", "#d9a514", "#7a4b2c", "#e054a0", "#44443f"];
@@ -205,19 +221,19 @@ const EVO_GRAY = "#cdcbc2";      // color de las selecciones de fondo (no resalt
 // color estable por equipo resaltado, en el orden (ordenado por métrica) dado
 function evoColors(selectedOrdered) {
   const map = {};
-  selectedOrdered.forEach((t, i) => (map[t] = PALETTE[i % PALETTE.length]));
+  selectedOrdered.forEach((tm, i) => (map[tm] = PALETTE[i % PALETTE.length]));
   return map;
 }
 
 // leyenda interactiva: todas las selecciones como chips conmutables (clic para
 // resaltar/quitar) + botón para deseleccionar todas
 function selectableLegend(teamsOrdered, selected, colorOf) {
-  const clear = `<button class="evo-clear" type="button"${selected.size ? "" : " disabled"}>Deseleccionar todas</button>`;
-  const chips = teamsOrdered.map((t) => {
-    const on = selected.has(t);
-    return `<span class="item team-toggle ${on ? "on" : "off"}" data-team="${t}" title="Clic para ${on ? "quitar" : "resaltar"}">
-      <span class="swatch" style="background:${on ? colorOf[t] : EVO_GRAY}"></span>
-      ${flagImg(t)} ${teamES(t)}</span>`;
+  const clear = `<button class="evo-clear" type="button"${selected.size ? "" : " disabled"}>${t("legend.clear")}</button>`;
+  const chips = teamsOrdered.map((tm) => {
+    const on = selected.has(tm);
+    return `<span class="item team-toggle ${on ? "on" : "off"}" data-team="${tm}" title="${on ? t("legend.remove") : t("legend.add")}">
+      <span class="swatch" style="background:${on ? colorOf[tm] : EVO_GRAY}"></span>
+      ${flagImg(tm)} ${teamName(tm)}</span>`;
   }).join("");
   return `<div class="evo-legend selectable">${clear}${chips}</div>`;
 }
@@ -226,8 +242,8 @@ function selectableLegend(teamsOrdered, selected, colorOf) {
 function wireLegend(el, selected, selKey, rerender) {
   el.querySelectorAll(".team-toggle").forEach((n) =>
     n.addEventListener("click", () => {
-      const t = n.dataset.team;
-      if (selected.has(t)) selected.delete(t); else selected.add(t);
+      const tm = n.dataset.team;
+      if (selected.has(tm)) selected.delete(tm); else selected.add(tm);
       state[selKey] = selected;
       rerender();
     }));
@@ -238,13 +254,13 @@ function wireLegend(el, selected, selKey, rerender) {
 function renderEvolution() {
   const snaps = curCache().sims;
   const el = $("#tab-evolution");
-  if (!snaps.length) { el.innerHTML = `<p class="note">No hay simulaciones generadas.</p>`; return; }
+  if (!snaps.length) { el.innerHTML = `<p class="note">${t("evo.none")}</p>`; return; }
 
   const metric = state.evoMetric;
   const last = snaps[snaps.length - 1];
   const ordered = [...last.rows].sort((a, b) => b[metric] - a[metric]).map((r) => r.team);
   const selected = state.evoSelected || new Set(ordered.slice(0, EVO_DEFAULT_N));
-  const colorOf = evoColors(ordered.filter((t) => selected.has(t)));
+  const colorOf = evoColors(ordered.filter((tm) => selected.has(tm)));
   const series = ordered.map((team) => ({
     team, sel: selected.has(team), color: selected.has(team) ? colorOf[team] : EVO_GRAY,
     values: snaps.map((s) => {
@@ -304,22 +320,21 @@ function renderEvolution() {
     const yEnd = y(l.v);
     if (Math.abs(l.ly - yEnd) > 4)
       lines += `<line x1="${x(n - 1) + 4}" y1="${yEnd}" x2="${x(n - 1) + 18}" y2="${l.ly - 4}" stroke="${l.s.color}" stroke-width="1" opacity=".6"/>`;
-    lines += `<text x="${x(n - 1) + 21}" y="${l.ly}" font-size="11.5" font-weight="600" fill="${l.s.color}">${teamES(l.s.team)} ${pct(l.v)}</text>`;
+    lines += `<text x="${x(n - 1) + 21}" y="${l.ly}" font-size="11.5" font-weight="600" fill="${l.s.color}">${teamName(l.s.team)} ${pct(l.v)}</text>`;
   });
 
-  const metricLabel = EVO_METRICS.find(([k]) => k === metric)[1];
+  const metricLabel = t(EVO_METRICS.find(([k]) => k === metric)[1]);
   el.innerHTML = `
-    <h2 class="section">Evolución día a día</h2>
+    <h2 class="section">${t("evo.title")}</h2>
     <div class="evo-controls">
-      <label>Métrica
+      <label>${t("label.metric")}
         <select id="evo-metric">${EVO_METRICS.map(([k, l]) =>
-          `<option value="${k}"${k === metric ? " selected" : ""}>${l}</option>`).join("")}</select>
+          `<option value="${k}"${k === metric ? " selected" : ""}>${t(l)}</option>`).join("")}</select>
       </label>
-      <span class="note">Las ${ordered.length} selecciones (en gris) por «${metricLabel}»
-        (${state.approach === "odds" ? "con cuotas" : "sin cuotas"});
-        resaltadas las ${selected.size} elegidas. Clic en una bandera de la leyenda para
-        resaltarla o quitarla.
-        ${n === 1 ? "Solo hay un día generado: la línea crecerá con cada nuevo snapshot." : ""}</span>
+      <span class="note">${t("evo.note", {
+        total: ordered.length, metric: metricLabel, odds: state.approach === "odds",
+        selected: selected.size, oneDay: n === 1,
+      })}</span>
     </div>
     <svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${xaxis}${lines}</svg>
     ${selectableLegend(ordered, selected, colorOf)}`;
@@ -336,22 +351,21 @@ function renderEvolution() {
 function renderGroups() {
   const snap = pickSnapshot(curCache().groups, state.snapshotDate);
   const el = $("#tab-groups");
-  if (!snap) { el.innerHTML = `<p class="note">No hay standings generados.</p>`; return; }
+  if (!snap) { el.innerHTML = `<p class="note">${t("groups.none")}</p>`; return; }
   const byGroup = {};
   snap.rows.forEach((r) => (byGroup[r.group] ||= []).push(r));
 
   el.innerHTML = `
-    <h2 class="section">Fase de grupos</h2>
-    <p class="note">Probabilidad de cada posición final y de clasificarse para dieciseisavos
-      (1º, 2º o uno de los 8 mejores terceros). Snapshot del ${fmtDay(snap.date)}.</p>
+    <h2 class="section">${t("groups.title")}</h2>
+    <p class="note">${t("groups.intro", { date: fmtDay(snap.date) })}</p>
     <div class="groups-grid">${Object.keys(state.meta.groups).map((g) => {
       const rows = (byGroup[g] || []).sort((a, b) => b.xPts - a.xPts);
-      return `<div class="card group-card"><h3>Grupo ${g}</h3>
+      return `<div class="card group-card"><h3>${t("label.group", { g })}</h3>
         <table class="gtable">
-          <thead><tr><th>Equipo</th><th>1º</th><th>2º</th><th>3º</th><th>4º</th>
-            <th>Clasifica</th><th>xPts</th></tr></thead>
+          <thead><tr><th>${t("col.team")}</th><th>${t("pos.1")}</th><th>${t("pos.2")}</th><th>${t("pos.3")}</th><th>${t("pos.4")}</th>
+            <th>${t("col.qualify")}</th><th>xPts</th></tr></thead>
           <tbody>${rows.map((r) => `
-            <tr><td class="team-cell">${flagImg(r.team)}${teamES(r.team)}</td>
+            <tr><td class="team-cell">${flagImg(r.team)}${teamName(r.team)}</td>
               ${pcell(r.P1)}${pcell(r.P2)}${pcell(r.P3)}${pcell(r.P4)}${pcell(r.qualify)}
               <td>${r.xPts?.toFixed(1) ?? "–"}</td></tr>`).join("")}
           </tbody>
@@ -390,45 +404,45 @@ function pickBadge(match, pred) {
   if (!match.played || !pred) return "";
   const [ph, pa] = pickOf(pred).split("-").map(Number);
   if (ph === match.home_score && pa === match.away_score)
-    return `<span class="badge exact">Exacta</span>`;
+    return `<span class="badge exact">${t("badge.exact")}</span>`;
   if (Math.sign(ph - pa) === Math.sign(match.home_score - match.away_score))
-    return `<span class="badge outcome">1X2 ✓</span>`;
-  return `<span class="badge miss">Fallo</span>`;
+    return `<span class="badge outcome">${t("badge.outcome")}</span>`;
+  return `<span class="badge miss">${t("badge.miss")}</span>`;
 }
 
 function matchCard(m) {
   const pred = predictionFor(m);
   const score = m.played
     ? `<span class="score">${m.home_score} – ${m.away_score}</span>`
-    : `<span class="score future">vs</span>`;
+    : `<span class="score future">${t("match.vs")}</span>`;
   // etiqueta según quepa: "1 · 68%" → "68%" → nada (el title siempre la lleva)
   const segLabel = (prefix, p) =>
     p >= 0.17 ? `${prefix} · ${pct(p)}` : p >= 0.09 ? pct(p) : "";
   const seg = (cls, prefix, p) =>
     `<span class="seg ${cls}" style="width:${p * 100}%" title="${prefix}: ${pct(p)}">${segLabel(prefix, p)}</span>`;
   const probBar = pred ? `
-    <div class="prob-bar" title="Probabilidades 1 / X / 2">
+    <div class="prob-bar" title="${t("match.prob_title")}">
       ${seg("p1", "1", pred.P_1)}${seg("px", "X", pred.P_X)}${seg("p2", "2", pred.P_2)}
     </div>` : "";
   const predLine = pred ? `
     <div class="pred-line">
-      <span class="pick-chip" title="Estrategia: ${STRATEGY_LABELS[state.strategy]}">Pred. ${pickOf(pred)}</span>
+      <span class="pick-chip" title="${t("match.strategy_title", { strategy: strategyLabel(state.strategy) })}">${t("match.pred_prefix")} ${pickOf(pred)}</span>
       ${pickBadge(m, pred)}
-    </div>` : `<div class="pred-line"><span class="xp">Sin predicción para este partido</span></div>`;
+    </div>` : `<div class="pred-line"><span class="xp">${t("match.no_pred")}</span></div>`;
   const oddsLine = m.odds ? `
-    <div class="odds-line">Cuotas:
+    <div class="odds-line">${t("match.odds")}
       <span class="o">1&nbsp;${m.odds[0].toFixed(2)}</span>
       <span class="o">X&nbsp;${m.odds[1].toFixed(2)}</span>
       <span class="o">2&nbsp;${m.odds[2].toFixed(2)}</span>
     </div>` : "";
   return `<div class="match-card" data-home="${m.home}" data-away="${m.away}" data-date="${m.date}"
-       title="Clic para ver la matriz de marcadores">
-    <div class="meta"><span>${m.city}${m.group ? ` · Grupo ${m.group}` : ""}</span>
+       title="${t("match.card_title")}">
+    <div class="meta"><span>${m.city}${m.group ? ` · ${t("label.group", { g: m.group })}` : ""}</span>
       <span>${fmtShort(m.date)}</span></div>
     <div class="match-row">
-      <span class="team">${flagImg(m.home, true)}<span>${teamES(m.home)}</span></span>
+      <span class="team">${flagImg(m.home, true)}<span>${teamName(m.home)}</span></span>
       ${score}
-      <span class="team away">${flagImg(m.away, true)}<span>${teamES(m.away)}</span></span>
+      <span class="team away">${flagImg(m.away, true)}<span>${teamName(m.away)}</span></span>
     </div>
     ${predLine}${probBar}${oddsLine}
   </div>`;
@@ -436,21 +450,19 @@ function matchCard(m) {
 
 function renderCalendar() {
   const el = $("#tab-calendar");
-  if (!state.matches?.length) { el.innerHTML = `<p class="note">No hay partidos en results.csv.</p>`; return; }
+  if (!state.matches?.length) { el.innerHTML = `<p class="note">${t("cal.none")}</p>`; return; }
 
   const byRound = {};
   state.matches.forEach((m) => (byRound[m.round_id] ||= []).push(m));
 
   el.innerHTML = `
-    <h2 class="section">Calendario y predicciones partido a partido</h2>
-    <p class="note">Para cada partido se muestra la predicción vigente ese día (el último snapshot
-      anterior o igual a la fecha del partido) y las cuotas 1X2 si están disponibles.
-      Los partidos eliminatorios aparecerán cuando se conozcan los cruces.</p>
+    <h2 class="section">${t("cal.title")}</h2>
+    <p class="note">${t("cal.intro")}</p>
     ${ROUND_ORDER.filter((r) => byRound[r]).map((rid) => {
       const ms = byRound[rid];
       const byDay = {};
       ms.forEach((m) => (byDay[m.date] ||= []).push(m));
-      return `<div class="round-block"><h2>${ms[0].round_name}</h2>
+      return `<div class="round-block"><h2>${roundName(rid)}</h2>
         ${Object.keys(byDay).sort().map((d) => `
           <div class="day-label">${fmtDay(d)}</div>
           <div class="match-grid">${byDay[d].map(matchCard).join("")}</div>`).join("")}
@@ -470,11 +482,11 @@ async function loadConnectivity() {
   if (state.connLoading) return;
   state.connLoading = true;
   const el = $("#tab-connectivity");
-  el.innerHTML = `<p class="note">Calculando la conectividad… (la primera vez ajusta el modelo y tarda unos segundos)</p>`;
+  el.innerHTML = `<p class="note">${t("conn.loading")}</p>`;
   try {
     state.connectivity = await fetchJSON("/api/connectivity");
   } catch (e) {
-    el.innerHTML = `<p class="note">Error calculando la conectividad: ${e.message}</p>`;
+    el.innerHTML = `<p class="note">${t("conn.error", { msg: e.message })}</p>`;
     return;
   } finally {
     state.connLoading = false;
@@ -486,8 +498,8 @@ async function loadConnectivity() {
 function connScatter(d) {
   const pts = d.teams;
   const W = 920, H = 450, mL = 52, mR = 26, mT = 14, mB = 46;
-  const xMax = Math.max(...pts.map((t) => t.bridge_share)) * 1.1;
-  const ys = pts.map((t) => t.rating);
+  const xMax = Math.max(...pts.map((tm) => tm.bridge_share)) * 1.1;
+  const ys = pts.map((tm) => tm.rating);
   const yMin = Math.min(...ys) - 0.2, yMax = Math.max(...ys) + 0.2;
   const X = (v) => mL + (v / xMax) * (W - mL - mR);
   const Y = (v) => mT + (1 - (v - yMin) / (yMax - yMin)) * (H - mT - mB);
@@ -501,18 +513,18 @@ function connScatter(d) {
     grid += `<line x1="${mL}" y1="${Y(v)}" x2="${W - mR}" y2="${Y(v)}" stroke="#e4e2da"/>
              <text x="${mL - 8}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="#6b6b66">${v.toFixed(1)}</text>`;
   }
-  grid += `<text x="${(mL + W - mR) / 2}" y="${H - 6}" text-anchor="middle" font-size="11.5" fill="#6b6b66">Peso de entrenamiento contra otras confederaciones (partidos puente)</text>
-           <text transform="rotate(-90)" x="${-(mT + H - mB) / 2}" y="13" text-anchor="middle" font-size="11.5" fill="#6b6b66">Rating del modelo (ataque − defensa)</text>`;
+  grid += `<text x="${(mL + W - mR) / 2}" y="${H - 6}" text-anchor="middle" font-size="11.5" fill="#6b6b66">${t("conn.scatter_xaxis")}</text>
+           <text transform="rotate(-90)" x="${-(mT + H - mB) / 2}" y="13" text-anchor="middle" font-size="11.5" fill="#6b6b66">${t("conn.scatter_yaxis")}</text>`;
 
   let marks = "";
-  pts.forEach((t) => {
-    const info = teamInfo(t.team);
-    const cx = X(t.bridge_share), cy = Y(t.rating);
-    const sel = t.team === state.connSelected;
-    marks += `<g class="conn-pt${sel ? " sel" : ""}" data-team="${t.team}">
-      <circle cx="${cx}" cy="${cy}" r="13" fill="${CONF_COLORS[t.conf] || CONF_UNKNOWN}" opacity="${sel ? "0.85" : "0.3"}"/>
+  pts.forEach((tm) => {
+    const info = teamInfo(tm.team);
+    const cx = X(tm.bridge_share), cy = Y(tm.rating);
+    const sel = tm.team === state.connSelected;
+    marks += `<g class="conn-pt${sel ? " sel" : ""}" data-team="${tm.team}">
+      <circle cx="${cx}" cy="${cy}" r="13" fill="${CONF_COLORS[tm.conf] || CONF_UNKNOWN}" opacity="${sel ? "0.85" : "0.3"}"/>
       ${info.code ? `<image href="/flags/${info.code}.svg" x="${cx - 10}" y="${cy - 7}" width="20" height="14"/>` : ""}
-      <title>${teamES(t.team)} (${t.conf}) — rating ${t.rating.toFixed(2)} · puente ${pct(t.bridge_share)} · rival medio ${t.opp_rating.toFixed(2)}</title>
+      <title>${teamName(tm.team)} (${tm.conf}) — rating ${tm.rating.toFixed(2)} · ${pct(tm.bridge_share)} · ${tm.opp_rating.toFixed(2)}</title>
     </g>`;
   });
   return `<svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${marks}</svg>`;
@@ -520,28 +532,27 @@ function connScatter(d) {
 
 // desglose del equipo seleccionado: contra qué confederaciones entrena su rating
 function connDetail(d) {
-  const t = d.teams.find((x) => x.team === state.connSelected);
-  if (!t) return `<p class="note">Haz clic en una bandera del gráfico (o en una fila de la tabla)
-    para ver contra qué confederaciones ha jugado cada equipo.</p>`;
-  const known = Object.values(t.by_conf).reduce((a, b) => a + b, 0);
+  const tm = d.teams.find((x) => x.team === state.connSelected);
+  if (!tm) return `<p class="note">${t("conn.detail_prompt")}</p>`;
+  const known = Object.values(tm.by_conf).reduce((a, b) => a + b, 0);
   const rest = 1 - known;   // rivales sin confederación inferible en la ventana
   const segs = d.confederations
-    .filter((c) => t.by_conf[c] > 0.001)
-    .map((c) => `<span class="seg" style="width:${t.by_conf[c] * 100}%;background:${CONF_COLORS[c]}"
-        title="${c}: ${pct(t.by_conf[c])}">${t.by_conf[c] >= 0.09 ? c : ""}</span>`)
+    .filter((c) => tm.by_conf[c] > 0.001)
+    .map((c) => `<span class="seg" style="width:${tm.by_conf[c] * 100}%;background:${CONF_COLORS[c]}"
+        title="${c}: ${pct(tm.by_conf[c])}">${tm.by_conf[c] >= 0.09 ? c : ""}</span>`)
     .join("");
   return `
-    <div class="conn-detail-head">${flagImg(t.team, true)} <b>${teamES(t.team)}</b>
-      <span class="group-chip" style="color:${CONF_COLORS[t.conf]};border-color:${CONF_COLORS[t.conf]}">${t.conf}</span></div>
+    <div class="conn-detail-head">${flagImg(tm.team, true)} <b>${teamName(tm.team)}</b>
+      <span class="group-chip" style="color:${CONF_COLORS[tm.conf]};border-color:${CONF_COLORS[tm.conf]}">${tm.conf}</span></div>
     <div class="conn-stats">
-      <span><b>${t.rating.toFixed(2)}</b> rating</span>
-      <span><b>${t.matches}</b> partidos en la ventana</span>
-      <span><b>${pct(t.bridge_share)}</b> del peso es puente</span>
-      <span><b>${t.opp_rating.toFixed(2)}</b> rating del rival medio</span>
+      <span><b>${tm.rating.toFixed(2)}</b> ${t("conn.stat_rating")}</span>
+      <span><b>${tm.matches}</b> ${t("conn.stat_matches")}</span>
+      <span><b>${pct(tm.bridge_share)}</b> ${t("conn.stat_bridge")}</span>
+      <span><b>${tm.opp_rating.toFixed(2)}</b> ${t("conn.stat_opp")}</span>
     </div>
-    <div class="prob-bar conn-bar" title="Reparto del peso de entrenamiento según la confederación del rival">
+    <div class="prob-bar conn-bar" title="${t("conn.bar_title")}">
       ${segs}${rest > 0.001 ? `<span class="seg" style="width:${rest * 100}%;background:${CONF_UNKNOWN}"
-        title="Rivales sin confederación inferida: ${pct(rest)}">${rest >= 0.09 ? "¿?" : ""}</span>` : ""}
+        title="${t("conn.bar_unknown_title", { pct: pct(rest) })}">${rest >= 0.09 ? "¿?" : ""}</span>` : ""}
     </div>`;
 }
 
@@ -551,7 +562,7 @@ function connHeatmap(d) {
   const Wm = d.matrix_weight, C = d.matrix_count;
   const tot = Wm.map((row) => row.reduce((a, b) => a + b, 0));
   return `<table class="probs conn-heat">
-    <thead><tr><th class="team-col">Conf.</th>${confs.map((c) => `<th>${c}</th>`).join("")}</tr></thead>
+    <thead><tr><th class="team-col">${t("conn.heat_conf")}</th>${confs.map((c) => `<th>${c}</th>`).join("")}</tr></thead>
     <tbody>${confs.map((c, i) => `
       <tr><td class="team-cell" style="color:${CONF_COLORS[c]}">${c}</td>
         ${confs.map((c2, j) => {
@@ -559,59 +570,52 @@ function connHeatmap(d) {
           const a = Math.min(share * 1.6, 0.92);
           return `<td class="pcell${a > 0.55 ? " dark" : ""}${i === j ? " diag" : ""}"
               style="background:rgba(15,138,138,${a.toFixed(3)})"
-              title="${c} – ${c2}: ${C[i][j]} partidos, peso ${Wm[i][j].toFixed(0)} (${pct(share)} del peso de ${c})">${pct(share)}</td>`;
+              title="${c} – ${c2}: ${C[i][j]} · ${Wm[i][j].toFixed(0)} (${pct(share)})">${pct(share)}</td>`;
         }).join("")}</tr>`).join("")}
     </tbody></table>`;
 }
 
 function connTable(d) {
   return `<table class="probs">
-    <thead><tr><th class="team-col">Equipo</th><th>Conf.</th><th>Partidos</th>
-      <th title="Fracción del peso de entrenamiento contra otras confederaciones">Peso puente</th>
-      <th title="Rating medio (ponderado) de los rivales en la ventana de entrenamiento">Rival medio</th>
-      <th>Rating</th></tr></thead>
-    <tbody>${d.teams.map((t, i) => `
-      <tr class="conn-row${t.team === state.connSelected ? " sel" : ""}" data-team="${t.team}">
-        <td class="team-cell">${i + 1}. ${flagImg(t.team)}${teamES(t.team)}</td>
-        <td style="color:${CONF_COLORS[t.conf]};font-weight:700">${t.conf}</td>
-        <td>${t.matches}</td>${pcell(t.bridge_share)}
-        <td>${t.opp_rating.toFixed(2)}</td>
-        <td><b>${t.rating.toFixed(2)}</b></td></tr>`).join("")}
+    <thead><tr><th class="team-col">${t("col.team")}</th><th>${t("col.conf")}</th><th>${t("col.matches")}</th>
+      <th>${t("col.bridge")}</th>
+      <th>${t("col.opp")}</th>
+      <th>${t("col.rating")}</th></tr></thead>
+    <tbody>${d.teams.map((tm, i) => `
+      <tr class="conn-row${tm.team === state.connSelected ? " sel" : ""}" data-team="${tm.team}">
+        <td class="team-cell">${i + 1}. ${flagImg(tm.team)}${teamName(tm.team)}</td>
+        <td style="color:${CONF_COLORS[tm.conf]};font-weight:700">${tm.conf}</td>
+        <td>${tm.matches}</td>${pcell(tm.bridge_share)}
+        <td>${tm.opp_rating.toFixed(2)}</td>
+        <td><b>${tm.rating.toFixed(2)}</b></td></tr>`).join("")}
     </tbody></table>`;
 }
 
 function renderConnectivity() {
   if (!state.meta) return;            // aún sin /api/meta: render() repintará
   const el = $("#tab-connectivity");
+  if (!el) return;                    // versión pública: la pestaña no existe
   const d = state.connectivity;
   if (!d) { loadConnectivity(); return; }
   el.innerHTML = `
-    <h2 class="section">¿Quién ancla a quién? Conectividad entre confederaciones</h2>
-    <p class="note">Anclar una confederación es fijar su nivel respecto al de las demás, para que los
-      equipos de bloques distintos sean comparables en una misma escala. El modelo solo puede hacerlo a
-      través de los partidos «puente» entre confederaciones. Donde hay pocos puentes, la escala de una
-      confederación queda mal anclada al resto y sus ratings pueden inflarse o desinflarse en bloque — la limitación documentada
-      en <code>docs/known-limitations.md</code> (p. ej. la AFC, y en menor medida la CONMEBOL). El peso es
-      el mismo del entrenamiento (decaimiento temporal con vida media de 2 años, datos hasta el
-      ${fmtDay(d.as_of)}).</p>
+    <h2 class="section">${t("conn.title")}</h2>
+    <p class="note">${t("conn.intro", { date: fmtDay(d.as_of) })}</p>
     <div class="card">
-      <h3 class="conn-h3">Los 48 clasificados: ¿cuánto se apoya cada rating en partidos puente?</h3>
-      <p class="note">Cuanto más a la izquierda, más depende el rating del juego interno de su
-        confederación (y de lo bien anclada que esté). Clic en una bandera para ver el desglose.</p>
+      <h3 class="conn-h3">${t("conn.scatter_h3")}</h3>
+      <p class="note">${t("conn.scatter_note")}</p>
       ${connScatter(d)}
       <div class="evo-legend">${d.confederations.map((c) => `
         <span class="item"><span class="swatch" style="background:${CONF_COLORS[c]};height:10px;border-radius:5px"></span>${c}</span>`).join("")}
-        <span class="item"><span class="swatch" style="background:${CONF_UNKNOWN};height:10px;border-radius:5px"></span>Sin conf. inferida</span></div>
+        <span class="item"><span class="swatch" style="background:${CONF_UNKNOWN};height:10px;border-radius:5px"></span>${t("conn.legend_unknown")}</span></div>
     </div>
     <div class="card" id="conn-detail">${connDetail(d)}</div>
     <div class="card">
-      <h3 class="conn-h3">Matriz de conectividad</h3>
-      <p class="note">Cada celda: fracción del peso de entrenamiento de la confederación de la fila jugada
-        contra la de la columna. La diagonal (punteada) es el juego interno; todo lo demás son puentes.</p>
+      <h3 class="conn-h3">${t("conn.matrix_h3")}</h3>
+      <p class="note">${t("conn.matrix_note")}</p>
       <div style="overflow-x:auto">${connHeatmap(d)}</div>
     </div>
     <div class="card" style="overflow-x:auto">
-      <h3 class="conn-h3">Detalle por equipo</h3>
+      <h3 class="conn-h3">${t("conn.table_h3")}</h3>
       ${connTable(d)}
     </div>`;
 
@@ -644,19 +648,18 @@ async function loadRankings() {
   if (state.rankLoading || state.rankings[eng]) { renderRankings(); return; }
   state.rankLoading = true;
   const el = $("#tab-rankings");
-  el.innerHTML = `<p class="note">Cargando rankings…</p>`;
+  el.innerHTML = `<p class="note">${t("rank.loading")}</p>`;
   try {
     const hist = await fetchJSON(`/api/rankings/history?engine=${eng}`);
     let live = null;
     if (!hist.snapshots.length) {
       // sin snapshots fechados todavía: ajuste en vivo a día de hoy
-      el.innerHTML = `<p class="note">No hay snapshots de rankings generados.
-        Ajustando el modelo en vivo… (la primera vez tarda unos segundos)</p>`;
+      el.innerHTML = `<p class="note">${t("rank.live_loading")}</p>`;
       live = await fetchJSON(`/api/rankings?engine=${eng}`);
     }
     state.rankings[eng] = { snapshots: hist.snapshots, live };
   } catch (e) {
-    el.innerHTML = `<p class="note">Error cargando los rankings: ${e.message}</p>`;
+    el.innerHTML = `<p class="note">${t("rank.error", { msg: e.message })}</p>`;
     return;
   } finally {
     state.rankLoading = false;
@@ -666,9 +669,9 @@ async function loadRankings() {
 
 // métricas de la gráfica de evolución (la de Elo solo si el motor la tiene)
 function rankMetrics(hasElo) {
-  const m = [["rating", "Rating (ataque − defensa)"]];
-  if (hasElo) m.push(["elo", "Puntuación Elo"]);
-  m.push(["rank", "Posición en el ranking"], ["opp_rating", "Dificultad de rivales"]);
+  const m = [["rating", "rank.m.rating"]];
+  if (hasElo) m.push(["elo", "rank.m.elo"]);
+  m.push(["rank", "rank.m.rank"], ["opp_rating", "rank.m.opp"]);
   return m;
 }
 
@@ -678,7 +681,7 @@ function renderRankings() {
   const data = state.rankings[state.engine];
   if (!data) { loadRankings(); return; }
 
-  const engLabel = ENGINE_LABELS[state.engine] || state.engine;
+  const engLabel = engineLabel(state.engine);
   const snaps = data.snapshots;
   // tabla: el último snapshot disponible (la evolución se ve en la gráfica), o
   // el ajuste en vivo si aún no se ha generado ninguno. La fecha de rankings es
@@ -699,43 +702,37 @@ function renderRankings() {
   const hasElo = rows.length > 0 && rows[0].elo != null;
   rows.sort((a, b) => (hasElo ? b.elo - a.elo : b.rating - a.rating));
 
-  const sortLabel = hasElo ? "puntuación Elo" : "rating (ataque − defensa)";
-  const tbody = rows.map((t, i) => `
-    <tr class="conn-row" data-team="${t.team}">
-      <td class="team-cell">${i + 1}. ${flagImg(t.team)}${teamES(t.team)}</td>
-      <td style="color:${CONF_COLORS[t.conf] || CONF_UNKNOWN};font-weight:700">${t.conf || "–"}</td>
-      ${hasElo ? `<td><b>${Math.round(t.elo)}</b></td>` : ""}
-      <td>${t.atk.toFixed(2)}</td>
-      <td>${t.dfn.toFixed(2)}</td>
-      <td><b>${t.rating.toFixed(2)}</b></td>
-      <td>${t.opp_rating != null ? t.opp_rating.toFixed(2) : "–"}</td>
+  const sortLabel = hasElo ? t("rank.sort_elo") : t("rank.sort_rating");
+  const tbody = rows.map((tm, i) => `
+    <tr class="conn-row" data-team="${tm.team}">
+      <td class="team-cell">${i + 1}. ${flagImg(tm.team)}${teamName(tm.team)}</td>
+      <td style="color:${CONF_COLORS[tm.conf] || CONF_UNKNOWN};font-weight:700">${tm.conf || "–"}</td>
+      ${hasElo ? `<td><b>${Math.round(tm.elo)}</b></td>` : ""}
+      <td>${tm.atk.toFixed(2)}</td>
+      <td>${tm.dfn.toFixed(2)}</td>
+      <td><b>${tm.rating.toFixed(2)}</b></td>
+      <td>${tm.opp_rating != null ? tm.opp_rating.toFixed(2) : "–"}</td>
     </tr>`).join("");
 
   const source = fromLive
-    ? `ajuste en vivo a ${fmtDay(asOf)} (genera snapshots con
-       <code>scripts/generate_rankings.sh</code> o «Actualizar datos» para ver la evolución)`
-    : `snapshot del ${fmtDay(asOf)}`;
+    ? t("rank.source_live", { date: fmtDay(asOf) })
+    : t("rank.source_snap", { date: fmtDay(asOf) });
 
   const evoBlock = snaps.length ? rankEvolutionBlock(snaps, hasElo) : null;
 
   el.innerHTML = `
-    <h2 class="section">Rankings del modelo · ${engLabel}</h2>
-    <p class="note">Fuerza de cada selección según el motor <b>${engLabel}</b>, ordenada por ${sortLabel}
-      (${source}). El <b>rating</b> es ataque − defensa: cuanto mayor, mejor.
-      ${hasElo ? "La <b>puntuación Elo</b> es la del propio motor (regla de eloratings.net). " : ""}
-      El <b>rival medio</b> es el rating medio (ponderado por el peso de entrenamiento) de los equipos
-      contra los que ha jugado: una medida de la dificultad media de sus partidos. Usa el selector de
-      <b>Motor</b> de la cabecera para cambiar de modelo.</p>
+    <h2 class="section">${t("rank.title", { engine: engLabel })}</h2>
+    <p class="note">${t("rank.intro", { engine: engLabel, sort: sortLabel, source, hasElo })}</p>
     ${evoBlock ? evoBlock.html : ""}
     <div class="card" style="overflow-x:auto">
-      <h3 class="conn-h3">Clasificación ${fromLive ? "(en vivo)" : `del ${fmtShort(asOf)}`}</h3>
+      <h3 class="conn-h3">${t("rank.class_h3", { live: fromLive, date: fmtShort(asOf) })}</h3>
       <table class="probs">
-        <thead><tr><th class="team-col">Equipo</th><th>Conf.</th>
-          ${hasElo ? "<th title=\"Puntuación Elo del motor (regla de eloratings.net)\">Elo</th>" : ""}
-          <th title="Coeficiente de ataque del modelo">Ataque</th>
-          <th title="Coeficiente de defensa del modelo (menor = mejor defensa)">Defensa</th>
-          <th title="Ataque − defensa: la fuerza global">Rating</th>
-          <th title="Rating medio (ponderado) de los rivales en la ventana de entrenamiento">Rival medio</th>
+        <thead><tr><th class="team-col">${t("col.team")}</th><th>${t("col.conf")}</th>
+          ${hasElo ? `<th>${t("col.elo")}</th>` : ""}
+          <th>${t("col.attack")}</th>
+          <th>${t("col.defence")}</th>
+          <th>${t("col.rating")}</th>
+          <th>${t("col.opp")}</th>
         </tr></thead>
         <tbody>${tbody}</tbody>
       </table>
@@ -780,11 +777,11 @@ function rankEvolutionBlock(snaps, hasElo) {
   const lastIdx = n - 1;
   const ordered = [...snapRows[lastIdx]]
     .map((r) => r.team)
-    .filter((t) => state.meta.teams[t])
+    .filter((tm) => state.meta.teams[tm])
     .sort((a, b) => isRank ? (snapRank[lastIdx][a] - snapRank[lastIdx][b])
                            : (valAt(lastIdx, b) - valAt(lastIdx, a)));
   const selected = state.rankSelected || new Set(ordered.slice(0, EVO_DEFAULT_N));
-  const colorOf = evoColors(ordered.filter((t) => selected.has(t)));
+  const colorOf = evoColors(ordered.filter((tm) => selected.has(tm)));
   const series = ordered.map((team) => ({
     team, sel: selected.has(team), color: selected.has(team) ? colorOf[team] : EVO_GRAY,
     values: snaps.map((_, j) => valAt(j, team)),
@@ -852,28 +849,34 @@ function rankEvolutionBlock(snaps, hasElo) {
     const yEnd = y(l.v);
     if (Math.abs(l.ly - yEnd) > 4)
       lines += `<line x1="${x(n - 1) + 4}" y1="${yEnd}" x2="${x(n - 1) + 18}" y2="${l.ly - 4}" stroke="${l.s.color}" stroke-width="1" opacity=".6"/>`;
-    lines += `<text x="${x(n - 1) + 21}" y="${l.ly}" font-size="11.5" font-weight="600" fill="${l.s.color}">${teamES(l.s.team)} ${fmtV(l.v)}</text>`;
+    lines += `<text x="${x(n - 1) + 21}" y="${l.ly}" font-size="11.5" font-weight="600" fill="${l.s.color}">${teamName(l.s.team)} ${fmtV(l.v)}</text>`;
   });
 
-  const metricLabel = metrics.find(([k]) => k === metric)[1];
+  const metricLabel = t(metrics.find(([k]) => k === metric)[1]);
   const html = `
     <div class="card">
-      <h3 class="conn-h3">Evolución del ranking</h3>
+      <h3 class="conn-h3">${t("rank.evo_h3")}</h3>
       <div class="evo-controls">
-        <label>Métrica
+        <label>${t("label.metric")}
           <select id="rank-metric">${metrics.map(([k, l]) =>
-            `<option value="${k}"${k === metric ? " selected" : ""}>${l}</option>`).join("")}</select>
+            `<option value="${k}"${k === metric ? " selected" : ""}>${t(l)}</option>`).join("")}</select>
         </label>
-        <span class="note">Las ${ordered.length} selecciones (en gris) por «${metricLabel}»; resaltadas las
-          ${selected.size} elegidas. Clic en una bandera de la leyenda para resaltarla o quitarla.
-          ${n === 1 ? "Solo hay un día generado: la línea crecerá con cada nuevo snapshot."
-            : `${n} snapshots.`}
-          ${isRank ? "Eje invertido: el 1.º arriba." : ""}</span>
+        <span class="note">${t("rank.evo_note", {
+          total: ordered.length, metric: metricLabel, selected: selected.size,
+          oneDay: n === 1, n, isRank,
+        })}</span>
       </div>
       <svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${xaxis}${lines}</svg>
       ${selectableLegend(ordered, selected, colorOf)}
     </div>`;
   return { html, selected };
+}
+
+// ----------------------------------------------------------- documentación
+
+function renderDocs() {
+  const el = $("#tab-docs");
+  if (el) el.innerHTML = t("docs.html");
 }
 
 // ------------------------------------------------------------------ render
@@ -896,14 +899,14 @@ async function openMatrix(home, away, date) {
   const modal = $("#matrix-modal");
   const box = $("#matrix-content");
   modal.classList.remove("hidden");
-  box.innerHTML = `<div class="matrix-loading">Ajustando el modelo… (la primera vez tarda unos segundos)</div>`;
+  box.innerHTML = `<div class="matrix-loading">${t("matrix.loading")}</div>`;
   let d;
   try {
     const q = new URLSearchParams({ home, away, date, approach: state.approach,
                                     engine: state.engine, strategy: state.strategy });
     d = await fetchJSON(`/api/matrix?${q}`);
   } catch (e) {
-    box.innerHTML = `<div class="matrix-loading">Error calculando la matriz: ${e.message}</div>`;
+    box.innerHTML = `<div class="matrix-loading">${t("matrix.error", { msg: e.message })}</div>`;
     return;
   }
   const m = state.matches.find((x) => x.home === home && x.away === away && x.date === date);
@@ -924,23 +927,23 @@ async function openMatrix(home, away, date) {
                 title="${h}-${a}: ${(p * 100).toFixed(2)}%">${label}</td>`;
   };
 
-  const score = m?.played ? `${m.home_score} – ${m.away_score}` : "vs";
+  const score = m?.played ? `${m.home_score} – ${m.away_score}` : t("match.vs");
   box.innerHTML = `
-    <div class="matrix-head">${flagImg(home, true)} ${teamES(home)}
-      <span style="color:var(--muted)">${score}</span> ${teamES(away)} ${flagImg(away, true)}</div>
-    <div class="matrix-sub">Probabilidad (%) de cada marcador exacto · modelo ${ENGINE_LABELS[d.engine] || d.engine} del ${fmtDay(d.as_of)}
-      · ${d.odds_used ? "con cuotas de mercado" : "solo modelo"}
-      · 1X2: ${pct(d.p1)} / ${pct(d.px)} / ${pct(d.p2)}
-      · Pred. <b>${d.pick}</b></div>
+    <div class="matrix-head">${flagImg(home, true)} ${teamName(home)}
+      <span style="color:var(--muted)">${score}</span> ${teamName(away)} ${flagImg(away, true)}</div>
+    <div class="matrix-sub">${t("matrix.sub", {
+      engine: engineLabel(d.engine), date: fmtDay(d.as_of), odds: d.odds_used,
+      p1: pct(d.p1), px: pct(d.px), p2: pct(d.p2), pick: d.pick,
+    })}</div>
     <table class="matrix">
-      <tr><th></th><th class="axis" colspan="${n}">Goles de ${teamES(away)} →</th></tr>
-      <tr><th class="axis">${teamES(home)} ↓</th>${[...Array(n)].map((_, a) => `<th>${a}</th>`).join("")}</tr>
+      <tr><th></th><th class="axis" colspan="${n}">${t("matrix.away_goals", { team: teamName(away) })}</th></tr>
+      <tr><th class="axis">${t("matrix.home_goals", { team: teamName(home) })}</th>${[...Array(n)].map((_, a) => `<th>${a}</th>`).join("")}</tr>
       ${[...Array(n)].map((_, h) =>
         `<tr><th>${h}</th>${[...Array(n)].map((_, a) => cell(h, a)).join("")}</tr>`).join("")}
     </table>
     <div class="matrix-legend">
-      <span><span class="key" style="outline:2.5px solid var(--orange); outline-offset:-2.5px"></span>predicción Penka</span>
-      ${m?.played ? `<span><span class="key" style="outline:2.5px solid var(--ink); outline-offset:-2.5px"></span>resultado real</span>` : ""}
+      <span><span class="key" style="outline:2.5px solid var(--orange); outline-offset:-2.5px"></span>${t("matrix.legend_pick")}</span>
+      ${m?.played ? `<span><span class="key" style="outline:2.5px solid var(--ink); outline-offset:-2.5px"></span>${t("matrix.legend_real")}</span>` : ""}
     </div>`;
 }
 
@@ -963,24 +966,26 @@ async function pollRefresh() {
   const st = await fetchJSON("/api/refresh/status");
   const log = $("#refresh-log");
   log.classList.remove("hidden");
-  log.textContent = st.log.join("\n") || "(arrancando…)";
+  log.textContent = st.log.join("\n") || t("refresh.starting");
   log.scrollTop = log.scrollHeight;
   if (st.running) {
     pollTimer = setTimeout(pollRefresh, 2000);
   } else {
     $("#refresh-start").disabled = false;
     if (st.returncode === 0) {
-      log.textContent += "\n\n✔ Terminado. Recargando datos…";
+      log.textContent += t("refresh.done");
       await reloadAll();
     } else if (st.returncode != null) {
-      log.textContent += `\n\n✘ Falló (código ${st.returncode}).`;
+      log.textContent += t("refresh.failed", { code: st.returncode });
     }
   }
 }
 
 function setupRefresh() {
+  const btn = $("#refresh-btn");
+  if (!btn) return;                   // versión pública: el botón no existe
   const modal = $("#refresh-modal");
-  $("#refresh-btn").addEventListener("click", () => {
+  btn.addEventListener("click", () => {
     modal.classList.remove("hidden");
     fetchJSON("/api/refresh/status").then((st) => { if (st.running) pollRefresh(); });
   });
@@ -1007,6 +1012,28 @@ function setupRefresh() {
   });
 }
 
+// -------------------------------------------------------------------- i18n UI
+
+// recorre los textos estáticos marcados en index.html y los traduce al idioma
+// activo (textContent, atributos title y placeholder); marca el botón activo.
+function applyStaticI18n() {
+  document.documentElement.lang = state.lang;
+  document.title = t("title");
+  document.querySelectorAll("[data-i18n]").forEach((n) => { n.textContent = t(n.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-title]").forEach((n) => { n.title = t(n.dataset.i18nTitle); });
+  document.querySelectorAll("[data-i18n-ph]").forEach((n) => { n.placeholder = t(n.dataset.i18nPh); });
+  document.querySelectorAll(".lang-btn").forEach((b) =>
+    b.classList.toggle("active", b.dataset.lang === state.lang));
+}
+
+function setLanguage(lang) {
+  if (lang !== "es" && lang !== "en") return;
+  state.lang = lang;
+  try { localStorage.setItem("wcpred_lang", lang); } catch (e) { /* modo privado */ }
+  applyStaticI18n();
+  if (state.meta) { buildEngineSelect(); buildSnapshotSelect(); renderDocs(); render(); }
+}
+
 // -------------------------------------------------------------------- init
 
 function activateTab(tab) {
@@ -1023,12 +1050,16 @@ function activateTab(tab) {
 }
 
 function setupUI() {
+  applyStaticI18n();
   document.querySelectorAll(".tab").forEach((btn) =>
     btn.addEventListener("click", () => {
       activateTab(btn.dataset.tab);
       history.replaceState(null, "", `#${btn.dataset.tab}`);
     }));
   if (location.hash) activateTab(location.hash.slice(1));
+
+  document.querySelectorAll(".lang-btn").forEach((b) =>
+    b.addEventListener("click", () => setLanguage(b.dataset.lang)));
 
   $("#odds-toggle").addEventListener("change", async (e) => {
     state.approach = e.target.checked ? "odds" : "history";
@@ -1054,7 +1085,7 @@ function setupUI() {
 
   $("#snapshot-select").addEventListener("change", (e) => {
     state.snapshotDate = e.target.value;
-    $("#snapshot-note").textContent = `predicciones del ${fmtDay(e.target.value)}`;
+    $("#snapshot-note").textContent = t("snapshot.predictions", { date: fmtDay(e.target.value) });
     render();
   });
 
@@ -1065,5 +1096,5 @@ function setupUI() {
 setupUI();
 reloadAll().catch((e) => {
   document.querySelector("main").innerHTML =
-    `<p class="note">Error cargando datos: ${e.message}. ¿Está el servidor corriendo desde la raíz del proyecto?</p>`;
+    `<p class="note">${t("init.error", { msg: e.message })}</p>`;
 });

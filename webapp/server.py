@@ -37,12 +37,19 @@ STATIC_DIR = os.path.join(ROOT, "webapp", "static")
 GENERATE_SH = os.path.join(ROOT, "scripts", "generate_predictions.sh")
 GENERATE_RANKINGS_SH = os.path.join(ROOT, "scripts", "generate_rankings.sh")
 
+# Public deployment mode. Set WCPRED_PUBLIC=1 on the hosted instance to lock it
+# down: no data refresh, no Connectivity tab, no `bayes` engine (it needs
+# CmdStan, which the deploy doesn't install). Locally the var is unset, so the
+# full app runs. The frontend reads `meta.public` to hide the matching UI.
+PUBLIC = bool(os.getenv("WCPRED_PUBLIC"))
+
 # Approach label in the CSV filenames -> what the UI's odds toggle selects.
 APPROACHES = ("odds", "history")
 # Engine label in the CSV filenames -> what the UI's engine picker selects.
 # dc is the production model; elo/bayes are the alternative engines (see
 # CLAUDE.md). generate_predictions.sh stamps every engine into the filename.
-ENGINES = ("dc", "elo", "bayes")
+# The public deploy drops `bayes` (no CmdStan there).
+ENGINES = ("dc", "elo") if PUBLIC else ("dc", "elo", "bayes")
 DEFAULT_ENGINE = "elo"
 
 # Scoreline pick strategy -> what the UI's strategy toggle selects. Both live in
@@ -191,6 +198,7 @@ def meta():
         "default_engine": DEFAULT_ENGINE,
         "strategies": list(STRATEGIES),
         "default_strategy": DEFAULT_STRATEGY,
+        "public": PUBLIC,
         "snapshots": {
             kind: {ap: {eng: [d for d, _ in _snapshots(kind, ap, eng)]
                         for eng in ENGINES}
@@ -437,6 +445,8 @@ def _connectivity(as_of, results_mtime):
 
 @app.get("/api/connectivity")
 def connectivity():
+    if PUBLIC:
+        raise HTTPException(404, "no disponible en la versión pública")
     as_of = datetime.date.today().isoformat()
     return _connectivity(as_of, os.path.getmtime(os.path.join(ROOT, RESULTS_PATH)))
 
@@ -550,6 +560,8 @@ def _run_proc(cmd):
 
 @app.post("/api/refresh")
 def refresh(payload: dict):
+    if PUBLIC:
+        raise HTTPException(403, "deshabilitado en la versión pública")
     with _refresh_lock:
         if _refresh["running"]:
             raise HTTPException(409, "ya hay un refresco en marcha")

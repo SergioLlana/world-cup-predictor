@@ -94,8 +94,8 @@ knockout picks.
 
 ## Web app
 
-A local 538-style dashboard over the date-stamped CSVs (Spanish UI, flags,
-odds toggle):
+A 538-style dashboard over the date-stamped CSVs (bilingual EN/ES UI — English
+by default, switch in the header; flags, odds toggle):
 
 ```bash
 pip install -e '.[web]'        # or: uv sync --extra web
@@ -114,8 +114,32 @@ that date). The «Cuotas de mercado» toggle switches between the
 `odds` and `history` CSV variants, and «Actualizar datos» runs
 `generate_predictions.sh --refresh` (then `generate_rankings.sh`) for both
 variants from the browser.
+There is also a **How it works** tab: a short, non-technical walkthrough of the
+whole pipeline and how the interchangeable engines and the odds fit in.
 Backend: `webapp/server.py` (FastAPI); it re-reads the CSVs on every request,
 so manual `generate_predictions.sh`/`generate_rankings.sh` runs show up on reload.
+
+### Public deployment
+
+The same app runs in a locked-down **public mode** for a hosted, read-only
+instance: set `WCPRED_PUBLIC=1` and the server drops `POST /api/refresh` (403),
+the Connectivity tab/endpoint (404) and the `bayes` engine; the frontend reads
+`meta.public` and hides the *Refresh data* button and the Connectivity tab. The
+score-matrix modal and the Rankings still work (live `dc`/`elo` re-fits, cached).
+You update the public data the same way you do locally — regenerate the CSVs with
+the scripts, commit them and push (the date-stamped CSVs under `data/` are in
+git).
+
+Recommended host: **[Render](https://render.com)** via the committed
+`render.yaml` blueprint (native Python service, `WCPRED_PUBLIC=1`). Connect the
+GitHub repo once; every push auto-deploys. The free dyno sleeps after ~15 min
+idle (~50 s cold start); bump to a paid plan for always-on. A `Dockerfile` is
+included as a fallback for hosts that build from one (Fly.io, Railway with
+Docker). To preview public mode locally:
+
+```bash
+WCPRED_PUBLIC=1 uvicorn webapp.server:app --port 8027
+```
 
 ## Commands
 
@@ -153,6 +177,23 @@ so manual `generate_predictions.sh`/`generate_rankings.sh` runs show up on reloa
   scoreline info). Use `--odds-weight` to blend the model back in.
 - **xG**: training targets become `0.6*goals + 0.4*xG` where available —
   xG is less noisy than goals, improving the underlying ratings.
+
+### Engines (`--engine`)
+
+Three interchangeable engines feed the same downstream pipeline (`predict`,
+`groups`, `simulate`, the web app):
+
+| Engine | What it is | When |
+|---|---|---|
+| `dc` (default) | Dixon-Coles MLE, the regenerable production model | Always |
+| `elo` | An Elo trained on results + a Dixon-Coles goal calibration | Alternative ratings |
+| `bayes` | Stan hierarchical Dixon-Coles (confederation-offset prior); slow, needs `.[bayes]` + CmdStan | Uncertainty-aware, local only |
+
+How each works: [`docs/models-explained.md`](docs/models-explained.md),
+[`docs/elo-engine.md`](docs/elo-engine.md),
+[`docs/bayesian-engine.md`](docs/bayesian-engine.md). Turning the score matrix
+into a single pick (`ev` vs `outcome`) is a separate step —
+[`docs/pick-strategy.md`](docs/pick-strategy.md).
 
 ## Getting the data
 
@@ -251,6 +292,21 @@ wcpred tune                        # grid: GD_CAP × HALF_LIFE_DAYS × FRIENDLY_
 The June 2026 tuning run set `FRIENDLY_WEIGHT = 1.0` (down-weighting
 friendlies hurt every metric) and rejected capping blowout margins
 (`GD_CAP` stays off) — details in `docs/known-limitations.md`.
+
+## Documentation
+
+All under [`docs/`](docs/):
+
+| Doc | What it covers |
+|---|---|
+| [`models-explained.md`](docs/models-explained.md) | End-to-end walkthrough of the model and the pipeline |
+| [`elo-engine.md`](docs/elo-engine.md) | The `--engine elo` Elo engine + its tuning |
+| [`bayesian-engine.md`](docs/bayesian-engine.md) | The `--engine bayes` Stan engine + its tuning |
+| [`pick-strategy.md`](docs/pick-strategy.md) | Turning the score matrix into a pick (`ev` vs `outcome`) |
+| [`data-sources.md`](docs/data-sources.md) | Where each input comes from, coverage, gotchas |
+| [`known-limitations.md`](docs/known-limitations.md) | Modelling limitations and the rejected mitigations |
+| [`connectivity.md`](docs/connectivity.md) | Reading cross-confederation comparisons |
+| [`webapp-public-deploy-plan.md`](docs/webapp-public-deploy-plan.md) | Public bilingual deployment plan |
 
 ## Package layout
 

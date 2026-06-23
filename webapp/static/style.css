@@ -222,6 +222,22 @@ tr.conn-row.sel td:first-child { box-shadow: inset 3px 0 0 var(--orange); }
 #refresh-log { background: #14141a; color: #cfe8e8; font-size: 11px; padding: 10px;
                border-radius: 8px; max-height: 300px; overflow: auto; white-space: pre-wrap; }
 
+/* ---------- language switch ---------- */
+.lang-switch { display: inline-flex; border: 1.5px solid var(--ink); border-radius: 6px; overflow: hidden; }
+.lang-btn { padding: 5px 9px; font-size: 12px; font-weight: 700; border: none; cursor: pointer;
+            background: var(--card); color: var(--muted); }
+.lang-btn + .lang-btn { border-left: 1.5px solid var(--ink); }
+.lang-btn.active { background: var(--ink); color: var(--card); }
+.lang-btn:not(.active):hover { background: #f1efe8; color: var(--ink); }
+
+/* ---------- documentation tab ---------- */
+.doc-card h3 { margin: 0 0 8px; font-size: 15px; }
+.doc-card p, .doc-card li { font-size: 13.5px; line-height: 1.55; color: var(--ink); margin: 6px 0; }
+.doc-card ul { margin: 6px 0 2px; padding-left: 20px; }
+.doc-card li { margin: 5px 0; }
+.doc-flow { background: #14141a; color: #cfe8e8; font-size: 12px; padding: 12px 14px;
+            border-radius: 8px; overflow-x: auto; line-height: 1.5; }
+
 @media (max-width: 640px) {
   .topbar { padding: 12px; }
   .match-grid, .groups-grid { grid-template-columns: 1fr; }
