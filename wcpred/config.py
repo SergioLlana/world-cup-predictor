@@ -39,8 +39,8 @@ CROSS_CONF_WEIGHT = 1.0     # extra weight on inter-confederation matches —
                             # global scale (docs/known-limitations.md). 1.0 =
                             # off; sweep via `wcpred tune`.
 SHRINKAGE_MODE = None       # regularize weakly-identified cross-confederation
-                            # offsets via data augmentation (arXiv 2606.03805,
-                            # docs/model-robustness-plan.md Phase 1). None =
+                            # offsets via data augmentation (arXiv 2606.03805;
+                            # rejected, docs/known-limitations.md). None =
                             # off (today's model). "phantom": one synthetic
                             # 1-1 draw per team vs a __phantom__ anchor team;
                             # "pseudo": fractional 1-1 draws between
@@ -50,7 +50,7 @@ SHRINKAGE_WEIGHT = 0.5      # total synthetic weight per team, in
                             # Inactive while SHRINKAGE_MODE is None; sweep via
                             # `wcpred tune --shrinkage`.
 CONF_ANCHOR_BETA = 0.0      # two-timescale confederation re-anchoring
-                            # (docs/model-robustness-plan.md Phase 2b): blend
+                            # (rejected, docs/known-limitations.md): blend
                             # each confederation's mean strength in the short-
                             # window fit toward the level a long-window fit
                             # assigns it (where bridge games are plentiful).
@@ -61,21 +61,20 @@ CONF_ANCHOR_HALF_LIFE_DAYS = 2920  # slow-timescale window for the level fit
                                    # (8y; bounded below by TRAIN_START)
 
 # --- Bayesian engine (--engine bayes) ---
-BAYES_DYNAMIC = False        # Phase B1 (docs/bayesian-confederation-plan.md):
-                             # replace the exponential time-decay weighting with
-                             # an explicit random-walk evolution of each team's
-                             # strength over time blocks, predicting from the
-                             # most recent block. False = Phase A static (the
-                             # decay-weighted offset-prior model, the bayes
-                             # default); opt-in via --bayes-dynamic. No effect
-                             # under --engine dc.
+BAYES_DYNAMIC = False        # dynamic random-walk strengths
+                             # (docs/bayesian-engine.md): replace the exponential
+                             # time-decay weighting with an explicit random-walk
+                             # evolution of each team's strength over time blocks,
+                             # predicting from the most recent block. False =
+                             # static (the decay-weighted offset-prior model, the
+                             # bayes default); opt-in via --bayes-dynamic. No
+                             # effect under --engine dc.
 BAYES_TIME_BLOCK = "halfyear"  # random-walk block granularity when BAYES_DYNAMIC
                                # is on: "year" | "halfyear" | "quarter". Finer =
                                # more temporal resolution, slower MCMC.
 BAYES_SIGMA_CONF_SCALE = 0.5   # half-normal prior scale on sigma_conf, the
-                               # between-confederation offset spread (Phase 4
-                               # tight-sigma_conf sensitivity,
-                               # docs/model-robustness-plan.md). 0.5 = today's
+                               # between-confederation offset spread
+                               # (docs/bayesian-engine.md). 0.5 = today's
                                # bayes model exactly. Shrinking it toward 0 pins
                                # the bloc offsets near 0 (the user's "no bloc is
                                # systematically stronger" hypothesis in its
@@ -83,24 +82,23 @@ BAYES_SIGMA_CONF_SCALE = 0.5   # half-normal prior scale on sigma_conf, the
                                # constrained offset scale corrects the diagnosed
                                # CONMEBOL/CONCACAF-vs-UEFA bias. No effect under
                                # --engine dc. Sweep via --bayes-sigma-conf.
-BAYES_PROPAGATE = True         # Phase B2 (docs/bayesian-confederation-plan.md):
+BAYES_PROPAGATE = True         # posterior propagation (docs/bayesian-engine.md):
                                # full posterior propagation — the score matrix is
                                # the *posterior mean of per-draw Dixon-Coles
                                # matrices* instead of one matrix built from the
-                               # posterior-mean ratings (Phase A/B1 plug-in).
+                               # posterior-mean ratings (the plug-in path).
                                # Averaging over the MCMC draws carries the
                                # cross-bloc rating uncertainty (widest on the
                                # weakly-identified bridges) into the scorelines.
                                # DEFAULT-ON (2026-06-19, owner-directed): the
                                # honest posterior-predictive scoreline. It does
-                               # NOT fix the cross-confederation bias (the reason
-                               # it was rejected as the robustness-plan default)
-                               # but is accuracy-neutral (609 vs 604 Penka pts,
+                               # NOT fix the cross-confederation bias but is
+                               # accuracy-neutral (609 vs 604 Penka pts,
                                # RPS +0.0002, ll −0.0002 — a wash) and the
                                # principled Bayesian choice. Set False to recover
                                # the plug-in mean. No effect under --engine dc.
-BAYES_CONNECT_SHRINK = False   # Phase C (docs/bayesian-confederation-plan.md):
-                               # connectivity-weighted offset shrinkage. Scale
+BAYES_CONNECT_SHRINK = False   # connectivity-weighted offset shrinkage (rejected
+                               # experiment, docs/connectivity.md). Scale
                                # each team's confederation offset by its bridge-
                                # match share (confederations.bridge_share), so a
                                # weakly-connected team (the AFC/OFC minnows that
@@ -128,7 +126,7 @@ BAYES_CONNECT_BY = "bridge"    # which predictor drives the connectivity weight 
                                #             c = min(1, share / BAYES_CONNECT_REF).
                                #             REJECTED: Australia's bridge share is
                                #             high, so it is the wrong predictor.
-                               #   "opp"    — Phase C': weighted mean opponent
+                               #   "opp"    — weighted mean opponent
                                #             rating (schedule difficulty,
                                #             confederations.opponent_rating, from
                                #             a pre-fit dc); c = min(1, opp_rating /
@@ -166,7 +164,7 @@ BAYES_CONNECT_MODE = "offset"  # which quantity the connectivity weight c scales
 # a long-term (median) Elo covariate (EL PAÍS "trayectoria histórica" feature). Each team's
 # attack/defence is derived from its current + long-term Elo via a 4-parameter
 # GAM-Poisson + Dixon-Coles calibration, so the rest of the pipeline is unchanged.
-# Defaults reproduce the published eloratings.net rule. See docs/elo-engine-plan.md.
+# Defaults reproduce the published eloratings.net rule. See docs/elo-engine.md.
 ELO_HA = 100.0              # eloratings.net home-advantage points added to dr on
                            # home soil (0 at neutral venues). 100 = published rule.
 ELO_BASE = 1500.0          # Elo seed for a team's first match.

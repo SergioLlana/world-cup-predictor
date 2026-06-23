@@ -22,7 +22,7 @@ The Elo iteration runs on the full raw history from ``ELO_TRAIN_START`` (ratings
 need ~30 matches to converge and the long-term median needs a decade); the goal
 model is calibrated on the decay-weighted ``prepare_training`` frame (recent
 emphasis). Both are strictly causal: only matches before the cutoff are used.
-See docs/elo-engine-plan.md.
+See docs/elo-engine.md.
 """
 from collections import defaultdict
 

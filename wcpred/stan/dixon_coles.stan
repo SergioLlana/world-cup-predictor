@@ -1,9 +1,9 @@
 // Bayesian Dixon-Coles with a hierarchical confederation-offset prior.
 //
-// Phase A (docs/bayesian-confederation-plan.md): the time dimension still
+// Static time treatment (docs/bayesian-engine.md): the time dimension still
 // enters through the per-match weights `w` — the same exponential time-decay /
-// friendly weights the MLE model (wcpred/model.py) fits on. Dynamic
-// random-walk team strengths are Phase B.
+// friendly weights the MLE model (wcpred/model.py) fits on. The dynamic
+// random-walk team strengths live in dixon_coles_dynamic.stan.
 //
 // The structural fix for weak cross-confederation anchoring: each team's
 // attack and defence carry an additive confederation-level offset
@@ -81,7 +81,7 @@ model {
   // --- priors ---
   // Student-t deviations keep legitimate outliers (Argentina, Spain) from
   // being squashed toward their confederation mean — the failure mode that
-  // sank the rejected 2a design (docs/model-robustness-plan.md).
+  // sank an earlier hierarchical-prior design (docs/known-limitations.md).
   atk_raw ~ student_t(nu, 0, 1);
   dfn_raw ~ student_t(nu, 0, 1);
   atk_conf ~ normal(mu_atk_conf, sigma_conf);

@@ -1,11 +1,11 @@
-"""Phase A/B1 control cases + prior diagnostics for the Bayesian engine.
+"""Control cases + prior diagnostics for the Bayesian engine.
 
 Fits BayesianDixonColes on the live window (as-of today) — both the static
-(Phase A) and dynamic random-walk (Phase B1) time treatments — and reports the
+and dynamic random-walk time treatments — and reports the
 diagnosed-control case rating gaps (AUS-USA, ARG-ESP), the top-10, the learned
 confederation-offset scale sigma_conf, and (dynamic) the random-walk step
 scales sigma_rw_* plus MCMC convergence — the checks
-docs/model-robustness-plan.md requires before any verdict.
+docs/bayesian-engine.md describes before any verdict.
 """
 import numpy as np
 
@@ -54,7 +54,7 @@ def conf_offsets(m, tag):
 conf_offsets(bay, "bayes")
 conf_offsets(dyn, "bayes-dyn")
 
-# Phase B1 random-walk diagnostics.
+# Dynamic random-walk diagnostics.
 print(f"\n[bayes-dyn] blocks={len(dyn.blocks)} "
       f"({dyn.blocks[0]}..{dyn.blocks[-1]}, time_block=halfyear)")
 for p in ("sigma_rw_atk", "sigma_rw_dfn"):
@@ -66,7 +66,7 @@ print(dyn._mcmc.diagnose())
 
 
 def propagation_effect(m, tag, pairs):
-    """Phase B2: how full posterior propagation reshapes the score matrix
+    """How full posterior propagation reshapes the score matrix
     relative to the plug-in posterior mean. The means (atk/dfn) are identical,
     so the rating gaps above are unchanged; what propagation changes is the
     *scoreline distribution* — averaging over the rating posterior widens it,
@@ -79,7 +79,7 @@ def propagation_effect(m, tag, pairs):
         d = np.subtract.outer(np.arange(P.shape[0]), np.arange(P.shape[1]))
         return P[d > 0].sum(), P[d == 0].sum(), P[d < 0].sum()
 
-    print(f"\n[{tag}] posterior propagation (Phase B2) vs plug-in mean:")
+    print(f"\n[{tag}] posterior propagation vs plug-in mean:")
     for h, a in pairs:
         m.propagate = False
         Pm = m.score_matrix(h, a)

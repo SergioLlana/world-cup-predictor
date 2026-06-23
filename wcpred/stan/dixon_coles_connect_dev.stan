@@ -1,6 +1,7 @@
 // Bayesian Dixon-Coles with CONNECTIVITY-WEIGHTED DEVIATION shrinkage.
 //
-// Phase C (docs/bayesian-confederation-plan.md), formulation B. Identical to the
+// Connectivity-shrinkage experiment (rejected, docs/connectivity.md), deviation
+// formulation. Identical to the
 // static stan/dixon_coles.stan except that each team's own deviation from its
 // confederation level is scaled by a per-team weight conf_w in [0, 1] (its
 // bridge-match share, mapped through config.BAYES_CONNECT_REF):

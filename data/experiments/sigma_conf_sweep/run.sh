@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Phase 4 tight-sigma_conf sensitivity sweep (docs/model-robustness-plan.md).
-# Six-tournament static backtest of the B1 dynamic Bayesian Dixon-Coles at a
+# Tight-sigma_conf sensitivity sweep (docs/bayesian-engine.md).
+# Six-tournament static backtest of the dynamic Bayesian Dixon-Coles at a
 # grid of confederation-offset prior scales, with the bridge audit + control cases.
 set -u
 cd "$(dirname "$0")/../../.."   # repo root

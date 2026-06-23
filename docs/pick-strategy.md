@@ -1,67 +1,66 @@
-# Estrategia de selección del marcador (`--pick-strategy`)
+# Scoreline pick strategy (`--pick-strategy`)
 
-El modelo produce una **matriz de probabilidad** `P[goles_local, goles_visitante]`
-por partido. Convertir esa matriz en **un marcador** que apostar es un paso
-aparte —`scoring.select_prediction`— independiente del modelo y del tuning. Hay
-dos estrategias:
+The model produces a **probability matrix** `P[home_goals, away_goals]` per match.
+Turning that matrix into **one scoreline** to bet is a separate step —
+`scoring.select_prediction`, independent of the model and tuning. There are two
+strategies:
 
-- **`ev`** (default, regenerable): el marcador que **maximiza los puntos Penka
-  esperados** (`scoring.best_prediction`, `argmax E[pts]`). Es óptimo en
-  aislamiento pero **demasiado conservador**: tiende a poner 1-0 al favorito.
-- **`outcome`** (estrategia C): el **resultado 1X2 más probable** (1/X/2) y, dentro
-  de él, el **marcador más probable** (`scoring.best_prediction_outcome`).
+- **`ev`** (default, regenerable): the scoreline that **maximises expected Penka
+  points** (`scoring.best_prediction`, `argmax E[pts]`). Optimal in isolation but
+  **too conservative**: it tends to put 1-0 on the favourite.
+- **`outcome`**: the **most likely 1X2 outcome** (1/X/2) and, within it, the **most
+  likely scoreline** (`scoring.best_prediction_outcome`).
 
-## Por qué `outcome` rinde más
+## Why `outcome` scores more
 
-Comparación sobre los seis torneos del backtest (rolling, motor `dc`, Penka):
+Compared over the six backtest tournaments (rolling, `dc` engine, Penka):
 
-| estrategia | puntos | pts/partido |
+| strategy | points | pts/match |
 |---|---:|---:|
-| **`outcome` (C)** | **643** | **2.217** |
+| **`outcome`** | **643** | **2.217** |
 | `ev` (default) | 594 | 2.048 |
 
-**+8% de puntos Penka.** Y sobre los 28 partidos ya jugados del Mundial 2026
-(odds/dc reconstruido): **45 pts (C) vs 38 pts (ev)**, +18%.
+**+8% Penka points.** And over the 28 already-played WC 2026 matches
+(odds/dc reconstructed): **45 pts (outcome) vs 38 pts (ev)**, +18%.
 
-El hallazgo clave: C **no gana prediciendo más empates** (predice casi ninguno,
-igual que `ev`). Gana eligiendo **mejores marcadores de victoria**. El optimizador
-de valor esperado es demasiado conservador y por defecto pone 1-0; C pone el
-marcador de victoria *más probable* del favorito (2-0, 2-1…), que engancha más
-exactos (5 pts) y diferencias (3 pts) donde `ev` se quedaba en "solo ganador"
-(2 pts).
+The key finding: `outcome` does **not** win by predicting more draws (it predicts
+almost none, like `ev`). It wins by choosing **better win scorelines**. The
+expected-value optimiser is too conservative and defaults to 1-0; `outcome` puts the
+favourite's *most likely* win scoreline (2-0, 2-1…), which catches more exacts
+(5 pts) and goal differences (3 pts) where `ev` settled for "winner only" (2 pts).
 
-Lo que **no** funciona (medido y descartado): forzar empates cuando `P_X` supera
-un umbral. El modelo casi nunca asigna >30% a un empate —ni siquiera en este
-Mundial tan empatado—, así que la regla apenas se dispara. Es un límite de
-**calibración** de las probabilidades, no del paso de selección: no puedes
-"elegir" empates que el modelo no te da.
+What does **not** work (measured and discarded): forcing draws when `P_X` exceeds a
+threshold. The model almost never assigns >30% to a draw — not even in this
+draw-heavy World Cup — so the rule barely fires. That is a **calibration** limit of
+the probabilities, not of the pick step: you cannot "choose" draws the model doesn't
+give you.
 
-## En los CSV y en la web
+## In the CSVs and the web app
 
-Cada fila de `data/predictions/picks_*.csv` lleva **las dos** predicciones
-(`predict.predict_fixtures` las calcula siempre desde la misma matriz):
+Every row of `data/predictions/picks_*.csv` carries **both** predictions
+(`predict.predict_fixtures` always computes them from the same matrix):
 
-- `pick` / `expected_points` → estrategia `ev`.
-- `pick_outcome` / `expected_points_outcome` → estrategia C.
+- `pick` / `expected_points` → `ev` strategy.
+- `pick_outcome` / `expected_points_outcome` → `outcome` strategy.
 
-La web (`webapp/`) trae por defecto **motor Elo + estrategia C** y un toggle
-("Marcador más probable") que cambia qué columna se muestra — sin recargar datos,
-porque ambas viajan en el mismo CSV. Los snapshots antiguos (solo `ev`) caen a
-`pick` (`app.js:pickOf`). El script `scripts/enrich_picks_outcome.py` añade la
-columna `pick_outcome` a snapshots viejos **sin tocar** las columnas `ev`.
+The web app (`webapp/`) defaults to **Elo engine + `outcome` strategy** with a
+toggle ("Marcador más probable") that switches which column is shown — without
+reloading, since both travel in the same CSV. Old snapshots (only `ev`) fall back to
+`pick` (`app.js:pickOf`). `scripts/enrich_picks_outcome.py` adds the `pick_outcome`
+column to old snapshots **without touching** the `ev` columns.
 
-## Regla de regenerabilidad
+## Regenerability rule
 
-La estrategia de producción para análisis (CLI/backtest) se queda en **`ev`** a
-propósito: los snapshots `data/predictions/` se reproducen idénticos en sus
-columnas `ev`. `outcome` es opt-in en la CLI:
+The production strategy for analysis (CLI/backtest) stays on **`ev`** on purpose: the
+`data/predictions/` snapshots reproduce identically in their `ev` columns.
+`outcome` is opt-in on the CLI:
 
 ```bash
 wcpred predict --approach odds --odds data/input/odds.csv --pick-strategy outcome
-scripts/generate_predictions.sh --pick-strategy outcome   # flujo en directo
-wcpred backtest --tournament all --pick-strategy outcome   # re-validar
+scripts/generate_predictions.sh --pick-strategy outcome   # live workflow
+wcpred backtest --tournament all --pick-strategy outcome   # re-validate
 ```
 
-No se regeneran los snapshots pasados con `outcome`: los partidos ya jugados se
-apostaron con `ev`, y reescribir el histórico rompería la regla de
-regenerabilidad. C se usa **de hoy en adelante**.
+Past snapshots are not regenerated with `outcome`: already-played matches were bet
+with `ev`, and rewriting history would break the regenerability rule. `outcome` is
+used **from today onward**.

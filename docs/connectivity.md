@@ -74,6 +74,30 @@ betting markets have Spain first. The full chain:
   signal too — reigning champion, 4 losses in 37 — so this is an *uncertainty*
   caveat, not a known bias direction.
 
+## A rejected fix: connectivity-weighted shrinkage
+
+A natural-looking fix is to weight what each team inherits from its bloc by its
+*connectivity*, anchoring the isolated teams without touching the well-bridged
+ones. It was implemented on the Bayesian engine as three opt-in variants
+(`--bayes-connect`, `BAYES_CONNECT_*`): scale the confederation **offset** or the
+team's own **deviation**, driven by **bridge share** or by **schedule difficulty**
+(weighted mean opponent rating). All were **rejected** (June 2026):
+
+| config | points | RPS | log-loss | Australia |
+|---|---:|---:|---:|---:|
+| base bayes | **605** | **0.1905** | **2.7732** | #28 |
+| deviation × bridge share | 581 | 0.1932 | 2.7950 | #21 ⬆ |
+| deviation × schedule difficulty | 593 | 0.1910 | 2.7855 | #28 |
+
+**Root cause — bridge share is the wrong predictor.** Australia is **not** poorly
+connected (bridge share 0.47); it is inflated by the *difficulty* of its bridges.
+And moving the *order* would require acting on the between-bloc scale
+(offset / `sigma_conf`), which is itself flat (see [bayesian-engine.md](bayesian-engine.md)),
+not on a per-team shrinkage — the sum-to-zero gauge re-centres any per-team scaling,
+so it cannot reorder the ranking even with the right predictor. Bias share down a
+bloc, and a *negative* offset shrinks toward 0, which *raises* the weak bloc — the
+opposite of the intent.
+
 ## How to explore / reproduce
 
 - Web app → **Conectividad** tab: conf×conf heatmap, bridge-share vs rating
@@ -82,6 +106,7 @@ betting markets have Spain first. The full chain:
 - API: `GET /api/connectivity` (model-only; cached per day + results.csv
   mtime). Confederation membership is inferred from continental-competition
   appearances by `wcpred/confederations.py`.
-- Mitigations tried and rejected (`GD_CAP`, `CROSS_CONF_WEIGHT`), and the
-  still-open hierarchical confederation prior: see
-  [known-limitations.md](known-limitations.md).
+- Mitigations tried and rejected (`GD_CAP`, `CROSS_CONF_WEIGHT`, and more), plus
+  the structural attempt — the hierarchical confederation prior of the Bayesian
+  engine: see [known-limitations.md](known-limitations.md) and
+  [bayesian-engine.md](bayesian-engine.md).

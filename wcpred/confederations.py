@@ -79,7 +79,7 @@ def bridge_share(matches, confs, weight_col="w"):
     of game that anchors a team to the *global* rating scale; intra-confederation
     games only fix a team's level relative to its own pool. So this share
     measures how well-connected — and thus how trustworthy in absolute terms — a
-    team's rating is (the `model_bayes` Phase-C connectivity-weighted offset
+    team's rating is (the `model_bayes` connectivity-weighted offset
     shrinkage scales each team's confederation offset by it). Teams with no
     bridge weight get 0.0. `weight_col` selects the per-match weight column (the
     same time-decay `w` the model fits on); equal weights are used when absent.
@@ -106,7 +106,7 @@ def opponent_rating(matches, overall, weight_col="w"):
     The average difficulty of a team's training schedule, using the same
     time-decay `w` the model fits on and a pre-fit `overall` = atk − dfn map
     (so it is exogenous to the model being trained — no circularity). This is
-    the schedule-difficulty signal the Phase-C' connectivity shrinkage gates on
+    the schedule-difficulty signal the connectivity shrinkage gates on
     (low opponent rating = a soft schedule = a rating to trust less in absolute
     terms), the predictor that actually separates Australia (soft schedule)
     from legitimate outliers like Spain/Argentina (hard schedules). Mirrors the

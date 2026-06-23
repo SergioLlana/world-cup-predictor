@@ -353,7 +353,7 @@ def cmd_tune(args):
               "the rolling re-validation clearly beats them (config.py).")
         return
     if args.shrinkage:
-        # Phase 1 grid (docs/model-robustness-plan.md): sweep the shrinkage
+        # Shrinkage grid (docs/known-limitations.md): sweep the shrinkage
         # parameters alone, other hyperparameters held at today's defaults.
         table = tune(df, rolling=args.rolling, gd_caps=(None,),
                      half_lives=(730,), friendly_weights=(1.0,),
@@ -361,7 +361,7 @@ def cmd_tune(args):
                                 + [(m, e) for m in ("phantom", "pseudo")
                                    for e in (0.25, 0.5, 1.0, 2.0)])
     elif args.anchor:
-        # Phase 2b grid (docs/model-robustness-plan.md): sweep the
+        # Re-anchoring grid (docs/known-limitations.md): sweep the
         # confederation re-anchoring blend alone, other hyperparameters held
         # at today's defaults.
         table = tune(df, rolling=args.rolling, gd_caps=(None,),
@@ -405,7 +405,7 @@ def main():
                              "Dixon-Coles")
         sp.add_argument("--bayes-dynamic", action="store_true",
                         default=BAYES_DYNAMIC,
-                        help="Phase B1: under --engine bayes, evolve team "
+                        help="under --engine bayes, evolve team "
                              "strengths as a random walk over time blocks "
                              "(replacing the decay weighting) and predict from "
                              "the most recent block (default: off)")
@@ -415,21 +415,21 @@ def main():
                              "(default: %(default)s)")
         sp.add_argument("--bayes-sigma-conf", type=float,
                         default=BAYES_SIGMA_CONF_SCALE,
-                        help="Phase 4 sensitivity: under --engine bayes, the "
+                        help="under --engine bayes, the "
                              "half-normal prior scale on the between-"
                              "confederation offset spread (default: %(default)s "
                              "= today's model; shrink toward 0 to pin the bloc "
                              "offsets near 0)")
         sp.add_argument("--bayes-propagate", action=argparse.BooleanOptionalAction,
                         default=BAYES_PROPAGATE,
-                        help="Phase B2: under --engine bayes, build the score "
+                        help="under --engine bayes, build the score "
                              "matrix as the posterior mean of the per-draw "
                              "Dixon-Coles matrices (full posterior propagation) "
                              "instead of plugging in the posterior-mean ratings "
                              "(default: on; --no-bayes-propagate for plug-in)")
         sp.add_argument("--bayes-connect", action="store_true",
                         default=BAYES_CONNECT_SHRINK,
-                        help="Phase C: under --engine bayes, scale each team's "
+                        help="under --engine bayes, scale each team's "
                              "confederation offset by its bridge-match share so "
                              "weakly-connected teams (AFC/OFC minnows) anchor to "
                              "the global scale instead of their bloc's level "
@@ -449,8 +449,8 @@ def main():
         sp.add_argument("--bayes-connect-by", choices=("bridge", "opp"),
                         default=BAYES_CONNECT_BY,
                         help="predictor for the --bayes-connect weight: 'bridge' "
-                             "(bridge-match share; rejected) or 'opp' (Phase C': "
-                             "schedule difficulty = weighted mean opponent "
+                             "(bridge-match share; rejected) or 'opp' "
+                             "(schedule difficulty = weighted mean opponent "
                              "rating, so soft-schedule teams shrink) "
                              "(default: %(default)s)")
         sp.add_argument("--bayes-connect-opp-ref", type=float,
@@ -481,8 +481,8 @@ def main():
                              "most likely scoreline within it (+8%% Penka on "
                              "the backtest; default: %(default)s)")
         sp.add_argument("--anchor-beta", type=float, default=CONF_ANCHOR_BETA,
-                        help="Phase 2b confederation re-anchoring blend: 0 = "
-                             "off, 1 = adopt the long-window confederation "
+                        help="two-timescale confederation re-anchoring blend: "
+                             "0 = off, 1 = adopt the long-window confederation "
                              "levels fully (default: %(default)s)")
 
     sp = sub.add_parser("predict", help="predict upcoming WC fixtures")
@@ -544,11 +544,11 @@ def main():
                     help="rolling re-fit during the grid (slow; default is a "
                          "single pre-tournament fit per config)")
     sp.add_argument("--shrinkage", action="store_true",
-                    help="sweep the Phase 1 cross-confederation shrinkage "
+                    help="sweep the cross-confederation shrinkage "
                          "parameters (SHRINKAGE_MODE x SHRINKAGE_WEIGHT) instead "
                          "of the standard hyperparameter grid")
     sp.add_argument("--anchor", action="store_true",
-                    help="sweep the Phase 2b confederation re-anchoring "
+                    help="sweep the two-timescale confederation re-anchoring "
                          "blend (CONF_ANCHOR_BETA) instead of the standard "
                          "hyperparameter grid")
     sp.add_argument("--elo-engine", action="store_true",

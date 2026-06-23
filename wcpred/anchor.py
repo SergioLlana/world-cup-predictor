@@ -1,8 +1,8 @@
-"""Two-timescale confederation re-anchoring (Phase 2b).
+"""Two-timescale confederation re-anchoring (rejected experiment).
 
 Dixon-Coles identifies cross-confederation rating offsets only through the
 thin "bridge" games inside its ~2y-effective window — the weakly-identified
-quantity behind the Phase 0 bridge-audit bias (docs/model-robustness-plan.md).
+quantity behind the bridge-audit bias (docs/known-limitations.md).
 Confederation levels move slowly, so estimate them on a long window
 (CONF_ANCHOR_HALF_LIFE_DAYS, where bridges are plentiful) and recenter the
 short-window model's per-confederation mean strength toward those levels.

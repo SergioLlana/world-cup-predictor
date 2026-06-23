@@ -1,6 +1,7 @@
 // Bayesian Dixon-Coles with a CONNECTIVITY-WEIGHTED confederation-offset prior.
 //
-// Phase C (docs/bayesian-confederation-plan.md), formulation A. Identical to the
+// Connectivity-shrinkage experiment (rejected, docs/connectivity.md), offset
+// formulation. Identical to the
 // static stan/dixon_coles.stan except that each team's confederation offset is
 // scaled by a per-team weight conf_w in [0, 1] (its bridge-match share, mapped
 // through config.BAYES_CONNECT_REF):
@@ -96,7 +97,7 @@ model {
   // --- priors ---
   // Student-t deviations keep legitimate outliers (Argentina, Spain) from
   // being squashed toward their confederation mean — the failure mode that
-  // sank the rejected 2a design (docs/model-robustness-plan.md).
+  // sank an earlier hierarchical-prior design (docs/known-limitations.md).
   atk_raw ~ student_t(nu, 0, 1);
   dfn_raw ~ student_t(nu, 0, 1);
   atk_conf ~ normal(mu_atk_conf, sigma_conf);

@@ -1,6 +1,5 @@
 // Bayesian Dixon-Coles with a hierarchical confederation-offset prior AND
-// dynamic (random-walk) team strengths — Phase B1 of
-// docs/bayesian-confederation-plan.md.
+// dynamic (random-walk) team strengths (docs/bayesian-engine.md).
 //
 // Difference from the static stan/dixon_coles.stan: time no longer enters
 // through the exponential time-decay weights `w`. Instead each team's
@@ -12,7 +11,7 @@
 // intra-bloc games cannot shift a whole confederation.
 //
 // Parameterisation is non-centred throughout (innovations ~ std-normal scaled
-// by sigma) for sampling efficiency; the block-1 deviation keeps the Phase A
+// by sigma) for sampling efficiency; the block-1 deviation keeps the
 // Student-t robustness so legitimate outliers (Argentina) are not squashed.
 
 functions {
@@ -99,7 +98,7 @@ transformed parameters {
 
 model {
   // --- priors ---
-  // Block-1 deviations are Student-t (Phase A robustness: keep Argentina/Spain
+  // Block-1 deviations are Student-t (robustness: keep Argentina/Spain
   // from being squashed toward their confederation mean); subsequent
   // random-walk innovations are standard normal.
   atk_z[, 1] ~ student_t(nu, 0, 1);

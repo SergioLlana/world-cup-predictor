@@ -1,13 +1,13 @@
 """Validation check comparison: MLE vs Bayesian Dixon-Coles, static fit, six tournaments.
 
-Phases A and B1 of docs/bayesian-confederation-plan.md. Prints per-tournament
+See docs/bayesian-engine.md. Prints per-tournament
 and pooled RPS / log-loss / Penka points for each engine variant plus the
 bridge-audit table (the cross-confederation regional-bias metric):
 
   dc            — MLE Dixon-Coles, static (the apples-to-apples baseline).
-  bayes         — Bayesian, static decay weights (Phase A).
-  bayes-dyn     — Bayesian, dynamic random-walk strengths (Phase B1).
-  bayes-dyn-prop — Phase B1 + full posterior propagation (Phase B2).
+  bayes         — Bayesian, static decay weights.
+  bayes-dyn     — Bayesian, dynamic random-walk strengths.
+  bayes-dyn-prop — dynamic strengths + full posterior propagation.
 
 Run from the project root. Not wired into the CLI on purpose — this is an
 experiment script. Pass a block granularity for the dynamic variant as the

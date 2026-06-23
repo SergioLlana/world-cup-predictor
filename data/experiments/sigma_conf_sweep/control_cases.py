@@ -1,6 +1,6 @@
-"""Phase 4 tight-sigma_conf control cases + offset characterisation.
+"""Tight-sigma_conf control cases + offset characterisation.
 
-For a given prior scale, fit the dynamic (B1) Bayesian Dixon-Coles at the live
+For a given prior scale, fit the dynamic Bayesian Dixon-Coles at the live
 as-of on the full training window and report:
   - ARG-ESP and AUS-USA overall rating gaps (atk - dfn) — the standing control cases.
   - posterior-mean sigma_conf and the per-confederation offset (atk_conf -

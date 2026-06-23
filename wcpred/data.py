@@ -93,8 +93,8 @@ def resolve_odds_path(as_of, root=""):
 def _shrinkage_rows(m, as_of, mode, weight):
     """Synthetic fractional 1-1 draws that shrink the weakly-identified
     cross-confederation rating offsets toward a common center (the
-    pseudo-game / phantom-player augmentation of arXiv 2606.03805; see
-    docs/model-robustness-plan.md Phase 1). Real matches are untouched.
+    pseudo-game / phantom-player augmentation of arXiv 2606.03805; rejected,
+    see docs/known-limitations.md). Real matches are untouched.
 
     "phantom": every team draws 1-1 once vs PHANTOM_TEAM at weight `weight`.
     "pseudo": 1-1 draws between every cross-confederation team pair; each

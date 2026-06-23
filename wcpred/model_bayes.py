@@ -4,14 +4,14 @@ A drop-in alternative to `model.DixonColes`: it subclasses it, so it inherits
 `rates`, `matrix_from_rates`, `_tau` and `score_matrix` unchanged and slots
 into `predict`/`groups`/`tournament`/`odds`/the webapp transparently. Only
 `fit` is overridden — it samples a Stan Dixon-Coles via cmdstanpy and fixes
-`atk`/`dfn`/`home`/`rho` to their posterior means (Phase A,
-docs/bayesian-confederation-plan.md).
+`atk`/`dfn`/`home`/`rho` to their posterior means
+(docs/bayesian-engine.md).
 
 Two posterior treatments of the score matrix are available:
-  - plug-in mean (default): the inherited `score_matrix` builds one matrix from
-    the posterior-mean ratings — Phase A/B1.
-  - full propagation (`stan/`-agnostic, opt-in via `propagate=True` /
-    `--bayes-propagate` / `config.BAYES_PROPAGATE`, Phase B2): `score_matrix`
+  - plug-in posterior mean: the inherited `score_matrix` builds one matrix from
+    the posterior-mean ratings.
+  - posterior propagation (default-on; opt out via `propagate=False` /
+    `--no-bayes-propagate` / `config.BAYES_PROPAGATE`): `score_matrix`
     is overridden to return the posterior mean of the *per-draw* Dixon-Coles
     matrices, carrying the cross-bloc rating uncertainty (widest on the
     weakly-identified bridges) into the scorelines. The MCMC draws kept on the
@@ -25,11 +25,11 @@ internal-data interventions of the (closed) robustness plan could not achieve.
 
 Two time treatments are available:
   - static (`stan/dixon_coles.stan`, default): time enters as the exponential
-    time-decay weights `w` of the MLE model — Phase A.
-  - dynamic (`stan/dixon_coles_dynamic.stan`, opt-in via `dynamic=True` /
-    `--bayes-dynamic` / `config.BAYES_DYNAMIC`): each team's attack/defence
-    deviation evolves as a Gaussian random walk over discrete time blocks and
-    the most recent block's state is adopted — Phase B1. The random walk *is*
+    time-decay weights `w` of the MLE model.
+  - dynamic random-walk strengths (`stan/dixon_coles_dynamic.stan`, opt-in via
+    `dynamic=True` / `--bayes-dynamic` / `config.BAYES_DYNAMIC`): each team's
+    attack/defence deviation evolves as a Gaussian random walk over discrete time
+    blocks and the most recent block's state is adopted. The random walk *is*
     the time model, so the decay weights are dropped (matches enter unweighted;
     the friendly/cross-conf weight multipliers, off by default, are ignored).
 
@@ -53,7 +53,8 @@ from .model import DixonColes
 _STAN_DIR = os.path.join(os.path.dirname(__file__), "stan")
 _STAN_STATIC = os.path.join(_STAN_DIR, "dixon_coles.stan")
 _STAN_DYNAMIC = os.path.join(_STAN_DIR, "dixon_coles_dynamic.stan")
-# Phase C connectivity-shrinkage variants, keyed by config.BAYES_CONNECT_MODE.
+# Connectivity-shrinkage variants (rejected experiment), keyed by
+# config.BAYES_CONNECT_MODE.
 _STAN_CONNECT = {
     "offset": os.path.join(_STAN_DIR, "dixon_coles_connect.stan"),
     "deviation": os.path.join(_STAN_DIR, "dixon_coles_connect_dev.stan"),
@@ -100,33 +101,32 @@ class BayesianDixonColes(DixonColes):
 
         dynamic/time_block (resolved from config.BAYES_DYNAMIC /
         config.BAYES_TIME_BLOCK when None) select the time treatment: False =
-        Phase A static decay weights; True = Phase B1 random-walk strengths over
+        static decay weights; True = dynamic random-walk strengths over
         `time_block`-sized blocks ("year"/"halfyear"/"quarter"), adopting the
         most recent block.
 
         sigma_conf_scale (resolved from config.BAYES_SIGMA_CONF_SCALE when None)
         is the half-normal prior scale on the between-confederation offset spread
-        `sigma_conf` (Phase 4 tight-sigma_conf sensitivity): 0.5 reproduces the
-        current model; shrinking it toward 0 pins the bloc offsets near 0.
+        `sigma_conf`: 0.5 reproduces the current model; shrinking it toward 0 pins
+        the bloc offsets near 0.
 
         propagate (resolved from config.BAYES_PROPAGATE when None) selects the
-        score-matrix treatment (Phase B2): False = plug-in posterior means (the
-        inherited score_matrix, today's bayes model exactly); True = full
-        posterior propagation, where score_matrix averages the per-draw
-        Dixon-Coles matrices.
+        score-matrix treatment: False = plug-in posterior means (the inherited
+        score_matrix); True (default) = full posterior propagation, where
+        score_matrix averages the per-draw Dixon-Coles matrices.
 
         connect_shrink (resolved from config.BAYES_CONNECT_SHRINK when None) is
-        Phase C: when True, a per-team connectivity weight c in [0, 1] gates how
-        much of a quantity a weakly-anchored team gets, via a separate Stan file.
-        connect_mode (config.BAYES_CONNECT_MODE) picks the quantity: "offset"
-        (formulation A) scales the confederation offset (anchor toward the global
-        scale); "deviation" (formulation B) scales the team's own deviation
-        (partial pooling toward the bloc mean). connect_by
+        the rejected connectivity-shrinkage experiment: when True, a per-team
+        connectivity weight c in [0, 1] gates how much of a quantity a
+        weakly-anchored team gets, via a separate Stan file. connect_mode
+        (config.BAYES_CONNECT_MODE) picks the quantity: "offset" scales the
+        confederation offset (anchor toward the global scale); "deviation" scales
+        the team's own deviation (partial pooling toward the bloc mean). connect_by
         (config.BAYES_CONNECT_BY) picks the predictor for c: "bridge" =
-        min(1, bridge share / connect_ref); "opp" (Phase C') = min(1, weighted
-        mean opponent rating / connect_opp_ref), from a pre-fit dc, so soft-
-        schedule teams (Australia) shrink while hard-schedule outliers (Spain)
-        stay free. connect_ref/connect_opp_ref are config.BAYES_CONNECT_REF /
+        min(1, bridge share / connect_ref); "opp" = min(1, weighted mean opponent
+        rating / connect_opp_ref), from a pre-fit dc, so soft-schedule teams
+        (Australia) shrink while hard-schedule outliers (Spain) stay free.
+        connect_ref/connect_opp_ref are config.BAYES_CONNECT_REF /
         BAYES_CONNECT_OPP_REF. Static only — not combinable with dynamic. Extra
         `stan_kwargs` pass through to `CmdStanModel.sample`.
         """
@@ -152,7 +152,7 @@ class BayesianDixonColes(DixonColes):
             raise ValueError(f"unknown connect_by {connect_by!r}; choose from "
                              "('bridge', 'opp')")
         if connect_shrink and dynamic:
-            raise ValueError("connect_shrink (Phase C) is static only; it does "
+            raise ValueError("connect_shrink is static only; it does "
                              "not combine with dynamic random-walk strengths")
         if connect_shrink and connect_mode not in _STAN_CONNECT:
             raise ValueError(f"unknown connect_mode {connect_mode!r}; choose "
@@ -221,16 +221,16 @@ class BayesianDixonColes(DixonColes):
             data.update(B=len(blocks), tb=tb.tolist(),
                         w=np.ones(len(hi)).tolist())
         elif connect_shrink:
-            # Phase C: scale a quantity by each team's bridge-match share, mapped
-            # through connect_ref. c = 1 (full) at/above the reference share,
-            # attenuating to 0 for isolated teams. connect_mode picks the
-            # quantity: "offset" (A, anchor toward the global scale) or
-            # "deviation" (B, partial pooling toward the bloc mean). Static
+            # Connectivity shrinkage: scale a quantity by each team's bridge-match
+            # share, mapped through connect_ref. c = 1 (full) at/above the
+            # reference share, attenuating to 0 for isolated teams. connect_mode
+            # picks the quantity: "offset" (anchor toward the global scale) or
+            # "deviation" (partial pooling toward the bloc mean). Static
             # decay weights.
             stan_file = _STAN_CONNECT[connect_mode]
             data["w"] = m["w"].to_numpy(float).tolist()
             if connect_by == "opp":
-                # Phase C': scale by schedule difficulty. Pre-fit a plain dc to
+                # Scale by schedule difficulty. Pre-fit a plain dc to
                 # get exogenous overall ratings (atk − dfn), then each team's
                 # weighted mean opponent rating; c = min(1, opp / opp_ref).
                 pre = DixonColes().fit(m)
@@ -264,12 +264,12 @@ class BayesianDixonColes(DixonColes):
             dfn_draws = mcmc.stan_variable("dfn")
         home_draws = mcmc.stan_variable("home")
         rho_draws = mcmc.stan_variable("rho")
-        # Plug-in posterior means (Phase A/B1): the inherited score_matrix path.
+        # Plug-in posterior means: the inherited score_matrix path.
         self.atk = atk_draws.mean(axis=0)
         self.dfn = dfn_draws.mean(axis=0)
         self.home = float(home_draws.mean())
         self.rho = float(rho_draws.mean())
-        # Per-(adopted-block) posterior draws, kept for Phase B2 propagation
+        # Per-(adopted-block) posterior draws, kept for posterior propagation
         # (score_matrix averages per-draw matrices when self.propagate is on).
         self.atk_draws = atk_draws            # (draws, T)
         self.dfn_draws = dfn_draws            # (draws, T)
@@ -286,8 +286,8 @@ class BayesianDixonColes(DixonColes):
     def score_matrix(self, home, away, home_side=None):
         """P[home_goals, away_goals] over the 0..MAX_GOALS grid.
 
-        With propagation off (default) this is the inherited plug-in-mean path.
-        With propagation on (Phase B2) it returns the posterior mean of the
+        With propagation off this is the inherited plug-in-mean path.
+        With propagation on (default) it returns the posterior mean of the
         per-draw Dixon-Coles matrices — the honest posterior predictive, which
         widens the scoreline distribution by the rating uncertainty (largest on
         the weakly-anchored cross-confederation comparisons).

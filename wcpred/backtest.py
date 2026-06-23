@@ -175,7 +175,7 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     `bridge_audit`. Confederations are inferred from each re-fit's own
     training window, so the tagging stays causal.
 
-    anchor_beta > 0 applies the Phase 2b two-timescale confederation
+    anchor_beta > 0 applies the two-timescale confederation
     re-anchoring after each (re-)fit, with the long fit's cutoff tracking the
     short fit's — the same protocol a live `--as-of` run would use.
 
@@ -183,20 +183,19 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     BayesianDixonColes (hierarchical confederation-offset prior). It is
     static only (rolling=False): a per-matchday MCMC re-fit over six
     tournaments is prohibitively slow, and the anchor parameter is
-    MLE-specific. dynamic=True (Phase B1, bayes only) replaces the decay
+    MLE-specific. dynamic=True (bayes only) replaces the decay
     weighting with a random-walk evolution of team strengths over
     time_block-sized blocks ("year"/"halfyear"/"quarter").
 
     sigma_conf_scale (bayes only) is the half-normal prior scale on the
-    between-confederation offset spread — the Phase 4 tight-sigma_conf
-    sensitivity. 0.5 reproduces the current bayes model; shrinking it toward 0
-    pins the bloc offsets near 0.
+    between-confederation offset spread. 0.5 reproduces the current bayes model;
+    shrinking it toward 0 pins the bloc offsets near 0.
 
-    propagate=True (Phase B2, bayes only) builds each match's score matrix as
+    propagate=True (bayes only) builds each match's score matrix as
     the posterior mean of the per-draw Dixon-Coles matrices (full posterior
     propagation) instead of plugging in the posterior-mean ratings.
 
-    connect_shrink=True (Phase C, bayes only) scales each team's confederation
+    connect_shrink=True (bayes only) scales each team's confederation
     offset by its bridge-match share (connect_ref = the share earning the full
     offset), anchoring weakly-connected teams to the global scale. Static only.
     """
@@ -350,8 +349,8 @@ def tune(df, tournaments=None, gd_caps=(None, 3, 4),
     with rolling=True afterwards. Returns a DataFrame sorted by pooled RPS,
     with per-match-pooled metrics across all tournaments.
     `shrinkages` sweeps (SHRINKAGE_MODE, SHRINKAGE_WEIGHT) pairs — the
-    Phase 1 data-augmentation parameters (`wcpred tune --shrinkage`).
-    `anchor_betas` sweeps the Phase 2b confederation re-anchoring blend
+    data-augmentation shrinkage parameters (`wcpred tune --shrinkage`).
+    `anchor_betas` sweeps the two-timescale confederation re-anchoring blend
     (`wcpred tune --anchor`).
     """
     tournaments = list(tournaments or TOURNAMENTS)

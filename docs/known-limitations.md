@@ -3,12 +3,10 @@
 ## Confederation isolation inflates ratings of teams with weak schedules
 
 *See also [connectivity.md](connectivity.md): the conf×conf bridge-weight
-matrix behind this effect (explorable in the web app's Conectividad tab) and
-the June 2026 Argentina-vs-Spain case study; and
-[connectivity-shrinkage-experiment.md](connectivity-shrinkage-experiment.md):
-a rejected attempt to fix Australia's inflation by connectivity-weighted
-shrinkage, and why bridge share is the wrong predictor (it is schedule-
-difficulty inflated, not connectivity-starved).*
+matrix behind this effect (explorable in the web app's Conectividad tab), the
+June 2026 Argentina-vs-Spain case study, and the rejected connectivity-weighted
+shrinkage fix (why bridge share is the wrong predictor — Australia is
+schedule-difficulty inflated, not connectivity-starved).*
 
 **Symptom.** The model ranks **Australia (24th, overall 1.98)** above the
 **USA (43rd, overall 1.66)** and has Australia finishing ahead in Group C, even
@@ -87,28 +85,24 @@ extent CONMEBOL/CONCACAF/CAF) should be read with this caveat.
    recent bridge record is genuinely poor (losses to South Korea, USA,
    Morocco, Costa Rica since 2024) — its strength shows in CONMEBOL
    qualifiers, which bridges by definition exclude.
-3. **Shrinkage via data augmentation** (`SHRINKAGE_MODE`/`SHRINKAGE_WEIGHT`;
-   Phase 1 of [model-robustness-plan.md](model-robustness-plan.md)) — **tested
-   June 2026, rejected.** Synthetic fractional 1-1 draws that shrink ratings
-   toward a common center degraded RPS/log-loss monotonically and moved the
-   *levels* the wrong way (the compression hits UEFA's elite harder than
+3. **Shrinkage via data augmentation** (`SHRINKAGE_MODE`/`SHRINKAGE_WEIGHT`) —
+   **tested June 2026, rejected.** Synthetic fractional 1-1 draws that shrink
+   ratings toward a common center degraded RPS/log-loss monotonically and moved
+   the *levels* the wrong way (the compression hits UEFA's elite harder than
    CONMEBOL's, so the CONMEBOL–UEFA bias *grew*): uniform shrinkage to a global
    center is the wrong shape of fix — per-confederation *level* correction (#4)
    is what's needed. Parameters stay available (`wcpred tune --shrinkage`),
-   default `SHRINKAGE_MODE = None`; full numbers in the plan.
+   default `SHRINKAGE_MODE = None`.
 4. **Per-confederation level re-anchoring, two-timescale**
-   (`CONF_ANCHOR_BETA`/`CONF_ANCHOR_HALF_LIFE_DAYS`, `wcpred/anchor.py`; Phase 2b
-   of [model-robustness-plan.md](model-robustness-plan.md)) — **tested June
-   2026, rejected.** The only intervention to *improve* rolling RPS/log-loss
-   (0.1887/2.7691 at β=0.75 vs 0.1890/2.7702), but it barely moves the diagnosed
-   bias: the long and short windows assign nearly identical confederation levels
-   because both hang on the *same* thin bridges. Parameter stays available
-   (`wcpred tune --anchor`), default `CONF_ANCHOR_BETA = 0.0`. Conclusion: the
-   dataset's internal anchoring information is exhausted; full numbers in the
-   plan.
-5. **External Elo prior** (Phase 3 of
-   [model-robustness-plan.md](model-robustness-plan.md)) — **tested June 2026,
-   rejected, and since removed from the codebase.** A penalty pulled each
+   (`CONF_ANCHOR_BETA`/`CONF_ANCHOR_HALF_LIFE_DAYS`, `wcpred/anchor.py`) —
+   **tested June 2026, rejected.** The only intervention to *improve* rolling
+   RPS/log-loss (0.1887/2.7691 at β=0.75 vs 0.1890/2.7702), but it barely moves
+   the diagnosed bias: the long and short windows assign nearly identical
+   confederation levels because both hang on the *same* thin bridges. Parameter
+   stays available (`wcpred tune --anchor`), default `CONF_ANCHOR_BETA = 0.0`.
+   Conclusion: the dataset's internal anchoring information is exhausted.
+5. **External Elo prior** — **tested June 2026, rejected, and since removed from
+   the codebase.** A penalty pulled each
    team's strength toward an affine transform of its historical eloratings.net
    rating (`a + b·elo`, profiled on the training window; snapshots resolved
    causally per re-fit). Decades of accumulated bridges did add real
@@ -129,6 +123,14 @@ extent CONMEBOL/CONCACAF/CAF) should be read with this caveat.
    the artefact bites: in Group D the model-only sim had Australia qualifying
    at 0.49 (above Paraguay's 0.46), while the market-blended sim drops
    Australia to 0.26 with Paraguay at 0.42.
+
+Beyond these six MLE-side mitigations, the **structural attempt** — a Bayesian
+Dixon-Coles with a hierarchical confederation-offset prior, so only bridge matches
+can move a bloc — was also built and tested. It is accuracy-neutral and does **not**
+fix the bias either, because Australia's inflation lives in its individual deviation,
+not the bloc offset (full analysis in [bayesian-engine.md](bayesian-engine.md)). The
+whole confederation-robustness investigation is therefore **closed (June 2026)** with
+mitigation #6 as the standing stance.
 
 The same tuning run *did* find one improvement: `FRIENDLY_WEIGHT` 0.5 → 1.0
 improved RPS monotonically across the grid and won on all three metrics under
