@@ -559,9 +559,12 @@ def _run_proc(cmd):
 
 
 @app.post("/api/refresh")
-def refresh(payload: dict):
+def refresh(payload: dict = None):
+    # payload optional so the public lock answers 403 even for a body-less probe
+    # (FastAPI validates a required body before the handler runs → 422 instead).
     if PUBLIC:
         raise HTTPException(403, "deshabilitado en la versión pública")
+    payload = payload or {}
     with _refresh_lock:
         if _refresh["running"]:
             raise HTTPException(409, "ya hay un refresco en marcha")
