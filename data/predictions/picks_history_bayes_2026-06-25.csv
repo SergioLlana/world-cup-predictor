@@ -1,0 +1,19 @@
+date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,odds_used
+2026-06-25,United States,Turkey,group,0.387,0.242,0.371,2-1,1.124,2-1,1.124,False
+2026-06-25,Paraguay,Australia,group,0.345,0.342,0.313,0-0,1.393,1-0,1.2,False
+2026-06-25,Curaçao,Ivory Coast,group,0.087,0.195,0.717,0-1,1.983,0-2,1.956,False
+2026-06-25,Ecuador,Germany,group,0.293,0.319,0.387,0-1,1.285,0-1,1.285,False
+2026-06-25,Japan,Sweden,group,0.519,0.242,0.239,1-0,1.455,1-0,1.455,False
+2026-06-25,Tunisia,Netherlands,group,0.125,0.212,0.663,0-1,1.83,0-1,1.83,False
+2026-06-26,Senegal,Iraq,group,0.602,0.258,0.14,1-0,1.808,1-0,1.808,False
+2026-06-26,Norway,France,group,0.278,0.254,0.468,0-1,1.342,0-1,1.342,False
+2026-06-26,Uruguay,Spain,group,0.205,0.293,0.502,0-1,1.579,0-1,1.579,False
+2026-06-26,Cape Verde,Saudi Arabia,group,0.355,0.337,0.309,0-0,1.356,1-0,1.223,False
+2026-06-26,New Zealand,Belgium,group,0.078,0.165,0.757,0-2,2.009,0-2,2.009,False
+2026-06-26,Egypt,Iran,group,0.327,0.325,0.349,0-0,1.287,0-1,1.183,False
+2026-06-27,Algeria,Austria,group,0.332,0.29,0.378,0-1,1.188,0-1,1.188,False
+2026-06-27,Jordan,Argentina,group,0.033,0.111,0.855,0-2,2.251,0-2,2.251,False
+2026-06-27,Colombia,Portugal,group,0.347,0.28,0.373,0-1,1.153,0-1,1.153,False
+2026-06-27,DR Congo,Uzbekistan,group,0.381,0.36,0.259,0-0,1.507,1-0,1.35,False
+2026-06-27,Panama,England,group,0.062,0.157,0.781,0-2,2.095,0-2,2.095,False
+2026-06-27,Croatia,Ghana,group,0.587,0.256,0.157,1-0,1.743,1-0,1.743,False

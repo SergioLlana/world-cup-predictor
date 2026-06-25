@@ -1,0 +1,25 @@
+date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,odds_used
+2026-06-24,Mexico,Czech Republic,group,0.484,0.26,0.256,1-0,1.41,1-0,1.41,False
+2026-06-24,South Africa,South Korea,group,0.242,0.302,0.457,0-1,1.454,0-1,1.454,False
+2026-06-24,Canada,Switzerland,group,0.313,0.267,0.42,0-1,1.247,0-1,1.247,False
+2026-06-24,Bosnia and Herzegovina,Qatar,group,0.51,0.263,0.226,1-0,1.502,1-0,1.502,False
+2026-06-24,Scotland,Brazil,group,0.14,0.224,0.636,0-1,1.782,0-1,1.782,False
+2026-06-24,Morocco,Haiti,group,0.734,0.189,0.077,1-0,2.032,2-0,2.012,False
+2026-06-25,Japan,Sweden,group,0.518,0.242,0.24,1-0,1.453,1-0,1.453,False
+2026-06-25,Ecuador,Germany,group,0.289,0.317,0.394,0-1,1.3,0-1,1.3,False
+2026-06-25,Tunisia,Netherlands,group,0.125,0.212,0.663,0-1,1.831,0-1,1.831,False
+2026-06-25,Paraguay,Australia,group,0.341,0.343,0.316,0-0,1.393,0-0,1.393,False
+2026-06-25,United States,Turkey,group,0.382,0.241,0.377,2-1,1.111,2-1,1.111,False
+2026-06-25,Curaçao,Ivory Coast,group,0.089,0.197,0.714,0-1,1.98,0-2,1.949,False
+2026-06-26,Egypt,Iran,group,0.324,0.326,0.351,0-0,1.291,0-1,1.189,False
+2026-06-26,New Zealand,Belgium,group,0.079,0.165,0.756,0-2,2.006,0-2,2.006,False
+2026-06-26,Cape Verde,Saudi Arabia,group,0.355,0.337,0.309,0-0,1.354,1-0,1.223,False
+2026-06-26,Uruguay,Spain,group,0.2,0.292,0.508,0-1,1.594,0-1,1.594,False
+2026-06-26,Norway,France,group,0.28,0.255,0.466,0-1,1.338,0-1,1.338,False
+2026-06-26,Senegal,Iraq,group,0.601,0.258,0.141,1-0,1.807,1-0,1.807,False
+2026-06-27,Panama,England,group,0.061,0.154,0.785,0-2,2.103,0-2,2.103,False
+2026-06-27,Algeria,Austria,group,0.331,0.289,0.379,0-1,1.191,0-1,1.191,False
+2026-06-27,Jordan,Argentina,group,0.034,0.113,0.852,0-2,2.249,0-2,2.249,False
+2026-06-27,Colombia,Portugal,group,0.342,0.281,0.377,0-1,1.163,0-1,1.163,False
+2026-06-27,DR Congo,Uzbekistan,group,0.381,0.359,0.26,0-0,1.497,1-0,1.348,False
+2026-06-27,Croatia,Ghana,group,0.592,0.254,0.154,1-0,1.752,1-0,1.752,False
