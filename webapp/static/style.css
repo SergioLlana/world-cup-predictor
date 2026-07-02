@@ -429,10 +429,30 @@ tr.conn-row.sel td:first-child { box-shadow: inset 3px 0 0 var(--hi); }
 .lang-btn:not(.active):hover { background: var(--bg); color: var(--ink); }
 
 /* ---------- documentation tab ---------- */
-.doc-card h3 { margin: 0 0 8px; font-family: var(--serif); font-size: 16.5px; font-weight: 650; }
 .doc-card p, .doc-card li { font-size: 13.5px; line-height: 1.6; color: var(--ink); margin: 6px 0; max-width: 75ch; text-wrap: pretty; }
 .doc-card ul { margin: 6px 0 2px; padding-left: 20px; }
 .doc-card li { margin: 5px 0; }
+.doc-card code { font-size: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 1px 4px; }
+.doc-card h4 { margin: 16px 0 2px; font-family: var(--serif); font-size: 14.5px; font-weight: 650; }
+details.doc-card { padding: 0; margin-bottom: 10px; }
+details.doc-card summary {
+  cursor: pointer; padding: 13px 18px; list-style: none;
+  font-family: var(--serif); font-size: 16px; font-weight: 650;
+  display: flex; align-items: baseline; gap: 10px;
+  transition: background var(--speed) var(--ease);
+}
+details.doc-card summary::-webkit-details-marker { display: none; }
+details.doc-card summary::before {
+  content: "+"; flex: none; width: 1em; color: var(--muted);
+  font-family: var(--serif); font-weight: 400;
+}
+details.doc-card[open] summary::before { content: "−"; }
+details.doc-card summary:hover { background: var(--bg); }
+details.doc-card[open] summary { border-bottom: 1px solid var(--line); }
+details.doc-card .doc-body { padding: 6px 18px 14px 18px; }
+details.doc-appendix { margin-top: 18px; }
+details.doc-appendix summary { color: var(--muted); }
+details.doc-appendix[open] summary { color: var(--ink); }
 .doc-flow {
   background: var(--bg); color: var(--ink); border: 1px solid var(--line);
   font-size: 12px; padding: 12px 14px; border-radius: var(--radius);
