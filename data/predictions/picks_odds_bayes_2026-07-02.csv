@@ -1,0 +1,12 @@
+date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,odds_used
+2026-07-02,Spain,Austria,r32_r16,0.723,0.181,0.096,2-0,3.0,2-0,3.0,True
+2026-07-02,Portugal,Croatia,r32_r16,0.555,0.256,0.188,1-0,2.553,1-0,2.553,True
+2026-07-02,Switzerland,Algeria,r32_r16,0.478,0.294,0.229,1-0,2.365,1-0,2.365,True
+2026-07-03,Australia,Egypt,r32_r16,0.286,0.331,0.383,0-0,2.125,0-1,2.06,True
+2026-07-03,Argentina,Cape Verde,r32_r16,0.828,0.121,0.051,2-0,3.312,2-0,3.312,True
+2026-07-03,Colombia,Ghana,r32_r16,0.63,0.242,0.128,1-0,2.904,1-0,2.904,True
+2026-07-04,Canada,Morocco,r32_r16,0.189,0.275,0.536,0-1,2.569,0-1,2.569,True
+2026-07-04,Paraguay,France,r32_r16,0.056,0.137,0.806,0-2,3.298,0-2,3.298,True
+2026-07-05,Brazil,Norway,r32_r16,0.504,0.262,0.234,1-0,2.323,1-0,2.323,True
+2026-07-05,Mexico,England,r32_r16,0.32,0.304,0.376,1-1,1.943,0-1,1.926,True
+2026-07-06,United States,Belgium,r32_r16,0.373,0.274,0.352,1-0,1.793,1-0,1.793,True

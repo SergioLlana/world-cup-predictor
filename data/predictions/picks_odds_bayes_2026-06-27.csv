@@ -1,0 +1,23 @@
+date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,odds_used
+2026-06-27,Algeria,Austria,group,0.237,0.427,0.336,0-0,1.892,0-0,1.892,True
+2026-06-27,Jordan,Argentina,group,0.064,0.127,0.809,0-2,2.058,0-2,2.058,True
+2026-06-27,Colombia,Portugal,group,0.229,0.257,0.514,0-1,1.483,0-1,1.483,True
+2026-06-27,DR Congo,Uzbekistan,group,0.546,0.232,0.222,2-1,1.515,2-1,1.515,True
+2026-06-27,Panama,England,group,0.061,0.119,0.82,0-2,2.058,0-3,2.031,True
+2026-06-27,Croatia,Ghana,group,0.542,0.291,0.167,1-0,1.713,1-0,1.713,True
+2026-06-28,South Africa,Canada,r32_r16,0.174,0.262,0.563,0-1,2.643,0-1,2.643,True
+2026-06-29,Brazil,Japan,r32_r16,0.55,0.257,0.193,1-0,2.531,1-0,2.531,True
+2026-06-29,Germany,Paraguay,r32_r16,0.518,0.268,0.214,1-0,2.438,1-0,2.438,False
+2026-06-29,Netherlands,Morocco,r32_r16,0.452,0.289,0.259,1-0,2.214,1-0,2.214,True
+2026-06-30,Mexico,Ecuador,r32_r16,0.305,0.348,0.347,0-0,2.31,0-0,2.31,False
+2026-06-30,Ivory Coast,Norway,r32_r16,0.263,0.284,0.453,0-1,2.199,0-1,2.199,False
+2026-06-30,France,Sweden,r32_r16,0.643,0.2,0.157,2-1,2.658,2-0,2.607,False
+2026-07-01,England,DR Congo,r32_r16,0.584,0.292,0.125,1-0,2.951,1-0,2.951,False
+2026-07-01,Belgium,Senegal,r32_r16,0.469,0.27,0.262,1-0,2.203,1-0,2.203,False
+2026-07-01,United States,Bosnia and Herzegovina,r32_r16,0.643,0.219,0.138,1-0,2.79,2-0,2.7,True
+2026-07-02,Spain,Austria,r32_r16,0.567,0.254,0.179,1-0,2.606,1-0,2.606,False
+2026-07-02,Portugal,Croatia,r32_r16,0.505,0.26,0.235,1-0,2.321,1-0,2.321,False
+2026-07-02,Switzerland,Algeria,r32_r16,0.407,0.272,0.321,1-0,1.938,1-0,1.938,False
+2026-07-03,Argentina,Cape Verde,r32_r16,0.788,0.167,0.045,1-0,3.397,2-0,3.395,False
+2026-07-03,Australia,Egypt,r32_r16,0.331,0.35,0.319,0-0,2.324,0-0,2.324,False
+2026-07-03,Colombia,Ghana,r32_r16,0.695,0.209,0.097,1-0,3.055,1-0,3.055,False
