@@ -81,6 +81,7 @@ const I18N = {
     // ---- champion tab ----
     "champion.none": "No simulations generated yet.",
     "champion.title": "Who will win the World Cup?",
+    "champion.lede": (p) => `${p.team} lead the field with a ${p.pct} chance of lifting the trophy; ${p.team2} follow at ${p.pct2}.`,
     "champion.intro": (p) => `Probability of reaching each round per the full-tournament Monte Carlo simulation (snapshot of ${p.date}, ${p.odds ? "with market odds" : "model only, no odds"}). Matches already played enter with their real result.`,
 
     // ---- legend ----
@@ -299,6 +300,7 @@ odds ──→ market 1X2 ──────────────────
     // ---- champion tab ----
     "champion.none": "No hay simulaciones generadas todavía.",
     "champion.title": "¿Quién ganará el Mundial?",
+    "champion.lede": (p) => `${p.team} encabeza la lista con un ${p.pct} de probabilidades de levantar el trofeo; le sigue ${p.team2} con un ${p.pct2}.`,
     "champion.intro": (p) => `Probabilidades de alcanzar cada ronda según la simulación Monte Carlo del torneo completo (snapshot del ${p.date}, ${p.odds ? "con cuotas de mercado" : "solo modelo, sin cuotas"}). Los partidos ya jugados entran con su resultado real.`,
 
     // ---- legend ----

@@ -60,11 +60,29 @@ const pct = (p) => {
   return Math.round(p * 100) + "%";
 };
 
+// sombreado de probabilidad: rampa teal de un solo tono (--data). La rampa
+// salta la banda 0.70–0.88 de alfa, donde ni la tinta ni el blanco alcanzan
+// 4.5:1 de contraste: hasta 0.70 texto tinta, desde 0.88 texto blanco.
+const SHADE_RGB = "10,108,107";
+const shadeAlpha = (raw) =>
+  raw <= 0.70 ? raw : 0.88 + (Math.min(raw, 0.92) - 0.70) * (0.04 / 0.22);
+const shadeCell = (raw) => ({
+  bg: `rgba(${SHADE_RGB},${shadeAlpha(raw).toFixed(3)})`,
+  dark: raw > 0.70,
+});
+
 // celda sombreada según probabilidad (estilo 538)
 const pcell = (p) => {
-  const a = Math.min((p ?? 0) * 1.05, 0.92);
-  const dark = (p ?? 0) > 0.55 ? " dark" : "";
-  return `<td class="pcell${dark}" style="background:rgba(15,138,138,${a.toFixed(3)})">${pct(p)}</td>`;
+  const { bg, dark } = shadeCell(Math.min((p ?? 0) * 1.05, 0.92));
+  return `<td class="pcell${dark ? " dark" : ""}" style="background:${bg}">${pct(p)}</td>`;
+};
+
+// color de texto (tinta/blanco) más legible sobre un fondo dado
+const inkFor = (hex) => {
+  const c = hex.slice(1).match(/../g).map((h) => parseInt(h, 16) / 255)
+    .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  const L = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  return 1.05 / (L + 0.05) >= (L + 0.05) / 0.05 ? "#fff" : "#1f2529";
 };
 
 const dateLocale = () => state.lang === "es" ? "es-ES" : "en-GB";
@@ -188,15 +206,33 @@ function renderChampion() {
   const el = $("#tab-champion");
   if (!snap) { el.innerHTML = `<p class="note">${t("champion.none")}</p>`; return; }
   const rows = [...snap.rows].sort((a, b) => b.p_champion - a.p_champion);
+
+  // lede editorial + gráfica de aspirantes (los 8 primeros por p_champion)
+  const top = rows.slice(0, 8);
+  const maxP = top[0]?.p_champion || 1;
+  const contenders = top.map((r) => `
+    <div class="contender" title="${teamName(r.team)}: ${pct(r.p_champion)}">
+      <span class="who">${flagImg(r.team)}<span>${teamName(r.team)}</span></span>
+      <span class="track"><span class="fill" style="width:${((r.p_champion / maxP) * 100).toFixed(1)}%"></span></span>
+      <span class="val">${pct(r.p_champion)}</span>
+    </div>`).join("");
+
   el.innerHTML = `
     <h2 class="section">${t("champion.title")}</h2>
+    <p class="lede">${t("champion.lede", {
+      team: `<b>${teamName(rows[0].team)}</b>`, pct: pct(rows[0].p_champion),
+      team2: teamName(rows[1].team), pct2: pct(rows[1].p_champion),
+    })}</p>
+    <div class="card">
+      <div class="contenders">${contenders}</div>
+    </div>
     <p class="note">${t("champion.intro", { date: fmtDay(snap.date), odds: state.approach === "odds" })}</p>
     <div class="card" style="overflow-x:auto">
       <table class="probs">
         <thead><tr><th class="team-col">${t("col.team")}</th>
           ${SIM_COLS.map(([, h]) => `<th>${t(h)}</th>`).join("")}</tr></thead>
-        <tbody>${rows.map((r) => `
-          <tr><td class="team-cell">${flagImg(r.team)}${teamName(r.team)}
+        <tbody>${rows.map((r, i) => `
+          <tr><td class="team-cell"><span class="rank-num">${i + 1}</span>${flagImg(r.team)}${teamName(r.team)}
                 <span class="group-chip">${r.group}</span></td>
             ${SIM_COLS.map(([k]) => pcell(r[k])).join("")}</tr>`).join("")}
         </tbody>
@@ -213,10 +249,13 @@ const EVO_METRICS = [
   ["p_qf", "evo.m.qf"],
   ["p_knockout", "evo.m.knockout"],
 ];
-const PALETTE = ["#0f8a8a", "#e8632c", "#3b6bb5", "#c0392b", "#7d3bb5",
-                 "#2e8b57", "#d9a514", "#7a4b2c", "#e054a0", "#44443f"];
-const EVO_DEFAULT_N = 10;        // selección por defecto: las 10 mejores
-const EVO_GRAY = "#cdcbc2";      // color de las selecciones de fondo (no resaltadas)
+// paleta categórica validada (banda de luminosidad, croma y separación CVD:
+// peor par adyacente ΔE 24.2) con el validador del skill de dataviz; el orden
+// de los huecos es parte de la garantía — no reordenar sin revalidar
+const PALETTE = ["#009490", "#d95926", "#2a78d6", "#eda100",
+                 "#008300", "#4a3aa7", "#e34948", "#e87ba4"];
+const EVO_DEFAULT_N = 8;         // selección por defecto: una por hueco de la paleta
+const EVO_GRAY = "#c8cfcf";      // color de las selecciones de fondo (no resaltadas)
 
 // color estable por equipo resaltado, en el orden (ordenado por métrica) dado
 function evoColors(selectedOrdered) {
@@ -279,15 +318,15 @@ function renderEvolution() {
   const step = maxV > 0.4 ? 0.1 : maxV > 0.15 ? 0.05 : 0.02;
   let grid = "";
   for (let v = 0; v <= maxV; v += step) {
-    grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e4e2da"/>
-             <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#6b6b66">${Math.round(v * 100)}%</text>`;
+    grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e9eded"/>
+             <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#4f5a5e">${Math.round(v * 100)}%</text>`;
   }
   // eje X: fechas (máx ~12 etiquetas)
   const every = Math.max(1, Math.ceil(n / 12));
   let xaxis = "";
   snaps.forEach((s, i) => {
     if (i % every === 0 || i === n - 1)
-      xaxis += `<text x="${x(i)}" y="${H - mB + 18}" text-anchor="middle" font-size="11" fill="#6b6b66">${fmtShort(s.date)}</text>`;
+      xaxis += `<text x="${x(i)}" y="${H - mB + 18}" text-anchor="middle" font-size="11" fill="#4f5a5e">${fmtShort(s.date)}</text>`;
   });
 
   let lines = "";
@@ -302,9 +341,9 @@ function renderEvolution() {
   fg.forEach((s) => {
     const pts = s.values.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean);
     if (pts.length > 1)
-      lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
+      lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
     s.values.forEach((v, i) => {
-      if (v != null) lines += `<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="${s.color}"/>`;
+      if (v != null) lines += `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${s.color}"/>`;
     });
   });
 
@@ -320,7 +359,7 @@ function renderEvolution() {
     const yEnd = y(l.v);
     if (Math.abs(l.ly - yEnd) > 4)
       lines += `<line x1="${x(n - 1) + 4}" y1="${yEnd}" x2="${x(n - 1) + 18}" y2="${l.ly - 4}" stroke="${l.s.color}" stroke-width="1" opacity=".6"/>`;
-    lines += `<text x="${x(n - 1) + 21}" y="${l.ly}" font-size="11.5" font-weight="600" fill="${l.s.color}">${teamName(l.s.team)} ${pct(l.v)}</text>`;
+    lines += `<text x="${x(n - 1) + 21}" y="${l.ly}" font-size="11.5" font-weight="600" fill="#1f2529">${teamName(l.s.team)} ${pct(l.v)}</text>`;
   });
 
   const metricLabel = t(EVO_METRICS.find(([k]) => k === metric)[1]);
@@ -458,12 +497,12 @@ function renderCalendar() {
   el.innerHTML = `
     <h2 class="section">${t("cal.title")}</h2>
     <p class="note">${t("cal.intro")}</p>
-    ${ROUND_ORDER.filter((r) => byRound[r]).map((rid) => {
+    ${[...ROUND_ORDER].reverse().filter((r) => byRound[r]).map((rid) => {
       const ms = byRound[rid];
       const byDay = {};
       ms.forEach((m) => (byDay[m.date] ||= []).push(m));
       return `<div class="round-block"><h2>${roundName(rid)}</h2>
-        ${Object.keys(byDay).sort().map((d) => `
+        ${Object.keys(byDay).sort().reverse().map((d) => `
           <div class="day-label">${fmtDay(d)}</div>
           <div class="match-grid">${byDay[d].map(matchCard).join("")}</div>`).join("")}
       </div>`;
@@ -472,11 +511,17 @@ function renderCalendar() {
 
 // ------------------------------------------------------------ conectividad
 
+// confederaciones: identidades fijas sobre la misma paleta validada
 const CONF_COLORS = {
-  UEFA: "#3b6bb5", CONMEBOL: "#0f8a8a", CONCACAF: "#e8632c",
-  CAF: "#d9a514", AFC: "#c0392b", OFC: "#7d3bb5",
+  UEFA: "#2a78d6", CONMEBOL: "#009490", CONCACAF: "#d95926",
+  CAF: "#eda100", AFC: "#e34948", OFC: "#4a3aa7",
 };
-const CONF_UNKNOWN = "#b6b3a7";
+const CONF_UNKNOWN = "#9aa4a4";
+// nombre de confederación con su punto de color (el texto queda en tinta: los
+// tonos medios de la paleta no dan 4.5:1 como color de texto)
+const confLabel = (conf) => conf
+  ? `<span class="conf-dot" style="background:${CONF_COLORS[conf] || CONF_UNKNOWN}"></span>${conf}`
+  : "–";
 
 async function loadConnectivity() {
   if (state.connLoading) return;
@@ -506,15 +551,15 @@ function connScatter(d) {
 
   let grid = "";
   for (let v = 0; v <= xMax; v += 0.1) {
-    grid += `<line x1="${X(v)}" y1="${mT}" x2="${X(v)}" y2="${H - mB}" stroke="#e4e2da"/>
-             <text x="${X(v)}" y="${H - mB + 16}" text-anchor="middle" font-size="11" fill="#6b6b66">${Math.round(v * 100)}%</text>`;
+    grid += `<line x1="${X(v)}" y1="${mT}" x2="${X(v)}" y2="${H - mB}" stroke="#e9eded"/>
+             <text x="${X(v)}" y="${H - mB + 16}" text-anchor="middle" font-size="11" fill="#4f5a5e">${Math.round(v * 100)}%</text>`;
   }
   for (let v = Math.ceil(yMin * 2) / 2; v <= yMax; v += 0.5) {
-    grid += `<line x1="${mL}" y1="${Y(v)}" x2="${W - mR}" y2="${Y(v)}" stroke="#e4e2da"/>
-             <text x="${mL - 8}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="#6b6b66">${v.toFixed(1)}</text>`;
+    grid += `<line x1="${mL}" y1="${Y(v)}" x2="${W - mR}" y2="${Y(v)}" stroke="#e9eded"/>
+             <text x="${mL - 8}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="#4f5a5e">${v.toFixed(1)}</text>`;
   }
-  grid += `<text x="${(mL + W - mR) / 2}" y="${H - 6}" text-anchor="middle" font-size="11.5" fill="#6b6b66">${t("conn.scatter_xaxis")}</text>
-           <text transform="rotate(-90)" x="${-(mT + H - mB) / 2}" y="13" text-anchor="middle" font-size="11.5" fill="#6b6b66">${t("conn.scatter_yaxis")}</text>`;
+  grid += `<text x="${(mL + W - mR) / 2}" y="${H - 6}" text-anchor="middle" font-size="11.5" fill="#4f5a5e">${t("conn.scatter_xaxis")}</text>
+           <text transform="rotate(-90)" x="${-(mT + H - mB) / 2}" y="13" text-anchor="middle" font-size="11.5" fill="#4f5a5e">${t("conn.scatter_yaxis")}</text>`;
 
   let marks = "";
   pts.forEach((tm) => {
@@ -538,12 +583,12 @@ function connDetail(d) {
   const rest = 1 - known;   // rivales sin confederación inferible en la ventana
   const segs = d.confederations
     .filter((c) => tm.by_conf[c] > 0.001)
-    .map((c) => `<span class="seg" style="width:${tm.by_conf[c] * 100}%;background:${CONF_COLORS[c]}"
+    .map((c) => `<span class="seg" style="width:${tm.by_conf[c] * 100}%;background:${CONF_COLORS[c]};color:${inkFor(CONF_COLORS[c])}"
         title="${c}: ${pct(tm.by_conf[c])}">${tm.by_conf[c] >= 0.09 ? c : ""}</span>`)
     .join("");
   return `
     <div class="conn-detail-head">${flagImg(tm.team, true)} <b>${teamName(tm.team)}</b>
-      <span class="group-chip" style="color:${CONF_COLORS[tm.conf]};border-color:${CONF_COLORS[tm.conf]}">${tm.conf}</span></div>
+      <span class="group-chip">${confLabel(tm.conf)}</span></div>
     <div class="conn-stats">
       <span><b>${tm.rating.toFixed(2)}</b> ${t("conn.stat_rating")}</span>
       <span><b>${tm.matches}</b> ${t("conn.stat_matches")}</span>
@@ -551,7 +596,7 @@ function connDetail(d) {
       <span><b>${tm.opp_rating.toFixed(2)}</b> ${t("conn.stat_opp")}</span>
     </div>
     <div class="prob-bar conn-bar" title="${t("conn.bar_title")}">
-      ${segs}${rest > 0.001 ? `<span class="seg" style="width:${rest * 100}%;background:${CONF_UNKNOWN}"
+      ${segs}${rest > 0.001 ? `<span class="seg" style="width:${rest * 100}%;background:${CONF_UNKNOWN};color:${inkFor(CONF_UNKNOWN)}"
         title="${t("conn.bar_unknown_title", { pct: pct(rest) })}">${rest >= 0.09 ? "¿?" : ""}</span>` : ""}
     </div>`;
 }
@@ -564,12 +609,12 @@ function connHeatmap(d) {
   return `<table class="probs conn-heat">
     <thead><tr><th class="team-col">${t("conn.heat_conf")}</th>${confs.map((c) => `<th>${c}</th>`).join("")}</tr></thead>
     <tbody>${confs.map((c, i) => `
-      <tr><td class="team-cell" style="color:${CONF_COLORS[c]}">${c}</td>
+      <tr><td class="team-cell">${confLabel(c)}</td>
         ${confs.map((c2, j) => {
           const share = tot[i] ? Wm[i][j] / tot[i] : 0;
-          const a = Math.min(share * 1.6, 0.92);
-          return `<td class="pcell${a > 0.55 ? " dark" : ""}${i === j ? " diag" : ""}"
-              style="background:rgba(15,138,138,${a.toFixed(3)})"
+          const { bg, dark } = shadeCell(Math.min(share * 1.6, 0.92));
+          return `<td class="pcell${dark ? " dark" : ""}${i === j ? " diag" : ""}"
+              style="background:${bg}"
               title="${c} – ${c2}: ${C[i][j]} · ${Wm[i][j].toFixed(0)} (${pct(share)})">${pct(share)}</td>`;
         }).join("")}</tr>`).join("")}
     </tbody></table>`;
@@ -583,8 +628,8 @@ function connTable(d) {
       <th>${t("col.rating")}</th></tr></thead>
     <tbody>${d.teams.map((tm, i) => `
       <tr class="conn-row${tm.team === state.connSelected ? " sel" : ""}" data-team="${tm.team}">
-        <td class="team-cell">${i + 1}. ${flagImg(tm.team)}${teamName(tm.team)}</td>
-        <td style="color:${CONF_COLORS[tm.conf]};font-weight:700">${tm.conf}</td>
+        <td class="team-cell"><span class="rank-num">${i + 1}</span>${flagImg(tm.team)}${teamName(tm.team)}</td>
+        <td>${confLabel(tm.conf)}</td>
         <td>${tm.matches}</td>${pcell(tm.bridge_share)}
         <td>${tm.opp_rating.toFixed(2)}</td>
         <td><b>${tm.rating.toFixed(2)}</b></td></tr>`).join("")}
@@ -705,8 +750,8 @@ function renderRankings() {
   const sortLabel = hasElo ? t("rank.sort_elo") : t("rank.sort_rating");
   const tbody = rows.map((tm, i) => `
     <tr class="conn-row" data-team="${tm.team}">
-      <td class="team-cell">${i + 1}. ${flagImg(tm.team)}${teamName(tm.team)}</td>
-      <td style="color:${CONF_COLORS[tm.conf] || CONF_UNKNOWN};font-weight:700">${tm.conf || "–"}</td>
+      <td class="team-cell"><span class="rank-num">${i + 1}</span>${flagImg(tm.team)}${teamName(tm.team)}</td>
+      <td>${confLabel(tm.conf)}</td>
       ${hasElo ? `<td><b>${Math.round(tm.elo)}</b></td>` : ""}
       <td>${tm.atk.toFixed(2)}</td>
       <td>${tm.dfn.toFixed(2)}</td>
@@ -803,20 +848,20 @@ function rankEvolutionBlock(snaps, hasElo) {
   if (isRank) {
     const rstep = hi > 12 ? Math.max(1, Math.round(niceStep(hi - 1))) : 1;
     for (let v = 1; v <= hi; v += rstep)
-      grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e4e2da"/>
-               <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#6b6b66">${v}</text>`;
+      grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e9eded"/>
+               <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#4f5a5e">${v}</text>`;
   } else {
     const step = niceStep(hi - lo);
     const dec = step < 0.1 ? 2 : step < 1 ? 1 : 0;
     for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step)
-      grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e4e2da"/>
-               <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#6b6b66">${v.toFixed(dec)}</text>`;
+      grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e9eded"/>
+               <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#4f5a5e">${v.toFixed(dec)}</text>`;
   }
   const every = Math.max(1, Math.ceil(n / 12));
   let xaxis = "";
   snaps.forEach((s, i) => {
     if (i % every === 0 || i === n - 1)
-      xaxis += `<text x="${x(i)}" y="${H - mB + 18}" text-anchor="middle" font-size="11" fill="#6b6b66">${fmtShort(s.date)}</text>`;
+      xaxis += `<text x="${x(i)}" y="${H - mB + 18}" text-anchor="middle" font-size="11" fill="#4f5a5e">${fmtShort(s.date)}</text>`;
   });
 
   const fmtV = (v) => isRank ? `#${v}` : metric === "elo" ? Math.round(v) : v.toFixed(2);
@@ -832,9 +877,9 @@ function rankEvolutionBlock(snaps, hasElo) {
   fg.forEach((s) => {
     const pts = s.values.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean);
     if (pts.length > 1)
-      lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.5"/>`;
+      lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
     s.values.forEach((v, i) => {
-      if (v != null) lines += `<circle cx="${x(i)}" cy="${y(v)}" r="3.2" fill="${s.color}"/>`;
+      if (v != null) lines += `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${s.color}"/>`;
     });
   });
   // etiquetas finales sin solaparse
@@ -849,7 +894,7 @@ function rankEvolutionBlock(snaps, hasElo) {
     const yEnd = y(l.v);
     if (Math.abs(l.ly - yEnd) > 4)
       lines += `<line x1="${x(n - 1) + 4}" y1="${yEnd}" x2="${x(n - 1) + 18}" y2="${l.ly - 4}" stroke="${l.s.color}" stroke-width="1" opacity=".6"/>`;
-    lines += `<text x="${x(n - 1) + 21}" y="${l.ly}" font-size="11.5" font-weight="600" fill="${l.s.color}">${teamName(l.s.team)} ${fmtV(l.v)}</text>`;
+    lines += `<text x="${x(n - 1) + 21}" y="${l.ly}" font-size="11.5" font-weight="600" fill="#1f2529">${teamName(l.s.team)} ${fmtV(l.v)}</text>`;
   });
 
   const metricLabel = t(metrics.find(([k]) => k === metric)[1]);
@@ -916,14 +961,14 @@ async function openMatrix(home, away, date) {
 
   const cell = (h, a) => {
     const p = d.matrix[h][a];
-    const alpha = maxP ? Math.min((p / maxP) * 0.95, 0.95) : 0;
+    const { bg, dark } = shadeCell(maxP ? Math.min((p / maxP) * 0.92, 0.92) : 0);
     const cls = [
-      alpha > 0.55 ? "dark" : "",
+      dark ? "dark" : "",
       h === pickH && a === pickA ? "pick" : "",
       m?.played && h === m.home_score && a === m.away_score ? "real" : "",
     ].join(" ");
     const label = p >= 0.001 ? (p * 100).toFixed(1) : "·";
-    return `<td class="${cls}" style="background:rgba(15,138,138,${alpha.toFixed(3)})"
+    return `<td class="${cls}" style="background:${bg}"
                 title="${h}-${a}: ${(p * 100).toFixed(2)}%">${label}</td>`;
   };
 
@@ -942,7 +987,7 @@ async function openMatrix(home, away, date) {
         `<tr><th>${h}</th>${[...Array(n)].map((_, a) => cell(h, a)).join("")}</tr>`).join("")}
     </table>
     <div class="matrix-legend">
-      <span><span class="key" style="outline:2.5px solid var(--orange); outline-offset:-2.5px"></span>${t("matrix.legend_pick")}</span>
+      <span><span class="key" style="outline:2.5px solid var(--hi); outline-offset:-2.5px"></span>${t("matrix.legend_pick")}</span>
       ${m?.played ? `<span><span class="key" style="outline:2.5px solid var(--ink); outline-offset:-2.5px"></span>${t("matrix.legend_real")}</span>` : ""}
     </div>`;
 }
