@@ -213,8 +213,11 @@ def cmd_simulate(args):
     out = simulate_tournament(model, fixtures, n_sims=args.sims, played=played,
                               odds_df=odds_df, odds_weight=args.odds_weight)
     note = f", counting {len(played)} played matches" if len(played) else ""
+    ko_note = ("scheduled knockout ties market-priced at their venue, the "
+               "rest at a neutral venue" if odds_df is not None
+               else "knockouts at a neutral venue")
     print(f"\nFull-tournament Monte Carlo ({args.sims:,} sims{note}) — "
-          f"knockouts at a neutral venue, ties via extra time + penalties\n")
+          f"{ko_note}, ties via extra time + penalties\n")
     print(out.to_string(index=False))
     if args.out:
         dest = resolve_out(args.out, SIM_DIR)

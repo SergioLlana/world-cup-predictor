@@ -8,9 +8,14 @@ group *or* knockout — are used as-is; only the remaining fixtures are simulate
 so the same command works mid-tournament.
 
 Two modelling notes:
-- **Knockout venue is neutral.** The bracket is synthetic (no venue/country per
-  slot), so host-nation advantage is modelled only in the group stage (where the
-  fixtures carry a `country`). See `docs/known-limitations.md`.
+- **Unresolved knockout pairings are neutral and model-only.** The bracket is
+  synthetic (no venue/country per slot), so those pairings carry no home
+  advantage and no odds. But once the real bracket resolves a tie, it becomes a
+  *scheduled fixture* — a real row in `results.csv` with a `country` column and
+  (usually) market odds — and `_overlay_scheduled_ko` re-prices exactly those
+  pairs through the same `predict_match` path `predict` uses, odds + venue
+  included. Odds runs only: `--approach history` outputs are byte-identical to
+  the pre-overlay behaviour. See `docs/known-limitations.md`.
 - **Official group labels.** The Round-of-32 wiring (Winner A, Runner-up B, the
   third-place slots) is defined in terms of FIFA's official A..L labels, which
   do *not* match `groups.derive_groups`' kick-off-order labels. We therefore key
@@ -21,7 +26,8 @@ import pandas as pd
 
 from .config import EXTRA_TIME_FRACTION, ODDS_WEIGHT
 from .groups import _group_points
-from .predict import WC2026_R32_START, odds_lookup_for
+from .predict import (WC2026_R32_START, home_side, odds_lookup_for,
+                      predict_match)
 from .scoring import outcome_probs, resolve_extra_time, resolve_shootout
 from .thirds_table import THIRD_PLACE_ALLOCATION
 
@@ -180,6 +186,39 @@ def _pairwise_winprob(model, teams, compact):
     return W
 
 
+def _overlay_scheduled_ko(model, fixtures, W, compact, odds_lookup,
+                          odds_weight):
+    """Re-price the already-scheduled knockout ties in W with odds and venue.
+
+    `_pairwise_winprob` prices every pairing model-only at a neutral venue —
+    the only option for bracket slots that are still hypothetical. A
+    *scheduled* knockout fixture (a `fixtures` row dated in the knockout
+    calendar) has stopped being hypothetical: it is a real `results.csv` row
+    with a venue `country`, and the odds feed prices it. Build that tie's
+    matrix through `predict_match` — the same market-blend + `home_side` path
+    `predict` uses (a fixture without odds still gains the venue) — resolve
+    extra time + penalties as `_pairwise_winprob` does, and overwrite the
+    pair's two W entries. Returns the number of ties re-priced.
+
+    Only called under `--approach odds` (the caller gates on `odds_lookup`),
+    so `--approach history` outputs stay byte-identical."""
+    ko = fixtures[fixtures["date"] >= pd.Timestamp(WC2026_R32_START)]
+    n = 0
+    for r in ko.itertuples(index=False):
+        i, j = compact.get(r.home_team), compact.get(r.away_team)
+        if i is None or j is None:
+            continue
+        res = predict_match(model, r.home_team, r.away_team,
+                            side=home_side(r.home_team, r.away_team, r.country),
+                            odds=odds_lookup.get((r.home_team, r.away_team)),
+                            odds_weight=odds_weight,
+                            extra_time=True, shootout=True)
+        W[i, j] = res["p1"] + res["px"]   # px ≈ 0 after the shootout collapse
+        W[j, i] = res["p2"]
+        n += 1
+    return n
+
+
 def _ko_played_pairs(played_ko, team_group, compact):
     """List of (winner_id, loser_id) compact pairs for already-played knockouts.
     Draws (penalty results not in the score) are skipped with a warning."""
@@ -269,6 +308,13 @@ def simulate_tournament(model, fixtures, n_sims=100_000, seed=0, played=None,
         compact)
     qualifies, combo_mask = _select_best_thirds(t_pts, t_gd, t_gf, rng)
     W = _pairwise_winprob(model, teams, compact)
+    if odds_lookup is not None:
+        n_live = _overlay_scheduled_ko(model, fixtures, W, compact,
+                                       odds_lookup, odds_weight)
+        if n_live:
+            print(f"{n_live} scheduled knockout ties re-priced with market "
+                  f"odds + venue (unresolved pairings stay model-only, "
+                  f"neutral).")
     ko_pairs = _ko_played_pairs(played_ko, team_group, compact)
     reach = _simulate_bracket(winner, runner, third, qualifies, combo_mask, W,
                               ko_pairs, rng, len(teams))

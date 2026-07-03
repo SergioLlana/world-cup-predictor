@@ -204,35 +204,34 @@ for a in (1.0, 0.8, 0.6, 0.4, 0.2, 0.0):
     print(f"alpha={a}: {pts:.1f} pts ({pts/n:.3f}/match), rps {rps:.4f}")
 ```
 
-## Knockout matches are simulated at a neutral venue
+## Unresolved knockout pairings are simulated at a neutral venue, model-only
 
-**Scope.** `wcpred simulate` (full-tournament Monte Carlo, `tournament.py`) plays
-the knockout bracket — Round of 32 through the final — with **no home
-advantage**. Host-nation advantage is modelled *only* in the group stage.
+**Scope.** `wcpred simulate` (full-tournament Monte Carlo, `tournament.py`)
+plays the **hypothetical** part of the knockout bracket — the pairings the real
+tournament has not yet resolved — with no home advantage and no market input.
+Since July 2026 (next-steps.md §1, implemented) the *already-scheduled*
+knockout ties are the exception: under `--approach odds`,
+`tournament._overlay_scheduled_ko` re-prices each of them through the same
+`predict_match` path `predict` uses — market odds blended per `ODDS_WEIGHT`
+and home advantage from the fixture's `country` — before extra time and
+penalties resolve the tie. A scheduled tie without an odds row still gains the
+venue. `--approach history` keeps the original all-neutral, model-only bracket
+byte-identically.
 
-**Why.** Home advantage is applied via `predict.home_side`, which keys off the
-fixture's `country` column. Group fixtures carry that column, so the hosts
-(USA, Mexico, Canada) correctly get the boost when playing at home. The knockout
-bracket, by contrast, is **synthetic**: slots are "Winner of Group E", "best
-third assigned to match 80", etc., with no venue attached, and there is no
-stadium→slot mapping in the data. All knockout venues sit in USA/MEX/CAN, so in
-principle a host playing a knockout in its own country would have an edge, but
-without a per-slot venue we cannot know which side that is — so every knockout
-tie is played at a neutral venue (`home_side=None` when building the pairwise
-win-probability matrix `W`).
+**Why the hypothetical pairings stay neutral.** Home advantage is applied via
+`predict.home_side`, which keys off the fixture's `country` column. Group
+fixtures and scheduled knockout fixtures carry that column; synthetic bracket
+slots ("Winner of Group E", "best third assigned to match 80") have no venue
+attached and no stadium→slot mapping exists in the data. All knockout venues
+sit in USA/MEX/CAN, so in principle a host playing a knockout at home would
+have an edge, but without a per-slot venue we cannot know which side that is —
+so those ties keep `home_side=None` in the pairwise win-probability matrix
+`W`. The same applies to odds: a pairing the bracket has not produced is not a
+fixture any book prices.
 
-**Related.** `W` is model-only in the knockouts even under `--approach odds`.
-This was originally because odds feeds cover scheduled fixtures only and
-synthetic pairings have none — but the premise has partly expired: once the
-knockout draw resolved (July 2026), the upcoming knockout ties became real
-scheduled fixtures in `results.csv`, carrying a `country` column *and* market
-odds (20 of the 21 scheduled knockout fixtures had odds on 2026-07-02). Only
-pairings not yet decided by the bracket remain genuinely synthetic. `simulate`
-does not exploit either signal yet — see the proposal in
-[next-steps.md](next-steps.md).
-
-**Net effect.** A small, systematic under-rating of the three hosts' deep-run
-probabilities (semi-final onward) relative to a venue-aware model, and — now
-that the tournament is inside the knockouts — a bracket that ignores the market
-prices available for the already-scheduled ties. Acceptable for v1; see
-[next-steps.md](next-steps.md) for the venue + odds-aware `W` proposal.
+**Net effect.** The market correction now reaches exactly where
+[connectivity.md](connectivity.md) showed it matters most (the
+cross-confederation scale of the resolved ties, e.g. Argentina vs Spain), while
+a residual, shrinking-as-the-bracket-resolves under-rating of the hosts'
+deep-run probabilities remains for the still-hypothetical rounds — and all of
+`--approach history` remains model-only and neutral by design.
