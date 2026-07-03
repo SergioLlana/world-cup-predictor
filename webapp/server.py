@@ -377,11 +377,15 @@ def _connectivity(as_of, results_mtime):
     the schedule-inflation caveat in docs/known-limitations.md. Returns the
     conf x conf matrix of training weight (time decay included, the same `w`
     the model fits on) plus per-WC-team bridge stats. results_mtime is only
-    part of the key so a data refresh invalidates the cache."""
+    part of the key so a data refresh invalidates the cache.
+
+    Pinned to the dc engine regardless of DEFAULT_ENGINE: the tab reproduces
+    the dc-based analysis in docs/connectivity.md, and the elo engine's
+    atk/dfn are display-only quantities (docs/next-steps.md §5)."""
     df = load_results(os.path.join(ROOT, RESULTS_PATH))
     m = prepare_training(df, as_of=as_of)
     confs = infer_confederations(m)
-    model = _model_for(as_of, results_mtime)
+    model = _model_for(as_of, results_mtime, engine="dc")
     overall = {t: float(model.atk[i] - model.dfn[i]) for t, i in model.idx.items()}
 
     idx = {c: i for i, c in enumerate(CONF_ORDER)}
