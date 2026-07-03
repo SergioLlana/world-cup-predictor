@@ -7,10 +7,22 @@ from .scoring import outcome_probs
 
 def to_prob(odds):
     """American (-235, +375) or decimal (1.45) odds -> implied probability.
-    Heuristic: |value| >= 100 -> American; otherwise decimal."""
+
+    Disambiguation (any sign / "." structure is lost once pandas parses the
+    CSV, so the rule must be numeric): negative values are American (decimal
+    odds are never negative); a value with a fractional part is decimal
+    whatever its size (an extreme longshot priced 102.5 must not read as
+    American +102.5); a bare integral value >= 100 stays American — the one
+    residually ambiguous shape, which the odds feed avoids by never storing
+    integral decimal prices >= 100 (scripts/fetch_odds.py shaves them to
+    e.g. 149.99)."""
     o = float(str(odds).replace("+", ""))
-    if abs(o) >= 100:
-        return 100 / (o + 100) if o > 0 else -o / (-o + 100)
+    if o < 0:
+        if o > -100:
+            raise ValueError(f"American odds must be <= -100, got {odds}")
+        return -o / (-o + 100)
+    if o >= 100 and float(o).is_integer():
+        return 100 / (o + 100)
     if o <= 1:
         raise ValueError(f"Decimal odds must be > 1, got {odds}")
     return 1 / o

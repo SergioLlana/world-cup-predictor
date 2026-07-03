@@ -15,7 +15,9 @@ without dropping the matchdays you collected earlier.
 
 If you prefer not to use the API, fill odds.csv by hand from
 oddschecker.com/us/soccer/world-cup (takes ~1 min per matchday).
-American (+150/-200) and decimal (2.50) formats both work.
+American (+150/-200) and decimal (2.50) formats both work — but a decimal
+price of 100 or more must carry a fractional part (150.99, not 151), or
+wcpred.odds.to_prob will read it as American (+151).
 """
 import argparse
 import csv
@@ -84,10 +86,21 @@ def fetch_rows(key):
                         prices["X"].append(o["price"])
         if all(prices.values()):
             def med(v):
-                return sorted(v)[len(v) // 2]
+                return _decimal_safe(sorted(v)[len(v) // 2])
             rows.append([home, away, med(prices["1"]),
                          med(prices["X"]), med(prices["2"])])
     return rows
+
+
+def _decimal_safe(price):
+    """Keep a decimal price unambiguous for wcpred.odds.to_prob: an integral
+    price >= 100 would read as American (151 -> +151, implied p 0.40 instead
+    of 0.007), so shave a hundredth off. The implied-probability distortion
+    is < 0.01% relative — far below any bookmaker margin."""
+    p = float(price)
+    if p >= 100 and p.is_integer():
+        p -= 0.01
+    return p
 
 
 def load_existing(path):
