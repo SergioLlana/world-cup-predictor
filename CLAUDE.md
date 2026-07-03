@@ -16,6 +16,8 @@ scripts/update_data.sh           # refresh ALL sources (results+xG+odds) increme
 scripts/generate_predictions.sh  # date-stamped picks + group standings (track evolution)
 scripts/generate_rankings.sh     # date-stamped model rankings (--as-of, --engines)
 scripts/run_webapp.sh            # local dashboard on :8026 (needs `.[web]` extra)
+scripts/smoke.sh                 # ~1 min CLI smoke: run after touching cli.py/
+                                 # backtest.py/the engines, before committing
 
 wcpred predict   --approach odds --odds data/input/odds.csv --days 3
 wcpred groups    --approach odds --odds data/input/odds.csv   # MC group standings
