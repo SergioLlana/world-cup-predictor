@@ -103,5 +103,5 @@ connectivity. See `docs/webapp-public-deploy-plan.md` for the public deploy plan
 
 `models-explained.md` · `elo-engine.md` · `bayesian-engine.md` · `pick-strategy.md`
 · `data-sources.md` · `known-limitations.md` · `connectivity.md` ·
-`webapp-public-deploy-plan.md` · `next-steps.md` (July 2026 review: applied
-fixes + pending proposals).
+`webapp-public-deploy-plan.md` · `next-steps.md` (July 2026 review; all six
+proposals implemented 2026-07-03, outcomes inline).

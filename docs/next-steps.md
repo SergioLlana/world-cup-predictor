@@ -1,5 +1,11 @@
 # Next steps — proposals from the July 2026 code review
 
+*Status 2026-07-03: all six proposals below are implemented (one commit per
+proposal). Per-proposal outcomes are noted inline; the notable one is §6,
+where the re-tune confirmed the global-K diagnosis statically but did not
+generalise under the rolling protocol, so the Elo defaults stay at the
+published rule.*
+
 *2026-07-02. Output of a full review of the three engines (`dc`/`elo`/`bayes`),
 the surrounding pipeline, the web app and the docs, run mid-Round-of-32. The
 review verified the engines' math directly (numeric gradient checks on the `dc`
@@ -30,6 +36,13 @@ baseline exactly: 594.0 Penka pts / 290 matches, RPS 0.1890, log-loss 2.7702.*
 
 ## 1. Odds- and venue-aware knockout bracket (highest value now)
 
+*Done (2026-07-03): `tournament._overlay_scheduled_ko`, odds runs only;
+`--approach history` verified byte-identical (0 overlay calls). All 8
+scheduled ties had odds; W moved toward the de-vigged market — Mexico v
+England 0.305→0.453, USA v Belgium 0.257→0.487, Australia v Egypt
+0.537→0.456 (the connectivity.md correction). `known-limitations.md`
+updated.*
+
 **Problem.** `tournament._pairwise_winprob` builds the knockout win-probability
 matrix `W` model-only and at a neutral venue. Both justifications have expired
 for the ties the bracket has already resolved: scheduled knockout fixtures are
@@ -59,6 +72,10 @@ when done.
 
 ## 2. Decide the bayes-propagation × odds semantics
 
+*Done (2026-07-03): documented in `bayesian-engine.md` + the `BAYES_PROPAGATE`
+comment in `config.py`; propagating through the market recalibration was
+considered and not pursued (accuracy-neutral).*
+
 With `ODDS_WEIGHT = 1.0`, `predict_match` replaces the engine's matrix with
 `market_matrix(...)`, which rebuilds it from `matrix_from_rates` — the plug-in
 posterior-mean path. So the bayes engine's default-on posterior propagation
@@ -76,6 +93,10 @@ Options, cheapest first:
 
 ## 3. Harden `odds.to_prob` against high decimal odds
 
+*Done (2026-07-03): fractional part → decimal whatever the size, negatives →
+American; `fetch_odds.py` never stores an integral decimal price ≥ 100
+(shaves a hundredth: 151 → 150.99).*
+
 The American-vs-decimal heuristic (`|v| ≥ 100` → American) misreads a decimal
 price of 100+ (an extreme longshot: decimal +250 would become implied p ≈ 0.29
 instead of ≈ 0.004). Current `odds.csv` maxes at 41.0, so this is latent — but
@@ -84,6 +105,9 @@ treat any value with a fractional part as decimal, and/or have
 `scripts/fetch_odds.py` guarantee decimal format so `to_prob` can require it.
 
 ## 4. A minimal smoke script
+
+*Done (2026-07-03): `scripts/smoke.sh`, with `--as-of` pinned inside the 2026
+group stage so it keeps working after the tournament; noted in CLAUDE.md.*
 
 The project deliberately has no test suite (`backtest --tournament all` is the
 regression check) — but that command itself was broken on `main` for ~2 weeks
@@ -102,6 +126,8 @@ Run it after touching `cli.py`/`backtest.py`/the engines, before committing.
 
 ## 5. Pin `/api/connectivity` to the `dc` engine
 
+*Done (2026-07-03): `engine="dc"` passed explicitly.*
+
 `webapp/server.py:_connectivity` calls `_model_for(as_of, mtime)` without an
 engine, so it inherits `DEFAULT_ENGINE` (`elo` since the webapp default
 changed). The Conectividad tab's ratings/opp-rating scatter therefore no longer
@@ -110,6 +136,13 @@ matches the `dc`-based analysis in `connectivity.md`, and the elo engine's
 line), or add an engine picker to the tab if the elo view is wanted.
 
 ## 6. Elo engine: global K-scale parameter (carried over from elo-engine.md)
+
+*Done (2026-07-03): `ELO_K_SCALE` added (default 1.0, byte-identical) and
+swept as `tune_elo` step 2. The re-tune confirmed the diagnosis statically
+(RPS 0.1928→0.1909 toward the sweep ceiling) but the tuned config does not
+generalise under the rolling re-validation (574 pts / RPS 0.1951 vs the
+default's 587 / 0.1950), so defaults stay at the published rule. Full
+detail: `elo-engine.md` §"Global K-scale re-tune (July 2026)".*
 
 The June tuning saw four confederation-K multipliers pile onto the grid ceiling
 (2.0) for a ~0 RPS gain — a global-K effect leaking through the per-bloc
