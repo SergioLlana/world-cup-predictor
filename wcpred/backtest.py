@@ -158,6 +158,7 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
              connect_mode=None, connect_by=None, connect_opp_ref=None,
              bayes_seed=2026,
              elo_conf_k=None, elo_longterm_years=None, elo_ha=None,
+             elo_k_scale=None,
              pick_strategy=PICK_STRATEGY,
              **train_kw):
     """Score every match of a past tournament.
@@ -238,7 +239,8 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
         raw_elo = df[(df["date"] >= pd.Timestamp(ELO_TRAIN_START))
                      & (df["date"] <= pd.Timestamp(end))]
         elo_history = EloHistory(raw_elo, conf_k=elo_conf_k,
-                                 ha=(ELO_HA if elo_ha is None else elo_ha))
+                                 ha=(ELO_HA if elo_ha is None else elo_ha),
+                                 k_scale=elo_k_scale)
 
     model, fitted_at, confs = None, None, {}
     total, exact, outcome = 0.0, 0, 0
@@ -386,16 +388,18 @@ def tune(df, tournaments=None, gd_caps=(None, 3, 4),
             .sort_values("rps").reset_index(drop=True))
 
 
-def _elo_pool(df, tournaments, conf_k, ly, ha, rolling):
+def _elo_pool(df, tournaments, conf_k, ly, ha, ks, rolling):
     """Pooled (across tournaments) elo-engine metrics for one config."""
     res = [backtest(df, t, rolling=rolling, engine="elo",
-                    elo_conf_k=conf_k, elo_longterm_years=ly, elo_ha=ha)
+                    elo_conf_k=conf_k, elo_longterm_years=ly, elo_ha=ha,
+                    elo_k_scale=ks)
            for t in tournaments]
     return _pool_metrics(res)
 
 
 def tune_elo(df, tournaments=None, longterm_years=(5, 8, 10, 12, 15),
              has=(50.0, 75.0, 100.0, 125.0),
+             k_scales=(0.5, 0.75, 1.0, 1.25, 1.5, 2.0),
              conf_k_grid=(0.5, 0.75, 1.0, 1.25, 1.5, 2.0),
              confs=("UEFA", "CONMEBOL", "CONCACAF", "CAF", "AFC", "OFC"),
              rolling=False, verbose=True):
@@ -405,23 +409,30 @@ def tune_elo(df, tournaments=None, longterm_years=(5, 8, 10, 12, 15),
 
     The per-confederation K is a 6-D dict, so a full grid is infeasible. Instead:
 
-    1. **scalar grid** over (``longterm_years``, ``ha``) with every conf-K = 1.0;
-    2. **coordinate descent** on the conf-K: holding the best scalar config,
+    1. **scalar grid** over (``longterm_years``, ``ha``) with K-scale = 1.0 and
+       every conf-K = 1.0;
+    2. **global K-scale sweep** (``ELO_K_SCALE``, one scalar multiplying every
+       tournament-tier K) at the best scalar config — swept *before* the
+       per-bloc Ks so a global learning-rate effect is absorbed here instead of
+       leaking through six correlated per-confederation multipliers (the June
+       2026 run piled four conf-Ks onto the grid ceiling for ~0 RPS gain);
+    3. **coordinate descent** on the conf-K: holding the best config so far,
        sweep one confederation's K multiplier at a time over ``conf_k_grid``,
        adopting an improvement before moving to the next confederation.
 
     Static fit by default to keep it cheap; re-validate the winner with
-    rolling=True. Returns ``(scalar_df, conf_df, best)`` where ``best`` is the
-    chosen ``{conf: k}`` dict plus the winning longterm_years/ha.
+    rolling=True. Returns ``(scalar_df, kscale_df, conf_df, best)`` where
+    ``best`` is the chosen ``{conf: k}`` dict plus the winning
+    longterm_years/ha/k_scale.
     """
     tournaments = list(tournaments or TOURNAMENTS)
     base_k = {c: 1.0 for c in confs}
 
-    # --- step 1: scalar grid (longterm_years x ha), conf-K all 1.0 ---
+    # --- step 1: scalar grid (longterm_years x ha), K-scale/conf-K all 1.0 ---
     scalar_rows = []
     for ly, ha in itertools.product(longterm_years, has):
         row = {"longterm_years": ly, "ha": ha,
-               **_elo_pool(df, tournaments, base_k, ly, ha, rolling)}
+               **_elo_pool(df, tournaments, base_k, ly, ha, 1.0, rolling)}
         scalar_rows.append(row)
         if verbose:
             print(f"[scalar] longterm_years={ly} ha={ha}: "
@@ -434,16 +445,38 @@ def tune_elo(df, tournaments=None, longterm_years=(5, 8, 10, 12, 15),
         print(f"--> best scalar: longterm_years={ly} ha={ha} "
               f"(rps {best_scalar['rps']:.4f})\n")
 
-    # --- step 2: coordinate descent on the per-confederation K ---
-    best_k = dict(base_k)
+    # --- step 2: global K-scale sweep at the best scalar config ---
+    # (the 1.0 row was already measured in step 1 — reuse it, don't re-run)
+    best_ks = 1.0
     best_rps = float(best_scalar["rps"])
+    kscale_rows = [{"k_scale": 1.0,
+                    **{c: best_scalar[c] for c in scalar_df.columns
+                       if c not in ("longterm_years", "ha")}}]
+    for ks in k_scales:
+        if ks == 1.0:
+            continue
+        row = {"k_scale": ks,
+               **_elo_pool(df, tournaments, base_k, ly, ha, ks, rolling)}
+        kscale_rows.append(row)
+        if verbose:
+            print(f"[K-scale] {ks}: {row['pts_per_match']:.3f} pts/match, "
+                  f"rps {row['rps']:.4f}, ll {row['log_loss']:.4f}")
+        if row["rps"] < best_rps:
+            best_rps, best_ks = row["rps"], ks
+    kscale_df = (pd.DataFrame(kscale_rows).sort_values("rps")
+                 .reset_index(drop=True))
+    if verbose:
+        print(f"--> best K-scale: {best_ks} (rps {best_rps:.4f})\n")
+
+    # --- step 3: coordinate descent on the per-confederation K ---
+    best_k = dict(base_k)
     conf_rows = []
     for c in confs:
         for k in conf_k_grid:
             trial = dict(best_k)
             trial[c] = k
             row = {"conf": c, "k": k,
-                   **_elo_pool(df, tournaments, trial, ly, ha, rolling)}
+                   **_elo_pool(df, tournaments, trial, ly, ha, best_ks, rolling)}
             conf_rows.append(row)
             if verbose:
                 print(f"[conf-K] {c}={k} (others {best_k}): "
@@ -454,16 +487,17 @@ def tune_elo(df, tournaments=None, longterm_years=(5, 8, 10, 12, 15),
         if verbose:
             print(f"--> {c} -> {best_k[c]} (running rps {best_rps:.4f})\n")
 
-    best = {"longterm_years": ly, "ha": ha, "conf_k": best_k, "rps": best_rps}
+    best = {"longterm_years": ly, "ha": ha, "k_scale": best_ks,
+            "conf_k": best_k, "rps": best_rps}
     if verbose:
         print(f"BEST elo config: {best}")
-    return (scalar_df,
+    return (scalar_df, kscale_df,
             pd.DataFrame(conf_rows).sort_values("rps").reset_index(drop=True),
             best)
 
 
-def elo_report(df, conf_k=None, longterm_years=None, ha=None, rolling=True,
-               tournaments=None):
+def elo_report(df, conf_k=None, longterm_years=None, ha=None, k_scale=None,
+               rolling=True, tournaments=None):
     """Per-tournament + pooled elo-engine metrics for one config.
 
     Used to re-validate a tuned config with the live rolling re-fit (the gold
@@ -472,5 +506,5 @@ def elo_report(df, conf_k=None, longterm_years=None, ha=None, rolling=True,
     tournaments = list(tournaments or TOURNAMENTS)
     res = [dict(backtest(df, t, rolling=rolling, engine="elo",
                          elo_conf_k=conf_k, elo_longterm_years=longterm_years,
-                         elo_ha=ha)) for t in tournaments]
+                         elo_ha=ha, elo_k_scale=k_scale)) for t in tournaments]
     return pd.DataFrame(res), _pool_metrics(res)

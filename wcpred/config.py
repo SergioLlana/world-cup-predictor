@@ -188,6 +188,14 @@ ELO_CONF_K = {             # per-confederation K multiplier (the extension): a t
     "AFC": 1.0,            # use 1.0. NOTE: non-unit values break Elo's zero-sum
     "OFC": 1.0,            # property (total rating mass shifts) — that is the
 }                          # intended effect, not a bug, when the parameter is enabled.
+ELO_K_SCALE = 1.0          # global multiplier on every tournament-tier K
+                           # (ELO_K_TIERS), i.e. the Elo learning rate. 1.0 =
+                           # the published eloratings.net rule. Explicit so
+                           # `tune --elo-engine` can absorb a global-K effect
+                           # directly instead of letting it leak through the
+                           # per-confederation multipliers (June 2026: four
+                           # conf-Ks piled onto the 2.0 grid ceiling for ~0 RPS
+                           # gain — docs/elo-engine.md).
 ELO_K_TIERS = {            # base K by tournament type (eloratings.net tiers);
     "world_cup": 60.0,     # tournament_k() maps the martj42 `tournament` string.
     "continental_final": 50.0,

@@ -337,27 +337,36 @@ def cmd_tune(args):
     df = load_results(args.data)
     if args.elo_engine:
         # Elo engine (--engine elo): coordinate tuning of the long-term
-        # window, home advantage and the per-confederation K (RPS-driven), then
-        # a rolling re-fit re-validation of the winner vs the default config.
-        scalar_df, conf_df, best = tune_elo(df, rolling=args.rolling)
-        print("\nStep 1 — scalar grid (conf-K=1.0), sorted by pooled RPS:\n")
+        # window, home advantage, the global K scale and the per-confederation
+        # K (RPS-driven), then a rolling re-fit re-validation of the winner vs
+        # the default config.
+        scalar_df, kscale_df, conf_df, best = tune_elo(df, rolling=args.rolling)
+        print("\nStep 1 — scalar grid (K-scale=1.0, conf-K=1.0), sorted by "
+              "pooled RPS:\n")
         print(scalar_df.to_string(index=False))
-        print("\nStep 2 — per-confederation K coordinate sweep, by pooled RPS:\n")
+        print("\nStep 2 — global K-scale sweep at the best scalars, by "
+              "pooled RPS:\n")
+        print(kscale_df.to_string(index=False))
+        print("\nStep 3 — per-confederation K coordinate sweep, by pooled RPS:\n")
         print(conf_df.to_string(index=False))
         print(f"\nBest static config: longterm_years={best['longterm_years']} "
-              f"ha={best['ha']} conf_k={best['conf_k']} (rps {best['rps']:.4f})")
+              f"ha={best['ha']} k_scale={best['k_scale']} "
+              f"conf_k={best['conf_k']} (rps {best['rps']:.4f})")
         print("\nRe-validating default vs best with the rolling re-fit "
               "(the live --as-of protocol)...\n")
-        for label, ck, ly, ha in (
-                ("default (10y, HA=100, K=1.0)", None, None, None),
-                ("best", best["conf_k"], best["longterm_years"], best["ha"])):
+        for label, ck, ly, ha, ks in (
+                ("default (10y, HA=100, K-scale=1.0, conf-K=1.0)",
+                 None, None, None, None),
+                ("best", best["conf_k"], best["longterm_years"], best["ha"],
+                 best["k_scale"])):
             per, pooled = elo_report(df, conf_k=ck, longterm_years=ly, ha=ha,
-                                     rolling=True)
+                                     k_scale=ks, rolling=True)
             print(f"[rolling] {label}: {pooled['points']:.0f} pts "
                   f"({pooled['pts_per_match']:.3f}/match), "
                   f"rps {pooled['rps']:.4f}, ll {pooled['log_loss']:.4f}")
-        print("\nDefaults stay at the published eloratings rule (K=1.0) unless "
-              "the rolling re-validation clearly beats them (config.py).")
+        print("\nDefaults stay at the published eloratings rule (K-scale=1.0, "
+              "conf-K=1.0) unless the rolling re-validation clearly beats "
+              "them (config.py).")
         return
     if args.shrinkage:
         # Shrinkage grid (docs/known-limitations.md): sweep the shrinkage

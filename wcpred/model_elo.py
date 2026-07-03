@@ -30,8 +30,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
-from .config import (ELO_BASE, ELO_CONF_K, ELO_HA, ELO_K_FINALS, ELO_K_TIERS,
-                     ELO_LONGTERM_YEARS, ELO_TRAIN_START)
+from .config import (ELO_BASE, ELO_CONF_K, ELO_HA, ELO_K_FINALS, ELO_K_SCALE,
+                     ELO_K_TIERS, ELO_LONGTERM_YEARS, ELO_TRAIN_START)
 from .confederations import infer_confederations
 from .model import DixonColes
 
@@ -79,8 +79,10 @@ class EloHistory:
     done once over the whole window.
     """
 
-    def __init__(self, matches, ha=ELO_HA, conf_k=None, base=ELO_BASE):
+    def __init__(self, matches, ha=ELO_HA, conf_k=None, base=ELO_BASE,
+                 k_scale=None):
         conf_k = conf_k if conf_k is not None else ELO_CONF_K
+        k_scale = ELO_K_SCALE if k_scale is None else k_scale
         confs = infer_confederations(matches)
         m = matches.dropna(subset=["home_score", "away_score"])
         m = m.sort_values("date", kind="stable")
@@ -94,7 +96,7 @@ class EloHistory:
             margin = r.home_score - r.away_score
             w_h = 1.0 if margin > 0 else 0.5 if margin == 0 else 0.0
             g = gd_mult(abs(margin))
-            k = tournament_k(r.tournament) * g
+            k = tournament_k(r.tournament) * g * k_scale
             k_h = k * conf_k.get(confs.get(r.home_team), 1.0)
             k_a = k * conf_k.get(confs.get(r.away_team), 1.0)
             R[r.home_team] = Rh + k_h * (w_h - we_h)
@@ -127,7 +129,7 @@ class EloHistory:
 
 
 def compute_elo(matches, as_of, ha=ELO_HA, conf_k=None, base=ELO_BASE,
-                longterm_years=ELO_LONGTERM_YEARS):
+                longterm_years=ELO_LONGTERM_YEARS, k_scale=None):
     """``(ratings, longterm, n_matches)`` from a single-cutoff Elo iteration.
 
     Thin wrapper over :class:`EloHistory` (built over ``matches`` strictly before
@@ -135,26 +137,27 @@ def compute_elo(matches, as_of, ha=ELO_HA, conf_k=None, base=ELO_BASE,
     should build one :class:`EloHistory` and slice it per cutoff instead.
     """
     m = matches[matches["date"] < pd.Timestamp(as_of)]
-    return EloHistory(m, ha=ha, conf_k=conf_k, base=base).at(as_of,
-                                                             longterm_years)
+    return EloHistory(m, ha=ha, conf_k=conf_k, base=base,
+                      k_scale=k_scale).at(as_of, longterm_years)
 
 
 class EloDixonColes(DixonColes):
     """Dixon-Coles whose ratings come from an Elo, not goal-MLE."""
 
     def fit(self, m, df=None, as_of=None, ha=None, conf_k=None,
-            longterm_years=None, elo_train_start=None, elo_history=None):
+            longterm_years=None, elo_train_start=None, elo_history=None,
+            k_scale=None):
         """``m`` is the decay-weighted calibration frame (prepare_training);
         ``df``/``as_of`` give the raw full history for the Elo iteration.
-        ``ha``/``conf_k``/``longterm_years``/``elo_train_start`` default to the
-        ``config`` values when None (so callers can override individually, e.g.
-        the tuner).
+        ``ha``/``conf_k``/``longterm_years``/``elo_train_start``/``k_scale``
+        default to the ``config`` values when None (so callers can override
+        individually, e.g. the tuner).
 
         ``elo_history`` (optional) is a prebuilt :class:`EloHistory` to slice at
         ``as_of`` instead of re-iterating from ``df`` — a rolling backtest passes
         one shared instance so the iteration runs once per tournament, not once
-        per matchday. It must have been built with the same ``ha``/``conf_k`` and
-        cover ``[elo_train_start, as_of)``.
+        per matchday. It must have been built with the same
+        ``ha``/``conf_k``/``k_scale`` and cover ``[elo_train_start, as_of)``.
         """
         if as_of is None:
             raise ValueError("EloDixonColes.fit needs as_of (the cutoff to "
@@ -170,7 +173,7 @@ class EloDixonColes(DixonColes):
                                  "no elo_history cache is passed")
             raw = df[(df["date"] >= pd.Timestamp(elo_train_start))
                      & (df["date"] < pd.Timestamp(as_of))]
-            elo_history = EloHistory(raw, ha=ha, conf_k=conf_k)
+            elo_history = EloHistory(raw, ha=ha, conf_k=conf_k, k_scale=k_scale)
         ratings, longterm, n_matches = elo_history.at(as_of, longterm_years)
 
         teams = sorted(set(m["home_team"]) | set(m["away_team"]))

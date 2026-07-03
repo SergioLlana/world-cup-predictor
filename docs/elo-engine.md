@@ -124,10 +124,41 @@ partly at a grid boundary, so they do not warrant changing the published default
 lands **behind the `dc` default** in rolling RPS (0.1934 vs dc's 0.1890), so it is
 additive, not a replacement.
 
-A principled follow-up would add an explicit *global* K-scale parameter (separate
-from the *relative* per-confederation multipliers) and re-tune, to absorb the
-global-K effect cleanly and isolate the genuine per-bloc signal (CONCACAF damping)
-instead of four blocs piling onto the grid ceiling.
+A principled follow-up — an explicit *global* K-scale parameter (separate from
+the *relative* per-confederation multipliers) — was run in July 2026; see the
+next section.
+
+## Global K-scale re-tune (July 2026)
+
+`ELO_K_SCALE` (config.py) is now an explicit parameter: one scalar multiplying
+every tournament-tier K, i.e. the Elo learning rate (default 1.0 = the
+published rule). `tune_elo` sweeps it as **step 2**, between the scalar grid
+and the per-confederation coordinate descent, so a global-K effect is absorbed
+before the six correlated per-bloc multipliers can soak it up
+(next-steps.md §6). Run on 2026-07-03 data:
+
+- **Static, pooled over the six tournaments — the diagnosis confirmed.** The
+  K-scale sweep improves RPS monotonically toward the grid ceiling
+  (1.0 → 0.19277, 1.5 → 0.19154, 2.0 → 0.19092; raw points peak at 1.5 with
+  651 = 2.245/match), which is exactly the signal that leaked into four
+  per-bloc Ks in June. With it absorbed, the coordinate step keeps the
+  CONCACAF damping (0.5, RPS → 0.18993) and adds CAF 2.0 (→ 0.18943); the
+  UEFA 2.0 / OFC 2.0 adoptions move RPS by ≤ 0.0005 / 0.00003 — boundary and
+  noise, not signal. Best static config: `15y, HA=50, K-scale=2.0,
+  conf_k={UEFA:2.0, CONMEBOL:1.0, CONCACAF:0.5, CAF:2.0, AFC:0.75, OFC:2.0}`,
+  RPS 0.1894.
+- **Rolling re-validation (the live `--as-of` protocol) — no generalisation.**
+  The tuned config lands at 574 pts / RPS 0.1951 vs the default's 587 pts /
+  RPS 0.1950: worse on points, a wash on RPS. The static K-scale gain is
+  within-sample sharpening (a faster learning rate tracks each backtest
+  window's form better but re-fitting per matchday already provides that
+  adaptivity), not a robust modelling improvement.
+
+**Decision — defaults stay at the published eloratings.net rule**
+(`ELO_K_SCALE = 1.0`, all `ELO_CONF_K = 1.0`, `ELO_HA = 100`,
+`ELO_LONGTERM_YEARS = 10`). The parameter remains available for explicit
+opt-in and keeps future `tune --elo-engine` runs from mistaking a global
+learning-rate effect for a per-confederation finding.
 
 ## Verification
 
