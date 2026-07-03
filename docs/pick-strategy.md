@@ -57,9 +57,12 @@ The production strategy for analysis (CLI/backtest) stays on **`ev`** on purpose
 
 ```bash
 wcpred predict --approach odds --odds data/input/odds.csv --pick-strategy outcome
-scripts/generate_predictions.sh --pick-strategy outcome   # live workflow
 wcpred backtest --tournament all --pick-strategy outcome   # re-validate
 ```
+
+The daily workflow (`scripts/generate_predictions.sh`) needs no flag:
+`predict_fixtures` always writes both strategies' columns into every snapshot,
+and the web app simply selects which column to display.
 
 Past snapshots are not regenerated with `outcome`: already-played matches were bet
 with `ev`, and rewriting history would break the regenerability rule. `outcome` is

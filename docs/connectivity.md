@@ -67,6 +67,9 @@ betting markets have Spain first. The full chain:
   synthetic knockout pairings carry no odds, so R32 onward is model-only —
   and that is precisely where Argentina overtakes. Its champion probability
   is identical with and without odds (16.6% vs 16.6%; Spain 13.6% / 13.4%).
+  *(Update, July 2026: with the knockout draw resolved, the scheduled ties do
+  carry market odds now, but `simulate` still plays the bracket model-only —
+  see the proposal in [next-steps.md](next-steps.md).)*
 - **Verdict.** The Argentina-over-Spain gap (+0.17 overall) is smaller than
   the reasonable uncertainty of the UEFA↔CONMEBOL scale offset it depends on.
   Read 16.6% vs 13.6% as a statistical tie with nominal edge to Argentina;

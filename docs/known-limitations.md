@@ -9,7 +9,7 @@ shrinkage fix (why bridge share is the wrong predictor — Australia is
 schedule-difficulty inflated, not connectivity-starved).*
 
 **Symptom.** The model ranks **Australia (24th, overall 1.98)** above the
-**USA (43rd, overall 1.66)** and has Australia finishing ahead in Group C, even
+**USA (43rd, overall 1.66)** and has Australia finishing ahead in Group D, even
 though the USA is a host. This shows up in *every* variant (history-only, xG
 blend, pure xG), so it is not an xG-data artefact — it is a rating-model effect.
 
@@ -221,11 +221,18 @@ without a per-slot venue we cannot know which side that is — so every knockout
 tie is played at a neutral venue (`home_side=None` when building the pairwise
 win-probability matrix `W`).
 
-**Related.** Odds feeds cover scheduled group fixtures only, so synthetic
-knockout pairings never have odds; `W` is model-only in the knockouts even under
-`--approach odds`. The group stage still blends odds where available.
+**Related.** `W` is model-only in the knockouts even under `--approach odds`.
+This was originally because odds feeds cover scheduled fixtures only and
+synthetic pairings have none — but the premise has partly expired: once the
+knockout draw resolved (July 2026), the upcoming knockout ties became real
+scheduled fixtures in `results.csv`, carrying a `country` column *and* market
+odds (20 of the 21 scheduled knockout fixtures had odds on 2026-07-02). Only
+pairings not yet decided by the bracket remain genuinely synthetic. `simulate`
+does not exploit either signal yet — see the proposal in
+[next-steps.md](next-steps.md).
 
 **Net effect.** A small, systematic under-rating of the three hosts' deep-run
-probabilities (semi-final onward) relative to a venue-aware model. Acceptable
-for v1; a future `host_boost` hook could apply `home_side="home"` in `W` rows
-where a host meets a non-host, if desired.
+probabilities (semi-final onward) relative to a venue-aware model, and — now
+that the tournament is inside the knockouts — a bracket that ignores the market
+prices available for the already-scheduled ties. Acceptable for v1; see
+[next-steps.md](next-steps.md) for the venue + odds-aware `W` proposal.
