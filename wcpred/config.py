@@ -97,6 +97,12 @@ BAYES_PROPAGATE = True         # posterior propagation (docs/bayesian-engine.md)
                                # RPS +0.0002, ll −0.0002 — a wash) and the
                                # principled Bayesian choice. Set False to recover
                                # the plug-in mean. No effect under --engine dc.
+                               # SCOPE: shapes --approach history outputs only —
+                               # with ODDS_WEIGHT=1.0 predict_match rebuilds the
+                               # matrix from matrix_from_rates (the plug-in
+                               # path), so odds-approach outputs (all the webapp
+                               # serves) are identical either way. See
+                               # docs/bayesian-engine.md.
 BAYES_CONNECT_SHRINK = False   # connectivity-weighted offset shrinkage (rejected
                                # experiment, docs/connectivity.md). Scale
                                # each team's confederation offset by its bridge-

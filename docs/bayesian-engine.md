@@ -93,6 +93,19 @@ choice, hence default-on. Because it defaults on, `--bayes-propagate` is a
 `BooleanOptionalAction` and a no-op for the non-bayes engines (they ignore it). It
 composes with either time treatment.
 
+**Scope caveat: propagation shapes `--approach history` outputs only.** With
+`ODDS_WEIGHT = 1.0` (the default), `predict_match` *replaces* the engine's score
+matrix with `market_matrix(...)`, which rebuilds it from `matrix_from_rates` —
+i.e. the plug-in posterior-mean path. Every `--approach odds` output (including
+everything the webapp serves) is therefore identical with propagation on or off;
+only the model-only (`history`) predictions, group tables and simulations carry
+the propagated posterior. Not a numerical bug — but keep it in mind before
+attributing an odds-approach difference to `BAYES_PROPAGATE`. Propagating
+*through* the market recalibration (per-draw Nelder-Mead, or recalibrating the
+propagated matrix's rates once) was considered and not pursued: propagation is
+accuracy-neutral, so documenting the semantics is enough
+(docs/next-steps.md §2).
+
 ## Tuning (June 2026) — what moves the metric
 
 Validated **static-only** (a per-matchday MCMC re-fit over six tournaments is
