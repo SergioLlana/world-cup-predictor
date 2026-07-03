@@ -21,7 +21,7 @@ import pandas as pd
 
 from .config import EXTRA_TIME_FRACTION, ODDS_WEIGHT
 from .groups import _group_points
-from .predict import odds_lookup_for
+from .predict import WC2026_R32_START, odds_lookup_for
 from .scoring import outcome_probs, resolve_extra_time, resolve_shootout
 from .thirds_table import THIRD_PLACE_ALLOCATION
 
@@ -93,16 +93,20 @@ def _compile_thirds_table():
 COMBO_MASKS, SLOT_GROUP = _compile_thirds_table()
 
 
-def _split_played(played, team_group):
-    """Partition real results into group (intra-group) and knockout (inter-group)
-    matches. A match is knockout iff its two teams sit in different groups."""
+def _split_played(played):
+    """Partition real results into group-stage and knockout matches by DATE
+    (the official calendar boundary, config.WC2026_KNOCKOUT_ROUNDS).
+
+    Group membership cannot decide this: from the quarter-finals on a knockout
+    tie can pair two teams of the same group (a runner-up vs its own group's
+    third; winner vs runner-up in the final), and classifying such a rematch as
+    a group match would tally it as a fourth group game in `_group_points` and
+    hide its result from the bracket forcing (`_ko_played_pairs`)."""
     if played is None or not len(played):
         empty = played.iloc[0:0] if played is not None else None
         return empty, empty
-    same = played.apply(
-        lambda r: team_group.get(r.home_team) is not None
-        and team_group.get(r.home_team) == team_group.get(r.away_team), axis=1)
-    return played[same], played[~same]
+    group = played["date"] < pd.Timestamp(WC2026_R32_START)
+    return played[group], played[~group]
 
 
 def _simulate_groups_joint(model, fixtures, played_group, n_sims, rng,
@@ -259,7 +263,7 @@ def simulate_tournament(model, fixtures, n_sims=100_000, seed=0, played=None,
     if odds_df is not None:
         odds_lookup = odds_lookup_for(odds_df, teams)
 
-    played_group, played_ko = _split_played(played, team_group)
+    played_group, played_ko = _split_played(played)
     winner, runner, third, t_pts, t_gd, t_gf = _simulate_groups_joint(
         model, fixtures, played_group, n_sims, rng, odds_lookup, odds_weight,
         compact)

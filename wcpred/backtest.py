@@ -191,7 +191,8 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
     between-confederation offset spread. 0.5 reproduces the current bayes model;
     shrinking it toward 0 pins the bloc offsets near 0.
 
-    propagate=True (bayes only) builds each match's score matrix as
+    propagate=True (bayes only; silently ignored for the other engines, as
+    it is default-on at the CLI) builds each match's score matrix as
     the posterior mean of the per-draw Dixon-Coles matrices (full posterior
     propagation) instead of plugging in the posterior-mean ratings.
 
@@ -206,8 +207,11 @@ def backtest(df, tournament="wc2022", rolling=True, xg_path=None,
         if anchor_beta:
             raise ValueError("anchor_beta is an MLE-engine parameter; "
                              "it has no effect under engine='bayes'")
-    elif dynamic or propagate or informed_conf or connect_shrink:
-        raise ValueError("dynamic=True/propagate=True/informed_conf=True/"
+    elif dynamic or informed_conf or connect_shrink:
+        # propagate is deliberately exempt: it is default-on at the CLI
+        # (BAYES_PROPAGATE) and a no-op for the non-bayes engines, so it must
+        # not abort a dc/elo backtest (mirrors cli.cmd_backtest).
+        raise ValueError("dynamic=True/informed_conf=True/"
                          "connect_shrink=True only apply to engine='bayes'")
     if engine == "elo" and anchor_beta:
         raise ValueError("anchor_beta is an MLE-engine parameter; it has "

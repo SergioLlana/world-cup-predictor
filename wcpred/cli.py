@@ -33,7 +33,7 @@ from .data import (PHANTOM_TEAM, download_results, load_odds,
                    upcoming_world_cup)
 from .groups import simulate_groups
 from .model import DixonColes
-from .predict import predict_fixtures
+from .predict import WC2026_R32_START, predict_fixtures
 from .tournament import OFFICIAL_GROUPS, simulate_tournament
 
 APPROACHES = ("history", "odds", "xg", "full")
@@ -176,6 +176,10 @@ def cmd_groups(args):
                  "Run `wcpred update-data` first.")
     played = played_world_cup(df, year=int(fixtures["date"].dt.year.min()),
                               as_of=args.as_of)
+    # Only group-stage results feed the standings: from the quarter-finals on
+    # a knockout rematch can pair two teams of the same group, and
+    # groups._group_points would tally it as a fourth group match.
+    played = played[played["date"] < pd.Timestamp(WC2026_R32_START)]
     odds_df = load_odds_df(args)
     tables = simulate_groups(model, fixtures, n_sims=args.sims, played=played,
                              groups=OFFICIAL_GROUPS, odds_df=odds_df,
