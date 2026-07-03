@@ -405,7 +405,8 @@ def main():
                    help=f"path to results.csv (default: {RESULTS_PATH})")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("update-data", help="download latest results dataset")
+    sub.add_parser("update-data", help="download latest results dataset "
+                   "(+goalscorers/shootouts for 90' scores)")
 
     def common(sp):
         sp.add_argument("--approach", choices=APPROACHES, default="history",

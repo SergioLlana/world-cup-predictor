@@ -4,6 +4,19 @@ RESULTS_URL = (
     "https://raw.githubusercontent.com/martj42/international_results/"
     "master/results.csv"
 )
+# Sibling files of the same dataset. results.csv records knockout scores
+# *after extra time* (pens excluded); Penka/Superbru and the 1X2 market settle
+# on the 90-minute result. goalscorers.csv (goal minutes; stoppage time is
+# recorded as the base minute, so minute >= 91 ⇔ extra time) plus
+# shootouts.csv let data.load_results rebuild the 90' score.
+GOALSCORERS_URL = (
+    "https://raw.githubusercontent.com/martj42/international_results/"
+    "master/goalscorers.csv"
+)
+SHOOTOUTS_URL = (
+    "https://raw.githubusercontent.com/martj42/international_results/"
+    "master/shootouts.csv"
+)
 
 # --- Generated-file locations (keep the project root clean) ---
 INPUT_DIR = "data/input"              # results.csv, odds.csv, xg.csv
@@ -12,6 +25,8 @@ GROUPS_DIR = "data/groups"            # `groups --out`
 SIM_DIR = "data/simulations"          # `simulate --out`
 RANKINGS_DIR = "data/rankings"        # `ratings --out`
 RESULTS_PATH = f"{INPUT_DIR}/results.csv"
+GOALSCORERS_PATH = f"{INPUT_DIR}/goalscorers.csv"
+SHOOTOUTS_PATH = f"{INPUT_DIR}/shootouts.csv"
 ODDS_PATH = f"{INPUT_DIR}/odds.csv"   # live odds (latest fetch)
 
 # Frozen-in-time odds: every fetch also lands in ODDS_SNAPSHOT_DIR as

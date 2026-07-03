@@ -221,17 +221,29 @@ def _overlay_scheduled_ko(model, fixtures, W, compact, odds_lookup,
 
 def _ko_played_pairs(played_ko, team_group, compact):
     """List of (winner_id, loser_id) compact pairs for already-played knockouts.
-    Draws (penalty results not in the score) are skipped with a warning."""
+
+    Advancement follows the *real* outcome: the after-extra-time score
+    (`home_score_ft`, falling back to `home_score` for callers with a raw
+    dataframe) and, when that is level, the penalty-shootout winner from
+    `shootout_winner`. Only a level score with no recorded shootout winner
+    is left simulated, with a warning."""
     pairs = []
     if played_ko is None or not len(played_ko):
         return pairs
     for _, r in played_ko.iterrows():
-        hg, ag = int(r.home_score), int(r.away_score)
+        hg = int(r.get("home_score_ft", r["home_score"]))
+        ag = int(r.get("away_score_ft", r["away_score"]))
         if hg == ag:
-            print(f"WARNING: knockout {r.home_team} v {r.away_team} ended level "
-                  f"in the data (penalty winner unknown); leaving it simulated.")
-            continue
-        w, lo = (r.home_team, r.away_team) if hg > ag else (r.away_team, r.home_team)
+            so = r.get("shootout_winner")
+            if not isinstance(so, str):
+                print(f"WARNING: knockout {r.home_team} v {r.away_team} ended "
+                      f"level in the data (penalty winner unknown); leaving "
+                      f"it simulated.")
+                continue
+            w, lo = (so, r.away_team if so == r.home_team else r.home_team)
+        else:
+            w, lo = ((r.home_team, r.away_team) if hg > ag
+                     else (r.away_team, r.home_team))
         pairs.append((compact[w], compact[lo]))
     return pairs
 

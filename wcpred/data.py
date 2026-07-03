@@ -10,8 +10,9 @@ import numpy as np
 import pandas as pd
 
 from .config import (CROSS_CONF_WEIGHT, FRIENDLY_WEIGHT, GD_CAP,
-                     HALF_LIFE_DAYS, MIN_MATCHES, ODDS_CUTOVER, ODDS_PATH,
-                     ODDS_SNAPSHOT_DIR, RESULTS_PATH, RESULTS_URL,
+                     GOALSCORERS_PATH, GOALSCORERS_URL, HALF_LIFE_DAYS,
+                     MIN_MATCHES, ODDS_CUTOVER, ODDS_PATH, ODDS_SNAPSHOT_DIR,
+                     RESULTS_PATH, RESULTS_URL, SHOOTOUTS_PATH, SHOOTOUTS_URL,
                      SHRINKAGE_MODE, SHRINKAGE_WEIGHT, TRAIN_START, XG_ALPHA)
 from .confederations import cross_conf_mask, infer_confederations
 
@@ -30,11 +31,9 @@ def _ssl_context():
         return ssl.create_default_context()
 
 
-def download_results(path=RESULTS_PATH):
-    """Download the latest international results dataset (updated daily)."""
-    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    print(f"Downloading {RESULTS_URL} ...")
-    req = urllib.request.Request(RESULTS_URL, headers={"User-Agent": "Mozilla/5.0"})
+def _download(url, path):
+    print(f"Downloading {url} ...")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
         with urllib.request.urlopen(req, timeout=30,
                                     context=_ssl_context()) as r, \
@@ -47,16 +46,96 @@ def download_results(path=RESULTS_PATH):
                 "(`pip install certifi`, or run the 'Install Certificates"
                 ".command' bundled with python.org Python on macOS).")
         raise
+
+
+def download_results(path=RESULTS_PATH):
+    """Download the latest international results dataset (updated daily),
+    plus the sibling goalscorers/shootouts files that let `load_results`
+    rebuild 90-minute scores for matches that went to extra time."""
+    base = os.path.dirname(path) or "."
+    os.makedirs(base, exist_ok=True)
+    _download(RESULTS_URL, path)
+    _download(GOALSCORERS_URL, os.path.join(base, os.path.basename(GOALSCORERS_PATH)))
+    _download(SHOOTOUTS_URL, os.path.join(base, os.path.basename(SHOOTOUTS_PATH)))
     df = load_results(path)
     played = df.dropna(subset=["home_score"])
+    n90 = int(((df["home_score"] != df["home_score_ft"])
+               | (df["away_score"] != df["away_score_ft"]))
+              .where(df["home_score"].notna(), False).sum())
     print(f"Saved {path}: {len(df)} rows, latest played match "
-          f"{played['date'].max().date()}")
+          f"{played['date'].max().date()}; {n90} extra-time scores "
+          f"rewritten to the 90' result")
     return df
 
 
 def load_results(path=RESULTS_PATH):
+    """results.csv with knockout scores rewritten to the 90-minute result.
+
+    `home_score`/`away_score` are what Penka/Superbru and the odds market
+    settle on: the score after 90 minutes. The dataset's original convention
+    (score after extra time, pens excluded) is preserved in
+    `home_score_ft`/`away_score_ft`, and `shootout_winner` names the winner
+    of a penalty shootout — consumers that need the *real* outcome (bracket
+    advancement, result display) read those. See `_ninety_minute_scores`.
+    """
     df = pd.read_csv(path)
     df["date"] = pd.to_datetime(df["date"])
+    return _ninety_minute_scores(df, os.path.dirname(path) or ".")
+
+
+def _ninety_minute_scores(df, input_dir):
+    """Rebuild the 90' score from goalscorers.csv + shootouts.csv (same
+    dataset, expected next to results.csv).
+
+    Convention audit (2026-07, all goals dated 2006+): stoppage-time goals
+    are recorded as the base minute (Kroos 90+5 → 90, Weghorst 90+11 → 90),
+    so minute >= 91 unambiguously means extra time — every one of the 26
+    goals at minutes 91-99 belongs to a genuine extra-time match. A match is
+    a correction candidate when it has an ET goal or appears in
+    shootouts.csv, and is corrected only when its scorer rows are complete
+    and consistent (per-team goal totals equal the recorded score, no NA
+    minutes); the 90' score is then the goals at minute <= 90. Candidates
+    without scorer coverage keep the recorded score: shootout matches are
+    draws either way, and ET-decided matches without coverage are
+    undetectable (minor tournaments only; see docs/data-sources.md).
+    """
+    df["home_score_ft"] = df["home_score"]
+    df["away_score_ft"] = df["away_score"]
+    df["shootout_winner"] = np.nan
+    gs_path = os.path.join(input_dir, os.path.basename(GOALSCORERS_PATH))
+    so_path = os.path.join(input_dir, os.path.basename(SHOOTOUTS_PATH))
+    if not (os.path.exists(gs_path) and os.path.exists(so_path)):
+        print("WARNING: goalscorers.csv/shootouts.csv missing — scores keep "
+              "the dataset's after-extra-time convention. Run "
+              "`wcpred update-data`.")
+        return df
+
+    key = ["date", "home_team", "away_team"]
+    gs = pd.read_csv(gs_path)
+    gs["date"] = pd.to_datetime(gs["date"])
+    gs["minute"] = pd.to_numeric(gs["minute"], errors="coerce")
+    gs["is_home"] = gs["team"] == gs["home_team"]
+    gs["is_away"] = ~gs["is_home"]
+    gs["h90"] = gs["is_home"] & (gs["minute"] <= 90)
+    gs["a90"] = gs["is_away"] & (gs["minute"] <= 90)
+    gs["et"] = gs["minute"] > 90
+    gs["na_min"] = gs["minute"].isna()
+    agg = gs.groupby(key, as_index=False)[
+        ["is_home", "is_away", "h90", "a90", "et", "na_min"]].sum()
+
+    so = pd.read_csv(so_path)
+    so["date"] = pd.to_datetime(so["date"])
+    so = so[key + ["winner"]].drop_duplicates(subset=key)
+
+    m = df.merge(agg, on=key, how="left").merge(so, on=key, how="left")
+    df["shootout_winner"] = m["winner"].to_numpy()
+    candidate = (m["et"] > 0) | m["winner"].notna()
+    consistent = ((m["is_home"] == m["home_score"])
+                  & (m["is_away"] == m["away_score"])
+                  & (m["na_min"] == 0))
+    fix = (candidate & consistent).to_numpy()
+    df.loc[fix, "home_score"] = m.loc[fix, "h90"].astype(float).to_numpy()
+    df.loc[fix, "away_score"] = m.loc[fix, "a90"].astype(float).to_numpy()
     return df
 
 

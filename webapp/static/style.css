@@ -304,6 +304,7 @@ table.gtable tr:last-child td { border-bottom: none; }
 .match-row .team.away { flex-direction: row-reverse; text-align: right; }
 .match-row .score { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .match-row .score.future { color: var(--muted); font-size: 14px; font-weight: 500; }
+.et-tag { color: var(--muted); font-size: 11px; font-weight: 600; cursor: help; }
 .pred-line { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 12.5px; }
 .pick-chip {
   background: var(--hi-tint); color: var(--hi-ink); font-weight: 650; border-radius: 5px;

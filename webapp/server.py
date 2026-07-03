@@ -258,7 +258,10 @@ def _match_odds(by_pair, home, away):
 
 @app.get("/api/matches")
 def matches():
-    df = pd.read_csv(os.path.join(ROOT, RESULTS_PATH))
+    # load_results rewrites home_score/away_score to the 90' result (what the
+    # picks are scored on) and keeps the real outcome in *_ft/shootout_winner.
+    df = load_results(os.path.join(ROOT, RESULTS_PATH))
+    df["date"] = df["date"].dt.strftime("%Y-%m-%d")
     df = df[(df["tournament"] == "FIFA World Cup") & (df["date"] >= WC_START)]
     df = df.sort_values("date").reset_index(drop=True)
 
@@ -289,8 +292,14 @@ def matches():
         odds, swapped = _match_odds(pairs_by_date[date], home, away)
         out.append({
             "date": date, "home": home, "away": away,
-            "home_score": int(r.home_score) if played else None,
-            "away_score": int(r.away_score) if played else None,
+            # displayed result: the real one (after extra time) …
+            "home_score": int(r.home_score_ft) if played else None,
+            "away_score": int(r.away_score_ft) if played else None,
+            # … while picks are judged on the 90' score (Penka convention)
+            "home_score_90": int(r.home_score) if played else None,
+            "away_score_90": int(r.away_score) if played else None,
+            "shootout_winner": (r.shootout_winner
+                                if isinstance(r.shootout_winner, str) else None),
             "played": bool(played), "city": r.city,
             "group": g if same_group else None,
             "round_id": round_id, "round_name": round_name,

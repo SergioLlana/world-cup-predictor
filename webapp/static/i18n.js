@@ -121,6 +121,10 @@ const I18N = {
     "match.no_pred": "No prediction for this match",
     "match.odds": "Odds:",
     "match.prob_title": "1 / X / 2 probabilities",
+    "match.aet": "a.e.t.",
+    "match.aet_title": (p) => `After extra time — 90' score ${p.score} (what the pick is judged on)`,
+    "match.pens": "pens",
+    "match.pens_title": (p) => `${p.team} won on penalties — 90' score ${p.score} (what the pick is judged on)`,
 
     // ---- score matrix modal ----
     "matrix.loading": "Fitting the model… (first time takes a few seconds)",
@@ -129,7 +133,7 @@ const I18N = {
     "matrix.away_goals": (p) => `${p.team} goals →`,
     "matrix.home_goals": (p) => `${p.team} ↓`,
     "matrix.legend_pick": "Penka prediction",
-    "matrix.legend_real": "real result",
+    "matrix.legend_real": "90' result",
 
     // ---- refresh runtime (local only) ----
     "refresh.starting": "(starting…)",
@@ -385,6 +389,10 @@ odds ──→ margin-free 1X2 ────────────────�
     "match.no_pred": "Sin predicción para este partido",
     "match.odds": "Cuotas:",
     "match.prob_title": "Probabilidades 1 / X / 2",
+    "match.aet": "pró.",
+    "match.aet_title": (p) => `Tras prórroga — a los 90' iba ${p.score} (sobre eso se evalúa el pick)`,
+    "match.pens": "pen.",
+    "match.pens_title": (p) => `${p.team} ganó en los penaltis — a los 90' iba ${p.score} (sobre eso se evalúa el pick)`,
 
     // ---- score matrix modal ----
     "matrix.loading": "Ajustando el modelo… (la primera vez tarda unos segundos)",
@@ -393,7 +401,7 @@ odds ──→ margin-free 1X2 ────────────────�
     "matrix.away_goals": (p) => `Goles de ${p.team} →`,
     "matrix.home_goals": (p) => `${p.team} ↓`,
     "matrix.legend_pick": "predicción Penka",
-    "matrix.legend_real": "resultado real",
+    "matrix.legend_real": "resultado a los 90'",
 
     // ---- refresh runtime ----
     "refresh.starting": "(arrancando…)",

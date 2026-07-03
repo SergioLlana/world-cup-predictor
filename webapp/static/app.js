@@ -440,19 +440,32 @@ function predictionFor(match) {
 }
 
 function pickBadge(match, pred) {
+  // Penka/las cuotas liquidan sobre el resultado a los 90', no el de la prórroga
   if (!match.played || !pred) return "";
   const [ph, pa] = pickOf(pred).split("-").map(Number);
-  if (ph === match.home_score && pa === match.away_score)
+  if (ph === match.home_score_90 && pa === match.away_score_90)
     return `<span class="badge exact">${t("badge.exact")}</span>`;
-  if (Math.sign(ph - pa) === Math.sign(match.home_score - match.away_score))
+  if (Math.sign(ph - pa) === Math.sign(match.home_score_90 - match.away_score_90))
     return `<span class="badge outcome">${t("badge.outcome")}</span>`;
   return `<span class="badge miss">${t("badge.miss")}</span>`;
+}
+
+// "pró."/"pen." junto al resultado real cuando hubo prórroga o penaltis; el
+// title recuerda el marcador a los 90', que es sobre lo que puntúa el pick
+function etTag(m) {
+  if (!m.played) return "";
+  const s90 = `${m.home_score_90} – ${m.away_score_90}`;
+  if (m.shootout_winner)
+    return ` <span class="et-tag" title="${t("match.pens_title", { team: teamName(m.shootout_winner), score: s90 })}">${t("match.pens")}</span>`;
+  if (m.home_score !== m.home_score_90 || m.away_score !== m.away_score_90)
+    return ` <span class="et-tag" title="${t("match.aet_title", { score: s90 })}">${t("match.aet")}</span>`;
+  return "";
 }
 
 function matchCard(m) {
   const pred = predictionFor(m);
   const score = m.played
-    ? `<span class="score">${m.home_score} – ${m.away_score}</span>`
+    ? `<span class="score">${m.home_score} – ${m.away_score}${etTag(m)}</span>`
     : `<span class="score future">${t("match.vs")}</span>`;
   // etiqueta según quepa: "1 · 68%" → "68%" → nada (el title siempre la lleva)
   const segLabel = (prefix, p) =>
@@ -965,14 +978,14 @@ async function openMatrix(home, away, date) {
     const cls = [
       dark ? "dark" : "",
       h === pickH && a === pickA ? "pick" : "",
-      m?.played && h === m.home_score && a === m.away_score ? "real" : "",
+      m?.played && h === m.home_score_90 && a === m.away_score_90 ? "real" : "",
     ].join(" ");
     const label = p >= 0.001 ? (p * 100).toFixed(1) : "·";
     return `<td class="${cls}" style="background:${bg}"
                 title="${h}-${a}: ${(p * 100).toFixed(2)}%">${label}</td>`;
   };
 
-  const score = m?.played ? `${m.home_score} – ${m.away_score}` : t("match.vs");
+  const score = m?.played ? `${m.home_score} – ${m.away_score}${etTag(m)}` : t("match.vs");
   box.innerHTML = `
     <div class="matrix-head">${flagImg(home, true)} ${teamName(home)}
       <span style="color:var(--muted)">${score}</span> ${teamName(away)} ${flagImg(away, true)}</div>
