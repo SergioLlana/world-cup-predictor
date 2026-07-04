@@ -129,7 +129,7 @@ const I18N = {
     // ---- score matrix modal ----
     "matrix.loading": "Fitting the model… (first time takes a few seconds)",
     "matrix.error": (p) => `Error computing the matrix: ${p.msg}`,
-    "matrix.sub": (p) => `Probability (%) of each exact score · ${p.engine} model of ${p.date} · ${p.odds ? "with market odds" : "model only"} · 1X2: ${p.p1} / ${p.px} / ${p.p2} · Pred. <b>${p.pick}</b>`,
+    "matrix.sub": (p) => `Probability (%) of each exact score · ${p.engine} model of ${p.date} · ${p.odds ? "with market odds" : "model only"} · 1X2: ${p.p1} / ${p.px} / ${p.p2}`,
     "matrix.away_goals": (p) => `${p.team} goals →`,
     "matrix.home_goals": (p) => `${p.team} ↓`,
     "matrix.legend_pick": "Penka prediction",
@@ -397,7 +397,7 @@ odds ──→ margin-free 1X2 ────────────────�
     // ---- score matrix modal ----
     "matrix.loading": "Ajustando el modelo… (la primera vez tarda unos segundos)",
     "matrix.error": (p) => `Error calculando la matriz: ${p.msg}`,
-    "matrix.sub": (p) => `Probabilidad (%) de cada marcador exacto · modelo ${p.engine} del ${p.date} · ${p.odds ? "con cuotas de mercado" : "solo modelo"} · 1X2: ${p.p1} / ${p.px} / ${p.p2} · Pred. <b>${p.pick}</b>`,
+    "matrix.sub": (p) => `Probabilidad (%) de cada marcador exacto · modelo ${p.engine} del ${p.date} · ${p.odds ? "con cuotas de mercado" : "solo modelo"} · 1X2: ${p.p1} / ${p.px} / ${p.p2}`,
     "matrix.away_goals": (p) => `Goles de ${p.team} →`,
     "matrix.home_goals": (p) => `${p.team} ↓`,
     "matrix.legend_pick": "predicción Penka",
@@ -443,7 +443,7 @@ odds ──→ margin-free 1X2 ────────────────�
     "rank.sort_rating": "rating (ataque − defensa)",
     "rank.source_live": (p) => `ajuste en vivo a ${p.date} (genera snapshots con <code>scripts/generate_rankings.sh</code> para ver la evolución)`,
     "rank.source_snap": (p) => `snapshot del ${p.date}`,
-    "rank.class_h3": (p) => `Clasificación ${p.live ? "(en vivo)" : "del " + p.date}`,
+    "rank.class_h3": (p) => `Ranking ${p.live ? "(en vivo)" : "del " + p.date}`,
     "rank.evo_h3": "Evolución del ranking",
     "rank.evo_note": (p) => `Las ${p.total} selecciones (en gris) por «${p.metric}»; resaltadas las ${p.selected} elegidas. Clic en una bandera de la leyenda para resaltarla o quitarla. ${p.oneDay ? "Solo hay un día generado: la línea crecerá con cada nuevo snapshot." : p.n + " snapshots."}${p.isRank ? " Eje invertido: el 1.º arriba." : ""}`,
     "rank.m.rating": "Rating (ataque − defensa)",

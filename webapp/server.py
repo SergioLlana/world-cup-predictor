@@ -628,9 +628,22 @@ def refresh_status():
 
 # ------------------------------------------------------------------- static
 
+class NoCacheStaticFiles(StaticFiles):
+    """Serve the frontend with `Cache-Control: no-cache` so browsers revalidate
+    (via ETag) before reusing app.js/i18n.js/style.css. They still get a cheap
+    304 when nothing changed, but never serve a stale bundle after a deploy —
+    which otherwise left users on old strings (e.g. "Cerca", "Clasificación")."""
+
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
 @app.get("/")
 def index():
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"),
+                        headers={"Cache-Control": "no-cache"})
 
 
-app.mount("/", StaticFiles(directory=STATIC_DIR), name="static")
+app.mount("/", NoCacheStaticFiles(directory=STATIC_DIR), name="static")
