@@ -23,7 +23,8 @@ wcpred predict   --approach odds --odds data/input/odds.csv --days 3
 wcpred groups    --approach odds --odds data/input/odds.csv   # MC group standings
 wcpred simulate  --approach odds --odds data/input/odds.csv   # full bracket → champion
 wcpred ratings   --top 20
-wcpred backtest  --tournament all     # regression check: ~594 Penka pts / 290 matches
+wcpred backtest  --tournament all     # regression check: ~566 Penka pts / 290 matches
+                                      # (90'-scores convention since 103f5e1; was ~594)
 wcpred tune                           # hyperparameter grid search (no xG)
 wcpred tune --elo-engine              # coordinate-tune the Elo engine
 ```
