@@ -118,6 +118,14 @@ BAYES_PROPAGATE = True         # posterior propagation (docs/bayesian-engine.md)
                                # path), so odds-approach outputs (all the webapp
                                # serves) are identical either way. See
                                # docs/bayesian-engine.md.
+BAYES_CACHE_DIR = "data/models"  # posterior cache for the bayes engine: each
+                               # fit saves its draws to an .npz keyed by a hash
+                               # of (Stan source, training data, sampler args),
+                               # and an identical later fit loads them instead
+                               # of re-sampling (~minutes → <1 s; same numbers,
+                               # since the posterior means are recomputed from
+                               # the same float64 draws). Local only, gitignored
+                               # — delete the directory to force re-sampling.
 BAYES_CONNECT_SHRINK = False   # connectivity-weighted offset shrinkage (rejected
                                # experiment, docs/connectivity.md). Scale
                                # each team's confederation offset by its bridge-

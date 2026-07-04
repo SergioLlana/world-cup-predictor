@@ -31,7 +31,9 @@ wcpred tune --elo-engine              # coordinate-tune the Elo engine
 
 `--engine {dc,elo,bayes}` works on every subcommand (default `dc`). `--bridge-audit`
 adds the inter-confederation calibration table to `backtest`. The Bayesian engine
-needs the `.[bayes]` extra + a one-off CmdStan install and is static-only.
+needs the `.[bayes]` extra + a one-off CmdStan install and is static-only. Its
+posterior draws are cached under `data/models/` (gitignored), so only the first
+fit per training-set/config samples MCMC; repeats load in <1 s bit-identically.
 
 ## Architecture (`wcpred/`)
 

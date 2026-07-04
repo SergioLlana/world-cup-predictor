@@ -14,5 +14,8 @@ dist/
 wcpred/stan/*
 !wcpred/stan/*.stan
 
+# Cached bayes posteriors (config.BAYES_CACHE_DIR): regenerable, local only
+data/models/
+
 .DS_Store
 docs/.obsidian/

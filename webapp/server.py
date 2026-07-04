@@ -314,7 +314,9 @@ def matches():
 def _model_for(as_of, results_mtime, engine=DEFAULT_ENGINE):
     """Model fitted on matches before `as_of` (no xG, like the daily pipeline),
     using the requested engine (dc/elo/bayes). results_mtime is only part of the
-    key so a data refresh invalidates the cache."""
+    key so a data refresh invalidates the cache. bayes loads its posterior from
+    data/models/ when the daily pipeline already sampled it (bit-identical,
+    <1 s); only a snapshot date no fit ever ran for samples MCMC here."""
     df = load_results(os.path.join(ROOT, RESULTS_PATH))
     train = prepare_training(df, as_of=as_of)
     if engine == "elo":

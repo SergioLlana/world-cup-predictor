@@ -33,16 +33,25 @@ Two time treatments are available:
     the time model, so the decay weights are dropped (matches enter unweighted;
     the friendly/cross-conf weight multipliers, off by default, are ignored).
 
+Fits are cached: the sampled draws are persisted under config.BAYES_CACHE_DIR
+keyed by (Stan source, data, sampler args), so repeating an identical fit —
+the daily generators re-fitting per subcommand, or the webapp building the
+score matrix for a snapshot date — loads in <1 s instead of re-sampling,
+with bit-identical results.
+
 Needs the `bayes` extra and a one-off CmdStan install:
     pip install -e ".[bayes]"
     python -c "import cmdstanpy; cmdstanpy.install_cmdstan()"
 """
+import hashlib
+import json
 import os
+import tempfile
 
 import numpy as np
 from scipy.stats import poisson
 
-from .config import (BAYES_CONNECT_BY, BAYES_CONNECT_MODE,
+from .config import (BAYES_CACHE_DIR, BAYES_CONNECT_BY, BAYES_CONNECT_MODE,
                      BAYES_CONNECT_OPP_REF, BAYES_CONNECT_REF,
                      BAYES_CONNECT_SHRINK, BAYES_DYNAMIC, BAYES_PROPAGATE,
                      BAYES_SIGMA_CONF_SCALE, BAYES_TIME_BLOCK, MAX_GOALS)
@@ -87,6 +96,36 @@ def _compiled_model(stan_file):
     return _COMPILED[stan_file]
 
 
+def _cache_path(stan_file, data, sampler_args):
+    """data/models/bayes_<hash>.npz for one exact fit: the key hashes the Stan
+    source, the full Stan data dict and the sampler arguments, so any change to
+    the model, the training set (results, weights, cutoff) or the sampling
+    setup misses the cache and re-samples."""
+    with open(stan_file, "rb") as f:
+        stan_src = f.read()
+    h = hashlib.sha256()
+    h.update(b"v1\0")
+    h.update(stan_src)
+    h.update(json.dumps(data, sort_keys=True).encode())
+    h.update(json.dumps(sampler_args, sort_keys=True, default=str).encode())
+    return os.path.join(BAYES_CACHE_DIR, f"bayes_{h.hexdigest()[:16]}.npz")
+
+
+def _save_draws(path, draws):
+    """Atomic save (tmp + rename) so a concurrent fit of the same key — e.g.
+    the webapp refresh alongside a matrix click — never reads a torn file."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".npz")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            np.savez(f, **draws)
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
 class BayesianDixonColes(DixonColes):
     """Dixon-Coles fitted by MCMC with a confederation-offset prior."""
 
@@ -95,7 +134,7 @@ class BayesianDixonColes(DixonColes):
             dynamic=None, time_block=None, sigma_conf_scale=None,
             propagate=None, conf_strength=None, connect_shrink=None,
             connect_ref=None, connect_mode=None, connect_by=None,
-            connect_opp_ref=None, **stan_kwargs):
+            connect_opp_ref=None, cache=True, **stan_kwargs):
         """Sample the Stan model on training frame `m` and adopt posterior
         means.
 
@@ -129,6 +168,13 @@ class BayesianDixonColes(DixonColes):
         connect_ref/connect_opp_ref are config.BAYES_CONNECT_REF /
         BAYES_CONNECT_OPP_REF. Static only — not combinable with dynamic. Extra
         `stan_kwargs` pass through to `CmdStanModel.sample`.
+
+        cache (default True) persists the posterior draws under
+        config.BAYES_CACHE_DIR keyed by (Stan source, data, sampler args): an
+        identical later fit loads them instead of re-sampling MCMC, with
+        bit-identical results (the posterior means are recomputed from the
+        same float64 draws). On a cache hit `self._mcmc` is None (no
+        diagnostics); pass cache=False (or delete the file) to re-sample.
         """
         if dynamic is None:
             dynamic = BAYES_DYNAMIC
@@ -249,21 +295,46 @@ class BayesianDixonColes(DixonColes):
             stan_file = _STAN_STATIC
             data["w"] = m["w"].to_numpy(float).tolist()
 
-        mcmc = _compiled_model(stan_file).sample(
-            data=data, chains=chains, parallel_chains=chains,
-            iter_warmup=iter_warmup, iter_sampling=iter_sampling,
-            seed=seed, adapt_delta=adapt_delta,
-            show_progress=show_progress, **stan_kwargs)
+        # Everything above (teams/idx/conf/blocks) is derived deterministically
+        # from the inputs, so the cache only needs the sampled draws. The key
+        # hashes the exact Stan data + source + sampler args; show_progress and
+        # parallel_chains don't affect the draws, so they stay out of it.
+        cache_file = None
+        cached = None
+        if cache:
+            cache_file = _cache_path(stan_file, data, dict(
+                chains=chains, iter_warmup=iter_warmup,
+                iter_sampling=iter_sampling, seed=seed,
+                adapt_delta=adapt_delta, **stan_kwargs))
+            if os.path.exists(cache_file):
+                cached = np.load(cache_file)
 
-        if dynamic:
-            # atk/dfn are (draws, T, B); adopt the most recent block.
-            atk_draws = mcmc.stan_variable("atk")[:, :, -1]
-            dfn_draws = mcmc.stan_variable("dfn")[:, :, -1]
+        if cached is not None:
+            atk_draws = cached["atk_draws"]
+            dfn_draws = cached["dfn_draws"]
+            home_draws = cached["home_draws"]
+            rho_draws = cached["rho_draws"]
+            mcmc = None
         else:
-            atk_draws = mcmc.stan_variable("atk")
-            dfn_draws = mcmc.stan_variable("dfn")
-        home_draws = mcmc.stan_variable("home")
-        rho_draws = mcmc.stan_variable("rho")
+            mcmc = _compiled_model(stan_file).sample(
+                data=data, chains=chains, parallel_chains=chains,
+                iter_warmup=iter_warmup, iter_sampling=iter_sampling,
+                seed=seed, adapt_delta=adapt_delta,
+                show_progress=show_progress, **stan_kwargs)
+
+            if dynamic:
+                # atk/dfn are (draws, T, B); adopt the most recent block.
+                atk_draws = mcmc.stan_variable("atk")[:, :, -1]
+                dfn_draws = mcmc.stan_variable("dfn")[:, :, -1]
+            else:
+                atk_draws = mcmc.stan_variable("atk")
+                dfn_draws = mcmc.stan_variable("dfn")
+            home_draws = mcmc.stan_variable("home")
+            rho_draws = mcmc.stan_variable("rho")
+            if cache_file:
+                _save_draws(cache_file, dict(
+                    atk_draws=atk_draws, dfn_draws=dfn_draws,
+                    home_draws=home_draws, rho_draws=rho_draws))
         # Plug-in posterior means: the inherited score_matrix path.
         self.atk = atk_draws.mean(axis=0)
         self.dfn = dfn_draws.mean(axis=0)
@@ -280,7 +351,7 @@ class BayesianDixonColes(DixonColes):
         self.connect_shrink = connect_shrink
         self.connect_mode = connect_mode if connect_shrink else None
         self.connect_by = connect_by if connect_shrink else None
-        self._mcmc = mcmc   # kept for diagnostics
+        self._mcmc = mcmc   # kept for diagnostics (None on a cache hit)
         return self
 
     def score_matrix(self, home, away, home_side=None):

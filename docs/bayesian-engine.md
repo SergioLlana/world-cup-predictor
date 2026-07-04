@@ -33,6 +33,24 @@ whole downstream pipeline (`predict`, `groups`, `simulate`, `--bridge-audit`,
 webapp) works unchanged. The compiled `CmdStanModel` is module-cached so backtest
 re-fits don't recompile.
 
+### Posterior cache (2026-07-04)
+
+Sampling is the whole cost of the engine (~2 min for a full static fit), and the
+same posterior used to be re-sampled up to 7× per day — `generate_predictions.sh`
+launches `predict`/`groups`/`simulate` as separate processes × 2 approaches, plus
+`generate_rankings.sh`, all on the identical training frame and seed — and once
+more per snapshot date by the webapp's `/api/matrix` (a first click on a match
+blocked for minutes). `fit` therefore **persists the posterior draws** to
+`config.BAYES_CACHE_DIR` (`data/models/bayes_<hash>.npz`, ~8 MB, gitignored) and
+an identical later fit loads them in <1 s. Bit-identical by construction: the key
+is a hash of the Stan source, the exact Stan data dict and the sampler arguments
+(so any change to results.csv, the weights, the cutoff, the model or the seed
+re-samples), and the posterior means are recomputed from the same float64 draws.
+The daily pipeline trains with `--as-of` = today and the webapp requests the
+snapshot date, which resolve to the same frame — so the pipeline's one real fit
+pre-warms every webapp click for that snapshot. On a cache hit `_mcmc` is `None`
+(no diagnostics); pass `cache=False` to `fit`, or delete the file, to re-sample.
+
 ## The Stan model
 
 Weighted Dixon-Coles likelihood, identical in form to `model.py`: per match,
