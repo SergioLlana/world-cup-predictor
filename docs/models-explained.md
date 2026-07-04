@@ -40,6 +40,14 @@ Each match gets a weight `w`:
   hurt every metric in the June 2026 validation grid.
 - Teams with fewer than `MIN_MATCHES` (10) matches are dropped.
 
+**Re-tune after the 90′-score fix (2026-07-03).** With knockout scores rebuilt
+to the 90-minute result (the extra-time / shootout fix: `goalscorers.csv` +
+`shootouts.csv`, which re-weights every knockout match in training), `wcpred tune`
+(~34 s, static 36-cell grid) still lands on the current defaults —
+`HALF_LIFE_DAYS=730, GD_CAP=None, FRIENDLY_WEIGHT=1.0, CROSS_CONF_WEIGHT=1.0`
+(pooled RPS 0.1877, the grid best). The fix lowers absolute RPS slightly but does
+not move the `dc` optimum, so no config change.
+
 That `w` multiplies the likelihood in `fit`.
 
 ### 2. xG — blended *inside* training (`prepare_training`, optional)

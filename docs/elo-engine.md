@@ -160,6 +160,27 @@ before the six correlated per-bloc multipliers can soak it up
 opt-in and keeps future `tune --elo-engine` runs from mistaking a global
 learning-rate effect for a per-confederation finding.
 
+## Re-tune after the 90-minute-score fix (2026-07-03)
+
+Re-run once knockout scores were rebuilt to the 90′ result (the extra-time /
+shootout fix: `goalscorers.csv` + `shootouts.csv`), which changes every training
+weight on a knockout match. `wcpred tune --elo-engine` (~45 s) reaches the same
+verdict with RPS a touch lower across the board:
+
+- **Static best**: `15y, HA=50, K-scale=2.0,
+  conf_k={UEFA:2.0, CONMEBOL:1.25, CONCACAF:0.5, CAF:2.0, AFC:1.25, OFC:2.0}`,
+  pooled RPS 0.1885 (was 0.1894 pre-fix). CONCACAF damping (0.5) survives; the
+  other blocs still drift to the grid ceiling — the same boundary / global-K
+  artefact, not new signal.
+- **Rolling re-validation (the live `--as-of` protocol)**: default
+  (10y, HA=100, K-scale=1.0, conf-K=1.0) **552 pts / RPS 0.1939** vs the tuned
+  config **531 pts / RPS 0.1941** — worse on both (was 587 / 0.1950 vs
+  574 / 0.1951 pre-fix). No generalisation.
+
+**Decision unchanged — defaults stay at the published eloratings.net rule.** The
+90′ fix sharpens the absolute numbers (cleaner targets) but does not move the
+tuning conclusion for either engine.
+
 ## Verification
 
 ```bash

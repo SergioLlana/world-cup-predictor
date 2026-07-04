@@ -125,6 +125,60 @@ stable prediction window and half the cost). **Bayes effectively ties `dc`** (st
 `dc` winner 0.18820) — the dynamic mode is the best of the Bayesian side and matches
 Dixon-Coles without beating it, at a large compute cost.
 
+## Re-tune after the 90-minute-score fix (2026-07-03)
+
+Full grid re-run once knockout scores were rebuilt to the 90′ result (the
+extra-time / shootout fix: `goalscorers.csv` + `shootouts.csv`), which changes
+every training weight on a knockout match. Same seven configs, pooled over the
+six backtest tournaments (RPS/log-loss match-weighted, points summed):
+
+| config (static, `--engine bayes`)        |  pts |     RPS | log-loss |
+|------------------------------------------|-----:|--------:|---------:|
+| dynamic `quarter`, propagate off         |  564 | 0.18712 |   2.7389 |
+| **dynamic `halfyear`, propagate off** ⭐ |  569 | 0.18722 |   2.7394 |
+| dynamic `halfyear`, propagate on         |  567 | 0.18734 |   2.7395 |
+| dynamic `year`, propagate off            |  584 | 0.18762 |   2.7385 |
+| static, sigma_conf 0.25                  |  567 | 0.18925 |   2.7429 |
+| static, sigma_conf 0.5 (default)         |  567 | 0.18928 |   2.7433 |
+| static, sigma_conf 1.0                   |  567 | 0.18936 |   2.7430 |
+
+Every June conclusion holds: `sigma_conf` is flat (0.18925→0.18936, points
+identical), propagation is flat (`halfyear` off 0.18722 vs on 0.18734), and the
+dynamic time treatment is the only real lever (all dynamic ≤ 0.1877 vs static
+≈ 0.1893). `quarter` again edges `halfyear` on RPS in the 4th decimal but with
+fewer points, so **the winner is unchanged: dynamic `halfyear`, sigma_conf 0.5,
+propagate off**. The 90′ fix lowers the winner's RPS (0.18842 → 0.18722) and its
+points (604 → 569); the static `dc` grid winner also drops (0.18820 → 0.18767),
+so on this static metric bayes-dynamic now edges `dc` by ~0.0005 — inside the
+MCMC noise, and `dc` stays the regenerable default regardless (bayes remains
+additive / opt-in, `BAYES_DYNAMIC` default-off).
+
+Three-engine picture on the **same static footing** (six tournaments, 290
+matches, default configs except the tuned-bayes row):
+
+| engine / config                | pts |     RPS | log-loss |
+|--------------------------------|----:|--------:|---------:|
+| bayes tuned (dynamic halfyear) | 569 | 0.18722 |   2.7394 |
+| `dc` (default = its grid winner) | 546 | 0.18768 | 2.7372 |
+| bayes default (static)         | 567 | 0.18928 |   2.7433 |
+| `elo` (default, static)        | 558 | 0.19279 |   2.7761 |
+
+Reading: tuned bayes and `dc` are a **technical tie** (bayes −0.0005 RPS, `dc`
+−0.0022 log-loss), but `dc` gets there in ~1 s and byte-for-byte vs the ~3.4 h
+of MCMC for the bayes grid. **Static bayes trails `dc`** — all of bayes' value is
+in `--bayes-dynamic`. `elo` is last on the static metric, which is its weak
+protocol: its home is the rolling per-matchday re-fit (which bayes cannot run).
+For context, in the production **rolling** protocol `dc` ≈ 594 pts / RPS 0.1890
+and `elo` ≈ 552 pts / RPS 0.1939 — even there `elo` trails `dc`, so it stays an
+additive engine, not a replacement. Net: `dc` remains the best value; the tuned
+bayes matches it at a large compute cost, and neither displaces the `dc` default.
+
+Execution note: this environment reaps long background jobs and OOMs the dynamic
+Stan model at 4 parallel chains, so the dynamic grid was run **foreground, one
+tournament per call** (~5–9 min each; static configs ~12 min for all six).
+`parallel_chains` only affects wall-time, not the draws (`chains=4`, `seed=2026`),
+so the pooled numbers are identical to a single `--tournament all` run.
+
 ## Why it does not fix the Australia bias
 
 An experiment with an **informative** (non-zero-mean) confederation prior — forcing
