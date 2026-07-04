@@ -172,7 +172,7 @@ and plug into the exact same pipeline by subclassing `DixonColes`:
   prior. Needs the `.[bayes]` extra + CmdStan and is much slower. See
   [bayesian-engine.md](bayesian-engine.md).
 
-`dc` is the CLI default; the web app defaults to `elo`. On the six-tournament
+`dc` is the default for both the CLI and the web app. On the six-tournament
 backtest the three engines land in the same ballpark (~594 dc / ~587 elo Penka
 points; dynamic bayes ties dc without beating it).
 

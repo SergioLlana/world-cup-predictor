@@ -68,7 +68,7 @@ Data flow: `data.prepare_training` → `model.DixonColes.fit` →
 
 FastAPI (`server.py`, install `.[web]`, port 8026) serving a JSON API over the
 date-stamped CSVs in `data/`, plus a vanilla-JS frontend (`static/`). Every data
-endpoint takes `approach` (odds/history) and `engine` (dc/elo/bayes, **default elo**);
+endpoint takes `approach` (odds/history) and `engine` (dc/elo/bayes, **default dc**);
 the pick strategy (`ev`/`outcome`, **default outcome**) is a client-side column
 toggle, not a filename segment. `POST /api/refresh` re-runs the generators in the
 background. Tabs: advancement probabilities, group positions, calendar, rankings,

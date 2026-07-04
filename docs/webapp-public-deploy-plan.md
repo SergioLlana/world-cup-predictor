@@ -29,7 +29,7 @@ variable de entorno `WCPRED_PUBLIC` (local sin ella = completo; Render con ella
 Leer `PUBLIC = bool(os.getenv("WCPRED_PUBLIC"))` al inicio. Efectos:
 
 - **Motores**: si `PUBLIC`, `ENGINES = ("dc", "elo")` (sin `bayes`, que necesita
-  CmdStan y no estará instalado). `DEFAULT_ENGINE` sigue `"elo"`.
+  CmdStan y no estará instalado). `DEFAULT_ENGINE` es `"dc"`.
 - **`POST /api/refresh`**: al principio del handler,
   `if PUBLIC: raise HTTPException(403, "deshabilitado en la versión pública")`.
   `GET /api/refresh/status` puede quedarse (devuelve idle).

@@ -43,7 +43,7 @@ Every row of `data/predictions/picks_*.csv` carries **both** predictions
 - `pick` / `expected_points` → `ev` strategy.
 - `pick_outcome` / `expected_points_outcome` → `outcome` strategy.
 
-The web app (`webapp/`) defaults to **Elo engine + `outcome` strategy** with a
+The web app (`webapp/`) defaults to **dc engine + `outcome` strategy** with a
 toggle ("Marcador más probable") that switches which column is shown — without
 reloading, since both travel in the same CSV. Old snapshots (only `ev`) fall back to
 `pick` (`app.js:pickOf`). `scripts/enrich_picks_outcome.py` adds the `pick_outcome`

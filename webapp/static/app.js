@@ -5,7 +5,7 @@
 const state = {
   lang: (typeof currentLang === "function" ? currentLang() : "en"), // en | es
   approach: "odds",          // toggle de cuotas: odds | history
-  engine: "elo",             // motor: dc | elo | bayes
+  engine: "dc",              // motor: dc | elo | bayes
   strategy: "outcome",       // toggle de estrategia de marcador: ev | outcome
   tab: "champion",
   snapshotDate: null,        // null = último disponible

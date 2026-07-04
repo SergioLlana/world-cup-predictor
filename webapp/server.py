@@ -50,7 +50,7 @@ APPROACHES = ("odds", "history")
 # CLAUDE.md). generate_predictions.sh stamps every engine into the filename.
 # The public deploy drops `bayes` (no CmdStan there).
 ENGINES = ("dc", "elo") if PUBLIC else ("dc", "elo", "bayes")
-DEFAULT_ENGINE = "elo"
+DEFAULT_ENGINE = "dc"
 
 # Scoreline pick strategy -> what the UI's strategy toggle selects. Both live in
 # every predictions CSV as separate columns (pick/expected_points for "ev",
