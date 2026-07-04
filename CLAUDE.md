@@ -116,4 +116,5 @@ CmdStan (its live-fit fallbacks answer 503 there). dc/elo always fit live.
 `models-explained.md` · `elo-engine.md` · `bayesian-engine.md` · `pick-strategy.md`
 · `data-sources.md` · `known-limitations.md` · `connectivity.md` ·
 `webapp-public-deploy-plan.md` · `next-steps.md` (July 2026 review; all six
-proposals implemented 2026-07-03, outcomes inline).
+proposals implemented 2026-07-03, outcomes inline) · `aws-migration-plan.md`
+(static site on S3+CloudFront + scheduled Fargate pipeline; not started).
