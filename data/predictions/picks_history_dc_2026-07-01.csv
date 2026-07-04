@@ -1,13 +1,13 @@
 date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,odds_used
-2026-07-01,England,DR Congo,r32_r16,0.606,0.287,0.107,1-0,3.068,1-0,3.068,False
-2026-07-01,Belgium,Senegal,r32_r16,0.477,0.277,0.246,1-0,2.251,1-0,2.251,False
-2026-07-01,United States,Bosnia and Herzegovina,r32_r16,0.614,0.221,0.164,2-1,2.612,2-0,2.538,False
-2026-07-02,Spain,Austria,r32_r16,0.616,0.237,0.147,1-0,2.747,1-0,2.747,False
-2026-07-02,Portugal,Croatia,r32_r16,0.524,0.264,0.213,1-0,2.409,1-0,2.409,False
-2026-07-02,Switzerland,Algeria,r32_r16,0.448,0.267,0.285,1-0,2.065,1-0,2.065,False
-2026-07-03,Australia,Egypt,r32_r16,0.35,0.362,0.288,0-0,2.416,0-0,2.416,False
-2026-07-03,Argentina,Cape Verde,r32_r16,0.821,0.146,0.033,2-0,3.557,2-0,3.557,False
-2026-07-03,Colombia,Ghana,r32_r16,0.723,0.196,0.081,1-0,3.13,2-0,3.095,False
-2026-07-04,Canada,Morocco,r32_r16,0.189,0.347,0.464,0-1,2.533,0-1,2.533,False
-2026-07-04,Paraguay,France,r32_r16,0.136,0.259,0.605,0-1,2.851,0-1,2.851,False
-2026-07-05,Brazil,Norway,r32_r16,0.557,0.232,0.211,2-1,2.422,2-1,2.422,False
+2026-07-01,England,DR Congo,r32_r16,0.594,0.298,0.108,1-0,3.05,1-0,3.05,False
+2026-07-01,Belgium,Senegal,r32_r16,0.476,0.278,0.245,1-0,2.239,1-0,2.239,False
+2026-07-01,United States,Bosnia and Herzegovina,r32_r16,0.614,0.224,0.162,1-0,2.61,2-0,2.54,False
+2026-07-02,Spain,Austria,r32_r16,0.61,0.243,0.146,1-0,2.742,1-0,2.742,False
+2026-07-02,Portugal,Croatia,r32_r16,0.514,0.271,0.215,1-0,2.385,1-0,2.385,False
+2026-07-02,Switzerland,Algeria,r32_r16,0.449,0.27,0.281,1-0,2.069,1-0,2.069,False
+2026-07-03,Australia,Egypt,r32_r16,0.358,0.369,0.273,0-0,2.47,0-0,2.47,False
+2026-07-03,Argentina,Cape Verde,r32_r16,0.821,0.147,0.032,2-0,3.561,2-0,3.561,False
+2026-07-03,Colombia,Ghana,r32_r16,0.726,0.196,0.078,1-0,3.135,2-0,3.11,False
+2026-07-04,Canada,Morocco,r32_r16,0.187,0.351,0.463,0-1,2.528,0-1,2.528,False
+2026-07-04,Paraguay,France,r32_r16,0.134,0.261,0.604,0-1,2.847,0-1,2.847,False
+2026-07-05,Brazil,Norway,r32_r16,0.556,0.235,0.209,2-1,2.418,2-1,2.418,False

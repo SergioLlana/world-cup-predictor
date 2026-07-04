@@ -1,13 +1,13 @@
 date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,odds_used
-2026-06-26,Egypt,Iran,group,0.387,0.365,0.248,0-0,1.523,1-0,1.384,True
-2026-06-26,New Zealand,Belgium,group,0.06,0.121,0.819,0-2,2.067,0-2,2.067,True
-2026-06-26,Cape Verde,Saudi Arabia,group,0.362,0.288,0.35,1-1,1.138,1-0,1.134,True
-2026-06-26,Uruguay,Spain,group,0.154,0.25,0.595,0-1,1.746,0-1,1.746,True
-2026-06-26,Norway,France,group,0.201,0.205,0.594,1-2,1.596,1-2,1.596,True
-2026-06-26,Senegal,Iraq,group,0.783,0.141,0.076,2-0,2.009,2-0,2.009,True
-2026-06-27,Algeria,Austria,group,0.237,0.427,0.336,0-0,1.893,0-0,1.893,True
-2026-06-27,Jordan,Argentina,group,0.064,0.127,0.809,0-2,2.059,0-2,2.059,True
-2026-06-27,Colombia,Portugal,group,0.229,0.257,0.514,0-1,1.484,0-1,1.484,True
-2026-06-27,DR Congo,Uzbekistan,group,0.546,0.232,0.222,2-1,1.515,2-1,1.515,True
-2026-06-27,Panama,England,group,0.061,0.119,0.82,0-2,2.059,0-3,2.031,True
-2026-06-27,Croatia,Ghana,group,0.542,0.291,0.167,1-0,1.715,1-0,1.715,True
+2026-06-26,Egypt,Iran,group,0.387,0.365,0.248,0-0,1.518,1-0,1.378,True
+2026-06-26,New Zealand,Belgium,group,0.06,0.121,0.819,0-2,2.06,0-3,2.031,True
+2026-06-26,Cape Verde,Saudi Arabia,group,0.362,0.288,0.35,1-1,1.139,1-0,1.126,True
+2026-06-26,Uruguay,Spain,group,0.154,0.25,0.595,0-1,1.735,0-1,1.735,True
+2026-06-26,Norway,France,group,0.201,0.205,0.594,1-2,1.592,1-2,1.592,True
+2026-06-26,Senegal,Iraq,group,0.783,0.141,0.076,2-0,2.003,2-0,2.003,True
+2026-06-27,Croatia,Ghana,group,0.542,0.291,0.167,1-0,1.706,1-0,1.706,True
+2026-06-27,Panama,England,group,0.061,0.119,0.82,0-2,2.053,0-3,2.028,True
+2026-06-27,DR Congo,Uzbekistan,group,0.546,0.232,0.222,2-1,1.513,2-1,1.513,True
+2026-06-27,Colombia,Portugal,group,0.229,0.257,0.514,0-1,1.475,0-1,1.475,True
+2026-06-27,Jordan,Argentina,group,0.064,0.127,0.809,0-2,2.053,0-2,2.053,True
+2026-06-27,Algeria,Austria,group,0.237,0.427,0.336,0-0,1.889,0-0,1.889,True

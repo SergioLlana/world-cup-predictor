@@ -77,7 +77,10 @@ connectivity. See `docs/webapp-public-deploy-plan.md` for the public deploy plan
   regenerable: new parameters default-off, never regenerate past snapshots with a
   changed model, and keep experiment outputs outside
   `data/predictions|groups|simulations` (use `data/experiments/`). `elo`/`bayes`
-  are additive and opt-in.
+  are additive and opt-in. One sanctioned exception: after the 90'-scores fix
+  (`103f5e1`, 2026-07-03) every snapshot from 2026-06-11 on was regenerated once
+  so the whole series shares the 90' convention (pre-fix originals remain in git
+  history).
 - **No test suite.** `wcpred backtest --tournament all` is the regression check
   after touching the model. Tune on RPS/log-loss (low variance); use points to
   break ties.
