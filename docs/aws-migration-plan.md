@@ -13,6 +13,11 @@ Decisiones: web **100% estática** (S3 + CloudFront, sin servidor), pipeline en
 **EventBridge Scheduler → ECS Fargate**, infraestructura con **scripts AWS CLI**
 idempotentes en `scripts/aws/`.
 
+**Estado**: fases 0-1 con scripts listos (`scripts/aws/env.sh`, `00_setup.sh`,
+`push_data.sh`, `pull_data.sh`), pendientes de ejecutar cuando exista el perfil
+CLI `wcpred` (cuenta AWS + `aws configure --profile wcpred`). Fases 2-5 sin
+empezar.
+
 ## Por qué estática (y alternativas descartadas)
 
 El modo público (`WCPRED_PUBLIC=1`) ya es **solo lectura**: refresh bloqueado,
