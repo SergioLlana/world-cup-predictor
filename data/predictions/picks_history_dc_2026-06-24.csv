@@ -1,25 +1,25 @@
-date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,odds_used
-2026-06-24,Mexico,Czech Republic,group,0.519,0.266,0.215,1-0,1.508,1-0,1.508,False
-2026-06-24,South Africa,South Korea,group,0.211,0.304,0.484,0-1,1.53,0-1,1.53,False
-2026-06-24,Canada,Switzerland,group,0.311,0.285,0.404,0-1,1.222,0-1,1.222,False
-2026-06-24,Bosnia and Herzegovina,Qatar,group,0.5,0.27,0.23,1-0,1.461,1-0,1.461,False
-2026-06-24,Scotland,Brazil,group,0.125,0.215,0.66,0-1,1.802,0-2,1.778,False
-2026-06-24,Morocco,Haiti,group,0.781,0.17,0.049,2-0,2.171,2-0,2.171,False
-2026-06-25,Tunisia,Netherlands,group,0.097,0.199,0.704,0-1,1.91,0-2,1.908,False
-2026-06-25,Japan,Sweden,group,0.551,0.244,0.205,2-1,1.532,2-1,1.532,False
-2026-06-25,Ecuador,Germany,group,0.26,0.323,0.417,0-1,1.364,0-1,1.364,False
-2026-06-25,Paraguay,Australia,group,0.293,0.353,0.354,0-0,1.427,0-1,1.237,False
-2026-06-25,United States,Turkey,group,0.406,0.251,0.343,2-1,1.183,2-1,1.183,False
-2026-06-25,Curaçao,Ivory Coast,group,0.062,0.181,0.757,0-2,2.089,0-2,2.089,False
-2026-06-26,Egypt,Iran,group,0.291,0.345,0.364,0-0,1.379,0-1,1.251,False
-2026-06-26,New Zealand,Belgium,group,0.051,0.154,0.795,0-2,2.159,0-2,2.159,False
-2026-06-26,Cape Verde,Saudi Arabia,group,0.325,0.349,0.326,0-0,1.398,0-0,1.398,False
-2026-06-26,Uruguay,Spain,group,0.166,0.292,0.543,0-1,1.695,0-1,1.695,False
-2026-06-26,Norway,France,group,0.252,0.259,0.489,1-2,1.394,1-2,1.394,False
-2026-06-26,Senegal,Iraq,group,0.61,0.262,0.128,1-0,1.836,1-0,1.836,False
-2026-06-27,Croatia,Ghana,group,0.614,0.252,0.134,1-0,1.803,1-0,1.803,False
-2026-06-27,DR Congo,Uzbekistan,group,0.361,0.384,0.255,0-0,1.623,0-0,1.623,False
-2026-06-27,Panama,England,group,0.045,0.141,0.813,0-2,2.191,0-2,2.191,False
-2026-06-27,Jordan,Argentina,group,0.025,0.102,0.873,0-2,2.312,0-2,2.312,False
-2026-06-27,Colombia,Portugal,group,0.328,0.287,0.385,0-1,1.174,0-1,1.174,False
-2026-06-27,Algeria,Austria,group,0.308,0.301,0.391,0-1,1.226,0-1,1.226,False
+date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,pick_mode,odds_used
+2026-06-24,Mexico,Czech Republic,group,0.519,0.266,0.215,1-0,1.508,1-0,1.508,1-1,False
+2026-06-24,South Africa,South Korea,group,0.211,0.304,0.484,0-1,1.53,0-1,1.53,0-1,False
+2026-06-24,Canada,Switzerland,group,0.311,0.285,0.404,0-1,1.222,0-1,1.222,1-1,False
+2026-06-24,Bosnia and Herzegovina,Qatar,group,0.5,0.27,0.23,1-0,1.461,1-0,1.461,1-1,False
+2026-06-24,Scotland,Brazil,group,0.125,0.215,0.66,0-1,1.802,0-2,1.778,0-2,False
+2026-06-24,Morocco,Haiti,group,0.781,0.17,0.049,2-0,2.171,2-0,2.171,2-0,False
+2026-06-25,Tunisia,Netherlands,group,0.097,0.199,0.704,0-1,1.91,0-2,1.908,0-2,False
+2026-06-25,Japan,Sweden,group,0.551,0.244,0.205,2-1,1.532,2-1,1.532,1-1,False
+2026-06-25,Ecuador,Germany,group,0.26,0.323,0.417,0-1,1.364,0-1,1.364,0-1,False
+2026-06-25,Paraguay,Australia,group,0.293,0.353,0.354,0-0,1.427,0-1,1.237,0-0,False
+2026-06-25,United States,Turkey,group,0.406,0.251,0.343,2-1,1.183,2-1,1.183,1-1,False
+2026-06-25,Curaçao,Ivory Coast,group,0.062,0.181,0.757,0-2,2.089,0-2,2.089,0-2,False
+2026-06-26,Egypt,Iran,group,0.291,0.345,0.364,0-0,1.379,0-1,1.251,0-0,False
+2026-06-26,New Zealand,Belgium,group,0.051,0.154,0.795,0-2,2.159,0-2,2.159,0-2,False
+2026-06-26,Cape Verde,Saudi Arabia,group,0.325,0.349,0.326,0-0,1.398,0-0,1.398,0-0,False
+2026-06-26,Uruguay,Spain,group,0.166,0.292,0.543,0-1,1.695,0-1,1.695,0-1,False
+2026-06-26,Norway,France,group,0.252,0.259,0.489,1-2,1.394,1-2,1.394,1-1,False
+2026-06-26,Senegal,Iraq,group,0.61,0.262,0.128,1-0,1.836,1-0,1.836,1-0,False
+2026-06-27,Croatia,Ghana,group,0.614,0.252,0.134,1-0,1.803,1-0,1.803,1-0,False
+2026-06-27,DR Congo,Uzbekistan,group,0.361,0.384,0.255,0-0,1.623,0-0,1.623,0-0,False
+2026-06-27,Panama,England,group,0.045,0.141,0.813,0-2,2.191,0-2,2.191,0-2,False
+2026-06-27,Jordan,Argentina,group,0.025,0.102,0.873,0-2,2.312,0-2,2.312,0-2,False
+2026-06-27,Colombia,Portugal,group,0.328,0.287,0.385,0-1,1.174,0-1,1.174,1-1,False
+2026-06-27,Algeria,Austria,group,0.308,0.301,0.391,0-1,1.226,0-1,1.226,1-1,False

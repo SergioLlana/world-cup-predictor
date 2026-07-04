@@ -1,14 +1,14 @@
-date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,odds_used
-2026-06-30,Ivory Coast,Norway,r32_r16,0.274,0.276,0.449,0-1,2.101,0-1,2.101,True
-2026-06-30,France,Sweden,r32_r16,0.746,0.162,0.092,2-0,2.995,2-0,2.995,True
-2026-06-30,Mexico,Ecuador,r32_r16,0.425,0.331,0.243,1-0,2.243,1-0,2.243,True
-2026-07-01,England,DR Congo,r32_r16,0.754,0.174,0.072,2-0,3.168,2-0,3.168,True
-2026-07-01,Belgium,Senegal,r32_r16,0.435,0.295,0.27,1-0,2.126,1-0,2.126,True
-2026-07-01,United States,Bosnia and Herzegovina,r32_r16,0.7,0.193,0.107,2-0,2.902,2-0,2.902,True
-2026-07-02,Portugal,Croatia,r32_r16,0.54,0.267,0.192,1-0,2.505,1-0,2.505,True
-2026-07-02,Switzerland,Algeria,r32_r16,0.467,0.29,0.242,1-0,2.259,1-0,2.259,True
-2026-07-02,Spain,Austria,r32_r16,0.723,0.181,0.096,2-0,2.984,2-0,2.984,True
-2026-07-03,Australia,Egypt,r32_r16,0.284,0.33,0.386,0-0,2.106,0-1,2.04,True
-2026-07-03,Argentina,Cape Verde,r32_r16,0.827,0.122,0.051,2-0,3.292,2-0,3.292,True
-2026-07-03,Colombia,Ghana,r32_r16,0.628,0.243,0.128,1-0,2.862,1-0,2.862,True
-2026-07-04,Canada,Morocco,r32_r16,0.198,0.264,0.537,0-1,2.469,0-1,2.469,True
+date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,pick_mode,odds_used
+2026-06-30,Ivory Coast,Norway,r32_r16,0.274,0.276,0.449,0-1,2.101,0-1,2.101,1-1,True
+2026-06-30,France,Sweden,r32_r16,0.746,0.162,0.092,2-0,2.995,2-0,2.995,2-0,True
+2026-06-30,Mexico,Ecuador,r32_r16,0.425,0.331,0.243,1-0,2.243,1-0,2.243,0-0,True
+2026-07-01,England,DR Congo,r32_r16,0.754,0.174,0.072,2-0,3.168,2-0,3.168,2-0,True
+2026-07-01,Belgium,Senegal,r32_r16,0.435,0.295,0.27,1-0,2.126,1-0,2.126,1-1,True
+2026-07-01,United States,Bosnia and Herzegovina,r32_r16,0.7,0.193,0.107,2-0,2.902,2-0,2.902,2-0,True
+2026-07-02,Portugal,Croatia,r32_r16,0.54,0.267,0.192,1-0,2.505,1-0,2.505,1-0,True
+2026-07-02,Switzerland,Algeria,r32_r16,0.467,0.29,0.242,1-0,2.259,1-0,2.259,1-1,True
+2026-07-02,Spain,Austria,r32_r16,0.723,0.181,0.096,2-0,2.984,2-0,2.984,2-0,True
+2026-07-03,Australia,Egypt,r32_r16,0.284,0.33,0.386,0-0,2.106,0-1,2.04,0-0,True
+2026-07-03,Argentina,Cape Verde,r32_r16,0.827,0.122,0.051,2-0,3.292,2-0,3.292,2-0,True
+2026-07-03,Colombia,Ghana,r32_r16,0.628,0.243,0.128,1-0,2.862,1-0,2.862,1-0,True
+2026-07-04,Canada,Morocco,r32_r16,0.198,0.264,0.537,0-1,2.469,0-1,2.469,1-1,True

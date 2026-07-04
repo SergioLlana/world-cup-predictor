@@ -42,12 +42,20 @@ Every row of `data/predictions/picks_*.csv` carries **both** predictions
 
 - `pick` / `expected_points` → `ev` strategy.
 - `pick_outcome` / `expected_points_outcome` → `outcome` strategy.
+- `pick_mode` → the **mode of the score matrix**: the single most likely exact
+  scoreline (`argmax P`), independent of Penka. Not a Penka pick — it's what the
+  model/odds call most probable, which in even games is often a draw the Penka
+  strategies avoid.
 
 The web app (`webapp/`) defaults to **dc engine + `outcome` strategy** with a
 toggle ("Marcador más probable") that switches which column is shown — without
 reloading, since both travel in the same CSV. Old snapshots (only `ev`) fall back to
-`pick` (`app.js:pickOf`). `scripts/enrich_picks_outcome.py` adds the `pick_outcome`
-column to old snapshots **without touching** the `ev` columns.
+`pick` (`app.js:pickOf`). The **public deploy** (`WCPRED_PUBLIC`) instead shows
+`pick_mode` in the calendar (the most probable scoreline, not a Penka pick) and
+hides the strategy toggle. `scripts/enrich_picks_outcome.py` /
+`scripts/enrich_picks_mode.py` back-fill `pick_outcome` / `pick_mode` onto old
+snapshots **without touching** the existing columns (rows preserved by fixture
+key, so no future-known knockout leaks in).
 
 ## Regenerability rule
 

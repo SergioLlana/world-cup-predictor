@@ -27,10 +27,14 @@ const state = {
 const engineLabel = (e) => t("engine." + e);
 const strategyLabel = (s) => t("strategy." + s);
 
-// Marcador de una fila de picks según la estrategia activa. Las filas nuevas
-// traen pick_outcome; los snapshots antiguos (solo ev) caen a `pick`.
-const pickOf = (row) =>
-  (state.strategy === "outcome" && row.pick_outcome) ? row.pick_outcome : row.pick;
+// Marcador que se muestra en el calendario. En la versión pública (Render) se
+// muestra el marcador más probable del modelo/cuotas (`pick_mode`, el modo de
+// la matriz), no un pick optimizado para Penka. En local se usa la estrategia
+// activa del toggle: pick_outcome (nuevas filas) o pick (snapshots antiguos).
+const pickOf = (row) => {
+  if (state.meta?.public && row.pick_mode) return row.pick_mode;
+  return (state.strategy === "outcome" && row.pick_outcome) ? row.pick_outcome : row.pick;
+};
 const cacheKey = (ap = state.approach, eng = state.engine) => `${ap}|${eng}`;
 // Datos del approach+engine vigente; {} si aún no se han cargado.
 const curCache = () => state.cache[cacheKey()] || {};
@@ -159,6 +163,9 @@ function applyPublicMode() {
   document.querySelector('.tab[data-tab="connectivity"]')?.remove();
   $("#tab-connectivity")?.remove();
   if (state.tab === "connectivity") activateTab("champion");
+  // El calendario público muestra el marcador más probable (pick_mode), no un
+  // pick de estrategia, así que el toggle ev/outcome no aplica: se oculta.
+  $("#strategy-toggle")?.closest("label")?.remove();
 }
 
 function buildEngineSelect() {
@@ -433,6 +440,7 @@ function predictionFor(match) {
     return {
       ...row, P_1: row.P_2, P_2: row.P_1,
       pick: flip(row.pick), pick_outcome: flip(row.pick_outcome),
+      pick_mode: flip(row.pick_mode),
       snapDate: snap.date,
     };
   }
@@ -476,9 +484,12 @@ function matchCard(m) {
     <div class="prob-bar" title="${t("match.prob_title")}">
       ${seg("p1", "1", pred.P_1)}${seg("px", "X", pred.P_X)}${seg("p2", "2", pred.P_2)}
     </div>` : "";
+  const pickTitle = state.meta?.public
+    ? t("match.mode_title")
+    : t("match.strategy_title", { strategy: strategyLabel(state.strategy) });
   const predLine = pred ? `
     <div class="pred-line">
-      <span class="pick-chip" title="${t("match.strategy_title", { strategy: strategyLabel(state.strategy) })}">${t("match.pred_prefix")} ${pickOf(pred)}</span>
+      <span class="pick-chip" title="${pickTitle}">${t("match.pred_prefix")} ${pickOf(pred)}</span>
       ${pickBadge(m, pred)}
     </div>` : `<div class="pred-line"><span class="xp">${t("match.no_pred")}</span></div>`;
   const oddsLine = m.odds ? `

@@ -1,4 +1,5 @@
 """High-level prediction pipeline combining model and odds."""
+import numpy as np
 import pandas as pd
 
 from .config import (EXTRA_TIME_FRACTION, ODDS_WEIGHT, PICK_STRATEGY,
@@ -134,6 +135,12 @@ def predict_fixtures(model, fixtures, odds_df=None, odds_weight=ODDS_WEIGHT,
                             scoring=scoring, stage=stage)
         (pe, pa), ep = best_prediction(res["P"], scoring, stage)
         (oe, oa), epo = best_prediction_outcome(res["P"], scoring, stage)
+        # Mode of the score matrix: the single most likely exact scoreline,
+        # independent of Penka. The public webapp calendar shows this instead of
+        # a Penka pick; local keeps the ev/outcome toggle. Purely derived from
+        # the same P, so it's an additive column (existing ones stay identical).
+        n = res["P"].shape[0]
+        km = int(np.argmax(res["P"]))
         rows.append({
             "date": r.date.date(), "home": r.home_team, "away": r.away_team,
             "stage": stage,
@@ -143,6 +150,7 @@ def predict_fixtures(model, fixtures, odds_df=None, odds_weight=ODDS_WEIGHT,
             "expected_points": round(ep, 3),
             "pick_outcome": f"{oe}-{oa}",
             "expected_points_outcome": round(epo, 3),
+            "pick_mode": f"{km // n}-{km % n}",
             "odds_used": res["used_odds"],
         })
     return pd.DataFrame(rows)
