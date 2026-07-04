@@ -24,7 +24,7 @@ from .config import (BAYES_CONNECT_BY, BAYES_CONNECT_MODE,
                      BAYES_CONNECT_SHRINK, BAYES_DYNAMIC,
                      BAYES_PROPAGATE, BAYES_SIGMA_CONF_SCALE,
                      BAYES_TIME_BLOCK, CONF_ANCHOR_BETA, ELO_HA,
-                     ELO_LONGTERM_YEARS, GROUPS_DIR,
+                     ELO_LONGTERM_YEARS, GROUPS_DIR, MATRICES_DIR, MAX_GOALS,
                      ODDS_WEIGHT, PICK_STRATEGY, PREDICTIONS_DIR, RANKINGS_DIR,
                      RESULTS_PATH, SCORING_MODE, SIM_DIR, XG_ALPHA)
 from .confederations import infer_confederations
@@ -33,7 +33,9 @@ from .data import (PHANTOM_TEAM, download_results, load_odds,
                    upcoming_world_cup)
 from .groups import simulate_groups
 from .model import DixonColes
-from .predict import WC2026_R32_START, predict_fixtures
+from .predict import (WC2026_R32_START, _build_odds_lookup, _norm_team,
+                      home_side, predict_fixtures, predict_match, wc2026_stage)
+from .scoring import best_prediction, best_prediction_outcome
 from .tournament import OFFICIAL_GROUPS, simulate_tournament
 
 APPROACHES = ("history", "odds", "xg", "full")
@@ -165,6 +167,52 @@ def cmd_predict(args):
                   f"model-only predictions used for those.")
     if args.out:
         dest = resolve_out(args.out, PREDICTIONS_DIR)
+        out.to_csv(dest, index=False)
+        print(f"Saved to {dest}")
+
+
+def cmd_matrices(args):
+    """Dump the full score matrix of every upcoming WC fixture, one row per
+    match with the 0..MAX_GOALS grid at full float precision plus both
+    strategies' picks — the same quantities webapp `/api/matrix` computes live.
+    The webapp serves these CSVs when they exist, which is what lets a deploy
+    without the engine installed (bayes on Render has no CmdStan) still show
+    the matrices; regenerate them whenever the snapshot pipeline runs."""
+    df, model, fixtures = load_run_inputs(args)
+    if fixtures.empty:
+        sys.exit("No upcoming World Cup fixtures found. "
+                 "Run `wcpred update-data` first.")
+    odds_df = load_odds_df(args)
+    odds_lookup = _build_odds_lookup(odds_df) if odds_df is not None else None
+    rows = []
+    for _, r in fixtures.iterrows():
+        odds = None
+        if odds_lookup is not None:
+            odds = odds_lookup.get((_norm_team(r.home_team),
+                                    _norm_team(r.away_team)))
+        stage = wc2026_stage(r.date)
+        side = home_side(r.home_team, r.away_team, r.country)
+        res = predict_match(model, r.home_team, r.away_team, side=side,
+                            odds=odds, odds_weight=args.odds_weight,
+                            scoring=args.scoring, stage=stage)
+        (pe, pa), ep = best_prediction(res["P"], args.scoring, stage)
+        (oe, oa), epo = best_prediction_outcome(res["P"], args.scoring, stage)
+        row = {
+            "date": r.date.date(), "home": r.home_team, "away": r.away_team,
+            "stage": stage, "side": side,
+            "p1": res["p1"], "px": res["px"], "p2": res["p2"],
+            "pick": f"{pe}-{pa}", "expected_points": ep,
+            "pick_outcome": f"{oe}-{oa}", "expected_points_outcome": epo,
+            "odds_used": res["used_odds"],
+        }
+        for h in range(MAX_GOALS + 1):
+            for a in range(MAX_GOALS + 1):
+                row[f"p_{h}_{a}"] = float(res["P"][h, a])
+        rows.append(row)
+    out = pd.DataFrame(rows)
+    print(f"{len(out)} fixture matrices computed (as of {args.as_of})")
+    if args.out:
+        dest = resolve_out(args.out, MATRICES_DIR)
         out.to_csv(dest, index=False)
         print(f"Saved to {dest}")
 
@@ -516,6 +564,13 @@ def main():
                     help="also resolve still-level ties as a penalty "
                          "shootout (implies --extra-time)")
     sp.set_defaults(func=cmd_predict)
+
+    sp = sub.add_parser("matrices", help="dump full score matrices per fixture "
+                        "(served by the webapp where the engine can't fit live)")
+    common(sp)
+    sp.add_argument("--out", help="save matrices CSV here (a bare filename "
+                    f"goes under {MATRICES_DIR}/)")
+    sp.set_defaults(func=cmd_matrices)
 
     sp = sub.add_parser("groups", help="simulate final group standings")
     common(sp)

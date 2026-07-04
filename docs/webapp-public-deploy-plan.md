@@ -42,6 +42,16 @@ Leer `PUBLIC = bool(os.getenv("WCPRED_PUBLIC"))` al inicio. Efectos:
 importa porque el picker no lo ofrece. No se necesita el extra `.[bayes]` ni
 secretos en producción.
 
+> **Actualización (2026-07-04): `bayes` también se sirve en público.** Sus
+> pestañas leen CSVs committeados (picks/groups/sim/ratings existen desde
+> 2026-06-11) y `/api/matrix` sirve las matrices precalculadas de
+> `data/matrices/` (`wcpred matrices`, un CSV por snapshot y approach, generado
+> por `generate_predictions.sh` y backfilled para todas las fechas pasadas) —
+> byte-idénticas al cálculo en vivo, porque guardan la matriz con precisión
+> float completa y el servidor solo redondea. CmdStan sigue sin instalarse en
+> Render: si faltara un CSV, los endpoints de fit en vivo responden 503 en vez
+> de 500.
+
 ## Parte B — i18n EN/ES (por defecto EN)
 
 Nuevo fichero **`webapp/static/i18n.js`** (cargado antes de `app.js` en

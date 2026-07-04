@@ -2,10 +2,12 @@
 # Deploy: push this repo to GitHub, then in Render → New → Blueprint, point it
 # at the repo. Render reads this file and creates the service.
 #
-# WCPRED_PUBLIC=1 locks the deploy down: no data refresh, no Connectivity tab,
-# no `bayes` engine (CmdStan isn't installed here). The date-stamped CSVs under
-# data/ travel in git, so a `git push` after regenerating them locally updates
-# the public site (auto-deploy).
+# WCPRED_PUBLIC=1 locks the deploy down: no data refresh, no Connectivity tab.
+# All three engines are served, bayes included even though CmdStan isn't
+# installed here: its tabs read committed CSVs and /api/matrix reads the
+# precomputed data/matrices/ CSVs (`wcpred matrices`). The date-stamped CSVs
+# under data/ travel in git, so a `git push` after regenerating them locally
+# updates the public site (auto-deploy).
 services:
   - type: web
     name: wcpred-web

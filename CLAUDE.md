@@ -75,6 +75,11 @@ toggle, not a filename segment. The public deploy (`WCPRED_PUBLIC`) instead show
 toggle. `POST /api/refresh` re-runs the generators in the background. Tabs: advancement probabilities, group positions, calendar, rankings,
 connectivity. See `docs/webapp-public-deploy-plan.md` for the public deploy plan.
 
+`/api/matrix` serves the precomputed `data/matrices/` CSVs (`wcpred matrices`,
+generated per bayes snapshot by `generate_predictions.sh`) when one exists and
+fits live otherwise — that is how the public deploy serves bayes without
+CmdStan (its live-fit fallbacks answer 503 there). dc/elo always fit live.
+
 ## Conventions & rules for agents
 
 - **Regenerability (hard rule).** The default `dc` model must stay byte-for-byte

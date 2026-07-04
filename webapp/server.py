@@ -24,8 +24,9 @@ from fastapi.staticfiles import StaticFiles
 
 from functools import lru_cache
 
-from wcpred.config import (GROUPS_DIR, INPUT_DIR, PREDICTIONS_DIR, RANKINGS_DIR,
-                           RESULTS_PATH, SIM_DIR, WC2026_KNOCKOUT_ROUNDS)
+from wcpred.config import (GROUPS_DIR, INPUT_DIR, MATRICES_DIR, MAX_GOALS,
+                           PREDICTIONS_DIR, RANKINGS_DIR, RESULTS_PATH,
+                           SIM_DIR, WC2026_KNOCKOUT_ROUNDS)
 from wcpred.confederations import infer_confederations
 from wcpred.data import load_results, prepare_training, resolve_odds_path
 from wcpred.model import DixonColes
@@ -38,8 +39,7 @@ GENERATE_SH = os.path.join(ROOT, "scripts", "generate_predictions.sh")
 GENERATE_RANKINGS_SH = os.path.join(ROOT, "scripts", "generate_rankings.sh")
 
 # Public deployment mode. Set WCPRED_PUBLIC=1 on the hosted instance to lock it
-# down: no data refresh, no Connectivity tab, no `bayes` engine (it needs
-# CmdStan, which the deploy doesn't install). Locally the var is unset, so the
+# down: no data refresh, no Connectivity tab. Locally the var is unset, so the
 # full app runs. The frontend reads `meta.public` to hide the matching UI.
 PUBLIC = bool(os.getenv("WCPRED_PUBLIC"))
 
@@ -48,8 +48,10 @@ APPROACHES = ("odds", "history")
 # Engine label in the CSV filenames -> what the UI's engine picker selects.
 # dc is the production model; elo/bayes are the alternative engines (see
 # CLAUDE.md). generate_predictions.sh stamps every engine into the filename.
-# The public deploy drops `bayes` (no CmdStan there).
-ENGINES = ("dc", "elo") if PUBLIC else ("dc", "elo", "bayes")
+# bayes is served on the public deploy too, even though CmdStan isn't installed
+# there: every tab reads committed CSVs, and /api/matrix reads the precomputed
+# data/matrices/ CSVs (`wcpred matrices`); the live-fit fallbacks answer 503.
+ENGINES = ("dc", "elo", "bayes")
 DEFAULT_ENGINE = "dc"
 
 # Scoreline pick strategy -> what the UI's strategy toggle selects. Both live in
@@ -328,13 +330,52 @@ def _model_for(as_of, results_mtime, engine=DEFAULT_ENGINE):
     return DixonColes().fit(train)
 
 
+@lru_cache(maxsize=48)
+def _matrices_rows(path, mtime):
+    """{(date, home, away): row} from one precomputed matrices CSV
+    (`wcpred matrices`, data/matrices/). mtime keys the cache like the other
+    CSV caches."""
+    return {(r.date, r.home, r.away): r
+            for r in pd.read_csv(path).itertuples()}
+
+
+def _precomputed_matrix(approach, engine, as_of, date, home, away, strategy):
+    """/api/matrix response from the precomputed CSV for `as_of`, or None.
+    The CSV stores full float precision, so rounding here returns exactly what
+    the live path would — the deploy without the engine installed (bayes on
+    Render) serves identical responses."""
+    path = os.path.join(ROOT, MATRICES_DIR,
+                        f"matrices_{approach}_{engine}_{as_of}.csv")
+    if not os.path.exists(path):
+        return None
+    r = _matrices_rows(path, os.path.getmtime(path)).get((date, home, away))
+    if r is None:
+        return None
+    pick, ep = ((r.pick_outcome, r.expected_points_outcome)
+                if strategy == "outcome" else (r.pick, r.expected_points))
+    return {
+        "home": home, "away": away, "as_of": as_of,
+        "side": r.side if isinstance(r.side, str) else None,
+        "engine": engine, "strategy": strategy,
+        "odds_used": bool(r.odds_used),
+        "pick": pick,
+        "expected_points": round(float(ep), 3),
+        "p1": round(float(r.p1), 4), "px": round(float(r.px), 4),
+        "p2": round(float(r.p2), 4),
+        "matrix": [[round(float(getattr(r, f"p_{h}_{a}")), 5)
+                    for a in range(MAX_GOALS + 1)]
+                   for h in range(MAX_GOALS + 1)],
+    }
+
+
 @app.get("/api/matrix")
 def matrix(home: str, away: str, date: str, approach: str = "odds",
            engine: str = DEFAULT_ENGINE, strategy: str = DEFAULT_STRATEGY):
     """Full score-probability matrix for one fixture, reproducing the pick
     shown in the calendar: model as of the snapshot in force on the match
     date, with market odds blended in when approach=odds. `strategy` (ev/
-    outcome) selects which scoreline pick to highlight."""
+    outcome) selects which scoreline pick to highlight. Served from the
+    precomputed data/matrices/ CSV when one exists; otherwise fitted live."""
     _check_approach(approach)
     _check_engine(engine)
     _check_strategy(strategy)
@@ -344,8 +385,19 @@ def matrix(home: str, away: str, date: str, approach: str = "odds",
     # it); a later snapshot would train on results from after the match.
     as_of = max((d for d in snaps if d <= date), default=date)
 
+    pre = _precomputed_matrix(approach, engine, as_of, date, home, away,
+                              strategy)
+    if pre is not None:
+        return pre
+
     results_path = os.path.join(ROOT, RESULTS_PATH)
-    model = _model_for(as_of, os.path.getmtime(results_path), engine)
+    try:
+        model = _model_for(as_of, os.path.getmtime(results_path), engine)
+    except ImportError:
+        # bayes without CmdStan (the public deploy) and no precomputed CSV for
+        # this as_of: regenerate data/matrices/ locally and push.
+        raise HTTPException(503, f"matriz no precalculada para {as_of} y el "
+                            f"motor {engine} no puede ajustarse en este deploy")
 
     df = pd.read_csv(results_path)
     row = df[(df["date"] == date) & (df["home_team"] == home) & (df["away_team"] == away)]
@@ -519,8 +571,17 @@ def _rankings(as_of, results_mtime, engine):
 def rankings(engine: str = DEFAULT_ENGINE):
     _check_engine(engine)
     as_of = datetime.date.today().isoformat()
-    return _rankings(as_of, os.path.getmtime(os.path.join(ROOT, RESULTS_PATH)),
-                     engine)
+    try:
+        return _rankings(as_of,
+                         os.path.getmtime(os.path.join(ROOT, RESULTS_PATH)),
+                         engine)
+    except ImportError:
+        # Live-fit fallback for a deploy that can't fit this engine (bayes
+        # without CmdStan). The frontend only calls this when there are no
+        # ratings_<engine>_*.csv snapshots, which the daily pipeline commits.
+        raise HTTPException(503, f"el motor {engine} no puede ajustarse en "
+                            "este deploy; genera los rankings con "
+                            "scripts/generate_rankings.sh")
 
 
 # Date-stamped ranking snapshots written by scripts/generate_rankings.sh.

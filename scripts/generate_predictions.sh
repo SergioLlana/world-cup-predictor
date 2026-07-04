@@ -207,6 +207,17 @@ for ENGINE in "${ENGINE_LIST[@]}"; do
     [ "$SHOOTOUT" = 1 ]   && pargs+=(--shootout)
     pargs+=(--out "picks_${ENG_LABEL}_${STAMP}.csv")
     if ! wcpred_cli predict "${pargs[@]}"; then FAILED+=("predict[$ENGINE]"); fi
+
+    # Full per-fixture score matrices, bayes only: dc/elo fit live on any
+    # deploy, but the public one has no CmdStan, so webapp /api/matrix serves
+    # these CSVs instead (they travel in git like the picks). Cheap here: the
+    # predict step above already sampled and cached the posterior.
+    if [ "$ENGINE" = bayes ]; then
+      log "Matrices [$ENGINE] — approach=$APPROACH → data/matrices/matrices_${ENG_LABEL}_${STAMP}.csv"
+      margs=("${common_args[@]}" --engine "$ENGINE")
+      margs+=(--out "matrices_${ENG_LABEL}_${STAMP}.csv")
+      if ! wcpred_cli matrices "${margs[@]}"; then FAILED+=("matrices[$ENGINE]"); fi
+    fi
   fi
 
   if [ "$DO_GROUPS" = 1 ]; then

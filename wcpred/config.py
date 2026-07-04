@@ -24,6 +24,10 @@ PREDICTIONS_DIR = "data/predictions"  # `predict --out`
 GROUPS_DIR = "data/groups"            # `groups --out`
 SIM_DIR = "data/simulations"          # `simulate --out`
 RANKINGS_DIR = "data/rankings"        # `ratings --out`
+MATRICES_DIR = "data/matrices"        # `matrices --out`: full per-fixture score
+                                      # matrices, so /api/matrix can serve an
+                                      # engine the deploy can't fit live (bayes
+                                      # on Render has no CmdStan)
 RESULTS_PATH = f"{INPUT_DIR}/results.csv"
 GOALSCORERS_PATH = f"{INPUT_DIR}/goalscorers.csv"
 SHOOTOUTS_PATH = f"{INPUT_DIR}/shootouts.csv"
