@@ -7,6 +7,7 @@ re-check before assuming they still hold, sports-data feeds change often.
 | Input | Source | Pipeline | Coverage | Status |
 |---|---|---|---|---|
 | Results | martj42/international_results | `wcpred update-data` → `data.load_results` | Every international since 1872, all teams, daily | ✅ Complete |
+| 90' scores | same repo: goalscorers.csv + shootouts.csv | `wcpred update-data` → `data._ninety_minute_scores` | Goal minutes for the big tournaments (~46% of matches since 2015, skewed to WC/Euro/Copa) | ✅ For what matters |
 | xG | FotMob public JSON API | `scripts/fetch_xg.py` → `data/input/xg.csv` → `prepare_training` | From **~mid-2022**; **no friendlies at all**, ~28% of qualifiers | 🟡 Partial |
 | Odds (live) | The Odds API | `scripts/fetch_odds.py` → `data/input/odds.csv` → `predict.py` | Upcoming fixtures only | ✅ For prediction |
 
@@ -26,6 +27,54 @@ checkpoint), and upserts odds with `--merge` when `ODDS_API_KEY` is set.
 (updated daily, includes the WC2026 schedule). Nothing missing. The 48 WC2026
 participants are derivable from the dataset itself — the rows with
 `tournament == "FIFA World Cup"` and no score yet are the upcoming fixtures.
+
+### 90-minute scores — the extra-time convention
+
+The dataset's `home_score`/`away_score` are the scores **after extra time**
+(pens excluded) — but Penka/Superbru and the 1X2 odds market settle on the
+**90-minute** result, so a knockout decided in extra time (Croatia 2-1 England
+2018: 1-1 at 90') was training *and* being scored against the wrong result.
+Rather than switching source, `data.load_results` rebuilds the 90' score from
+two sibling files of the same repo, downloaded by `update-data`:
+
+- **goalscorers.csv** — one row per goal with the minute. Convention audited
+  2026-07 (all goals dated 2006+): stoppage-time goals carry the *base* minute
+  (Kroos 90+5 → `90`, Weghorst 90+11 → `90`), so `minute >= 91` unambiguously
+  means extra time. All 26 goals at minutes 91-99 since 2006 belong to genuine
+  extra-time matches; minute counts collapse from ~2,000/min in the late 80s
+  to single digits at 91+.
+- **shootouts.csv** — matches decided on penalties, with the `winner`.
+
+A match is a correction candidate if it has a goal at minute ≥ 91 or appears
+in shootouts.csv; it is corrected only when its scorer rows are complete and
+consistent (per-team totals equal the recorded score — held for **all** 31
+ET/pens knockouts of the six backtest tournaments, and for the 178 corrected
+matches overall). `home_score`/`away_score` become the 90' score everywhere
+(training, backtest truth, webapp pick evaluation); the original after-ET
+score survives in `home_score_ft`/`away_score_ft` and the pens winner in
+`shootout_winner`, which `tournament._ko_played_pairs` and the webapp use for
+real bracket advancement and result display. Switching the backtest truth to
+90' moved the anchor from ~594 to ~566 Penka pts (8 more knockouts are
+officially draws) while slightly *improving* RPS — the probabilities were
+always better calibrated against 90' than the old truth could show.
+
+Residual gaps, all judged harmless:
+
+- Coverage of goalscorers.csv is ~46% of matches since 2015, skewed to the
+  big tournaments. An ET-decided match *without* scorer rows is undetectable
+  (its recorded win stands, though the 90' result was a draw) — the cases live
+  in minor tournaments (COSAFA Cup, early AFCON rounds) and only dilute
+  training marginally; the six backtest tournaments are fully covered.
+- A pens match without scorer rows keeps its recorded scoreline. It is a draw
+  either way; the exact line is off only if both sides scored equally in ET
+  (rare — e.g. Cameroon–Ivory Coast 2006, 0-0 → 1-1 aet).
+- **Two-legged ties** can play ET/pens with the single-match score *not*
+  level (aggregate rules): France–Ireland 2009 (1-1, 0-1 at 90'),
+  Australia–Uruguay 2005 (1-0 + pens). The reconstruction handles them
+  naturally — goals at minute ≤ 90 — they just look odd in invariant checks.
+- shootouts.csv has the occasional missing row (Spain–Netherlands NL 2025):
+  scores stay correct, only forced advancement would miss — irrelevant
+  outside the World Cup bracket.
 
 ## xG — FotMob
 
