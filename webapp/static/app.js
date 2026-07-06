@@ -40,7 +40,40 @@ const cacheKey = (ap = state.approach, eng = state.engine) => `${ap}|${eng}`;
 const curCache = () => state.cache[cacheKey()] || {};
 
 const $ = (sel) => document.querySelector(sel);
+
+// Sitio estático (export_static.py → CloudFront): no hay servidor, así que
+// window.__WCPRED_STATIC__ (inyectado en index.html al exportar) reescribe cada
+// /api/... a su fichero JSON congelado. slug() debe coincidir byte a byte con
+// team_slug() del exportador.
+const STATIC = typeof window !== "undefined" && window.__WCPRED_STATIC__;
+const slug = (s) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, "-");
+
+function staticPath(url) {
+  const u = new URL(url, location.origin);
+  const p = u.pathname;
+  const q = u.searchParams;
+  const ap = q.get("approach"), eng = q.get("engine");
+  if (p === "/api/meta") return "api/meta.json";
+  if (p === "/api/matches") return "api/matches.json";
+  if (p === "/api/picks") return `api/picks_${ap}_${eng}.json`;
+  if (p === "/api/groups") return `api/groups_${ap}_${eng}.json`;
+  if (p === "/api/sims") return `api/sims_${ap}_${eng}.json`;
+  if (p === "/api/rankings/history") return `api/rankings_history_${eng}.json`;
+  if (p === "/api/rankings") return `api/rankings_${eng}.json`;
+  if (p === "/api/matrix")
+    return `api/matrix/${q.get("date")}_${slug(q.get("home"))}_${slug(q.get("away"))}` +
+           `_${ap}_${eng}.json`;
+  return null;   // connectivity/refresh no existen en la versión estática
+}
+
 const fetchJSON = async (url) => {
+  if (STATIC) {
+    // refresh no aplica sin servidor: responde "inactivo" sin ir a red.
+    if (url.startsWith("/api/refresh")) return { running: false, returncode: null, log: [] };
+    const path = staticPath(url);
+    if (path) url = path;
+  }
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${url}: ${r.status}`);
   return r.json();
