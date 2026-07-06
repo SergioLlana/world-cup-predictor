@@ -35,7 +35,9 @@ SUBNETS="$(aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPC_ID \
 SG_ID="$(aws ec2 describe-security-groups \
   --filters Name=vpc-id,Values=$VPC_ID Name=group-name,Values=default \
   --query "SecurityGroups[0].GroupId" --output text)"
-NET="awsvpcConfiguration={subnets=[${SUBNETS// /,}],securityGroups=[$SG_ID],assignPublicIp=ENABLED}"
+# --output text separates ids with tabs; normalise the whitespace to commas.
+SUBNETS_CSV="$(echo $SUBNETS | tr -s '[:space:]' ',')"
+NET="awsvpcConfiguration={subnets=[$SUBNETS_CSV],securityGroups=[$SG_ID],assignPublicIp=ENABLED}"
 
 echo ">>> ecs run-task ($TASK_FAMILY on $CLUSTER)"
 TASK_ARN="$(aws ecs run-task --cluster "$CLUSTER" --task-definition "$TASK_FAMILY" \
