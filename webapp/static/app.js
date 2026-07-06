@@ -59,6 +59,8 @@ const flagImg = (name, big = false) => {
 
 const pct = (p) => {
   if (p == null || isNaN(p)) return "–";
+  if (p <= 0) return "0%";          // certeza (p. ej. eliminado) ≠ "<1%"
+  if (p >= 1) return "100%";        // certeza (p. ej. ya clasificado) ≠ ">99%"
   if (p < 0.005) return "<1%";
   if (p > 0.995) return ">99%";
   return Math.round(p * 100) + "%";
