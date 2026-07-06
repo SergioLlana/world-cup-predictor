@@ -23,6 +23,6 @@ EXTRA=()
 aws s3 sync data/ "s3://$DATA_BUCKET/data/" \
   --exclude "*.DS_Store" --exclude "*__pycache__*" \
   --exclude "experiments/*" --exclude "tuning/*" \
-  "${EXTRA[@]}"
+  ${EXTRA[@]+"${EXTRA[@]}"}
 
 echo "Pushed data/ -> s3://$DATA_BUCKET/data/"

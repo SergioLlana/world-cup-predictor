@@ -29,6 +29,6 @@ done
 # exclusion also shields the local-only trees from deletion.
 aws s3 sync "s3://$DATA_BUCKET/data/" data/ \
   --exclude "experiments/*" --exclude "tuning/*" \
-  "${EXTRA[@]}"
+  ${EXTRA[@]+"${EXTRA[@]}"}
 
 echo "Pulled s3://$DATA_BUCKET/data/ -> data/"
