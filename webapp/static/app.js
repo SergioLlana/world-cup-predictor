@@ -201,6 +201,8 @@ function applyPublicMode() {
   // El calendario público muestra el marcador más probable (pick_mode), no un
   // pick de estrategia, así que el toggle ev/outcome no aplica: se oculta.
   $("#strategy-toggle")?.closest("label")?.remove();
+  // La versión pública no menciona Penka en el subtítulo (solo modelo + fecha).
+  $('[data-i18n="subtitle.opt"]')?.remove();
 }
 
 function buildEngineSelect() {
