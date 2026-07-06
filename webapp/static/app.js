@@ -981,12 +981,17 @@ async function openMatrix(home, away, date) {
   const m = state.matches.find((x) => x.home === home && x.away === away && x.date === date);
   const n = d.matrix.length;
   const maxP = Math.max(...d.matrix.flat());
+  // El marcador óptimo Penka solo se muestra en la versión local; la pública
+  // enseña únicamente probabilidades (no destaca el pick de Penka).
+  const showPick = !state.meta?.public;
+  const [pickH, pickA] = d.pick.split("-").map(Number);
 
   const cell = (h, a) => {
     const p = d.matrix[h][a];
     const { bg, dark } = shadeCell(maxP ? Math.min((p / maxP) * 0.92, 0.92) : 0);
     const cls = [
       dark ? "dark" : "",
+      showPick && h === pickH && a === pickA ? "pick" : "",
       m?.played && h === m.home_score_90 && a === m.away_score_90 ? "real" : "",
     ].join(" ");
     const label = p >= 0.001 ? (p * 100).toFixed(1) : "·";
@@ -1001,6 +1006,7 @@ async function openMatrix(home, away, date) {
     <div class="matrix-sub">${t("matrix.sub", {
       engine: engineLabel(d.engine), date: fmtDay(d.as_of), odds: d.odds_used,
       p1: pct(d.p1), px: pct(d.px), p2: pct(d.p2),
+      pred: showPick ? ` · ${t("match.pred_prefix")} <b>${d.pick}</b>` : "",
     })}</div>
     <table class="matrix">
       <tr><th></th><th class="axis" colspan="${n}">${t("matrix.away_goals", { team: teamName(away) })}</th></tr>
@@ -1009,6 +1015,7 @@ async function openMatrix(home, away, date) {
         `<tr><th>${h}</th>${[...Array(n)].map((_, a) => cell(h, a)).join("")}</tr>`).join("")}
     </table>
     <div class="matrix-legend">
+      ${showPick ? `<span><span class="key" style="outline:2.5px solid var(--hi); outline-offset:-2.5px"></span>${t("matrix.legend_pick")}</span>` : ""}
       ${m?.played ? `<span><span class="key" style="outline:2.5px solid var(--ink); outline-offset:-2.5px"></span>${t("matrix.legend_real")}</span>` : ""}
     </div>`;
 }

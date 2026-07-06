@@ -130,7 +130,7 @@ const I18N = {
     // ---- score matrix modal ----
     "matrix.loading": "Fitting the model… (first time takes a few seconds)",
     "matrix.error": (p) => `Error computing the matrix: ${p.msg}`,
-    "matrix.sub": (p) => `Probability (%) of each exact score · ${p.engine} model of ${p.date} · ${p.odds ? "with market odds" : "model only"} · 1X2: ${p.p1} / ${p.px} / ${p.p2}`,
+    "matrix.sub": (p) => `Probability (%) of each exact score · ${p.engine} model of ${p.date} · ${p.odds ? "with market odds" : "model only"} · 1X2: ${p.p1} / ${p.px} / ${p.p2}${p.pred || ""}`,
     "matrix.away_goals": (p) => `${p.team} goals →`,
     "matrix.home_goals": (p) => `${p.team} ↓`,
     "matrix.legend_pick": "Penka prediction",
@@ -399,7 +399,7 @@ odds ──→ margin-free 1X2 ────────────────�
     // ---- score matrix modal ----
     "matrix.loading": "Ajustando el modelo… (la primera vez tarda unos segundos)",
     "matrix.error": (p) => `Error calculando la matriz: ${p.msg}`,
-    "matrix.sub": (p) => `Probabilidad (%) de cada marcador exacto · modelo ${p.engine} del ${p.date} · ${p.odds ? "con cuotas de mercado" : "solo modelo"} · 1X2: ${p.p1} / ${p.px} / ${p.p2}`,
+    "matrix.sub": (p) => `Probabilidad (%) de cada marcador exacto · modelo ${p.engine} del ${p.date} · ${p.odds ? "con cuotas de mercado" : "solo modelo"} · 1X2: ${p.p1} / ${p.px} / ${p.p2}${p.pred || ""}`,
     "matrix.away_goals": (p) => `Goles de ${p.team} →`,
     "matrix.home_goals": (p) => `${p.team} ↓`,
     "matrix.legend_pick": "predicción Penka",
