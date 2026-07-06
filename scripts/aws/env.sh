@@ -10,7 +10,11 @@
 # Bucket names carry the account id (S3 names are global): resolved once here
 # so every script agrees on them.
 
-export AWS_PROFILE="${WCPRED_AWS_PROFILE:-wcpred}"
+# Locally we authenticate through the named 'wcpred' profile. In the Fargate
+# container there is no profile — credentials come from the task role — so set
+# WCPRED_AWS_PROFILE="" (explicitly empty) to skip AWS_PROFILE entirely.
+_profile="${WCPRED_AWS_PROFILE-wcpred}"
+[ -n "$_profile" ] && export AWS_PROFILE="$_profile"
 export AWS_REGION="${WCPRED_AWS_REGION:-eu-south-2}"
 
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)" || {

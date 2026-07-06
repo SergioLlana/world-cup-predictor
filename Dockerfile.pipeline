@@ -1,0 +1,38 @@
+# Pipeline image for the scheduled wcpred run (docs/aws-migration-plan.md fase 3).
+# Unlike the Render web Dockerfile (which only serves the app), this image runs
+# the whole daily job: refresh data, regenerate every engine (dc/elo/bayes,
+# MCMC included), export the static site and publish to S3 + CloudFront.
+#
+# Built natively for ARM64 (Fargate Graviton, ~20% cheaper) from Apple Silicon:
+#   scripts/aws/push_image.sh
+FROM python:3.11-slim
+
+# The cron and ODDS_CUTOVER (17:00) are Europe/Madrid local time.
+ENV TZ=Europe/Madrid \
+    DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1
+
+# g++/make: CmdStan compiles the Stan models. curl/ca-certificates: CmdStan
+# download + data-source fetches. tzdata: the local-time cron/cutover.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        g++ make curl ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+
+# .[web] powers the TestClient the exporter uses and the local re-fit paths;
+# .[bayes] adds cmdstanpy; awscli drives the S3/SSM/CloudFront steps in
+# daily_publish.sh (v1 from pip — no AWS CLI v2 wheel exists).
+RUN pip install -e ".[web,bayes]" awscli
+
+# Install CmdStan and precompile every Stan model at build time, so the daily
+# run never pays the ~1-2 min C++ compile — only MCMC sampling (incremental via
+# the S3 posterior cache).
+RUN python -c "import cmdstanpy; cmdstanpy.install_cmdstan(cores=2, verbose=True)"
+RUN python -c "import cmdstanpy, glob; [cmdstanpy.CmdStanModel(stan_file=f) for f in sorted(glob.glob('wcpred/stan/*.stan'))]"
+
+# No profile in the container: env.sh reads the task role instead.
+ENV WCPRED_AWS_PROFILE=""
+
+ENTRYPOINT ["scripts/daily_publish.sh"]
