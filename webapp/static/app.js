@@ -994,7 +994,9 @@ async function openMatrix(home, away, date) {
       showPick && h === pickH && a === pickA ? "pick" : "",
       m?.played && h === m.home_score_90 && a === m.away_score_90 ? "real" : "",
     ].join(" ");
-    const label = p >= 0.001 ? (p * 100).toFixed(1) : "·";
+    // Diferenciar 0 real ("·") de un marcador posible pero muy improbable
+    // (<0.1%, "<0.1"), que antes se confundían en el mismo "·".
+    const label = p >= 0.001 ? (p * 100).toFixed(1) : p > 0 ? "<0.1" : "·";
     return `<td class="${cls}" style="background:${bg}"
                 title="${h}-${a}: ${(p * 100).toFixed(2)}%">${label}</td>`;
   };
