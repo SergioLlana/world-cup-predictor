@@ -19,18 +19,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Install CmdStan BEFORE copying the app so this expensive layer (a from-source
+# C++ build, ~5 min) is cached independently of code changes. cores=1: compiling
+# Stan math is memory-heavy (boost templates ~2-2.5 GB per g++); a parallel
+# build OOM-kills a small Docker VM (~4 GB), so serialise it.
+RUN pip install "cmdstanpy>=1.2" \
+    && python -c "import cmdstanpy; cmdstanpy.install_cmdstan(cores=1, verbose=True)"
+
 COPY . .
 
 # .[web] powers the TestClient the exporter uses and the local re-fit paths;
-# .[bayes] adds cmdstanpy; awscli drives the S3/SSM/CloudFront steps in
+# .[bayes] pins cmdstanpy; awscli drives the S3/SSM/CloudFront steps in
 # daily_publish.sh (v1 from pip — no AWS CLI v2 wheel exists).
 RUN pip install -e ".[web,bayes]" awscli
 
-# Install CmdStan and precompile every Stan model at build time, so the daily
-# run never pays the ~1-2 min C++ compile — only MCMC sampling (incremental via
-# the S3 posterior cache).
-RUN python -c "import cmdstanpy; cmdstanpy.install_cmdstan(cores=2, verbose=True)"
-RUN python -c "import cmdstanpy, glob; [cmdstanpy.CmdStanModel(stan_file=f) for f in sorted(glob.glob('wcpred/stan/*.stan'))]"
+# Precompile every Stan model for THIS image's arch. compile="force" guarantees
+# a fresh Linux build even if a stale exe ever slips past .dockerignore — so the
+# daily run only pays MCMC sampling, never the C++ compile.
+RUN python -c "import cmdstanpy, glob; [cmdstanpy.CmdStanModel(stan_file=f, compile='force') for f in sorted(glob.glob('wcpred/stan/*.stan'))]"
 
 # No profile in the container: env.sh reads the task role instead.
 ENV WCPRED_AWS_PROFILE=""
