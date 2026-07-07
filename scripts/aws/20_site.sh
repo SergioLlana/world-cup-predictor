@@ -60,12 +60,27 @@ if [ "$dist_id" = "None" ] || [ -z "$dist_id" ]; then
   CACHING_OPTIMIZED="658327ea-f89d-4fab-a63d-7e88639e58f6"
   CACHING_DISABLED="4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
   ref="wcpred-$(date +%s)"
+  # Custom domain (wc-pred.com): serve it with the ACM cert (us-east-1, arn in
+  # SSM) when present, else fall back to the default *.cloudfront.net cert. The
+  # cert must already be ISSUED — request it with request-certificate + the DNS
+  # validation CNAMEs before this runs (the DNS lives at the domain's registrar).
+  cert_arn="$(aws ssm get-parameter --name /wcpred/acm-cert-arn \
+    --query Parameter.Value --output text 2>/dev/null || true)"
+  if [ -n "$cert_arn" ] && [ "$cert_arn" != "None" ]; then
+    aliases_json='"Aliases": {"Quantity": 2, "Items": ["wc-pred.com", "www.wc-pred.com"]},'
+    viewer_cert="{\"ACMCertificateArn\": \"$cert_arn\", \"SSLSupportMethod\": \"sni-only\", \"MinimumProtocolVersion\": \"TLSv1.2_2021\", \"Certificate\": \"$cert_arn\", \"CertificateSource\": \"acm\"}"
+  else
+    aliases_json=''
+    viewer_cert='{"CloudFrontDefaultCertificate": true}'
+  fi
   config="$(cat <<JSON
 {
   "CallerReference": "$ref",
   "Comment": "$COMMENT",
   "Enabled": true,
   "DefaultRootObject": "index.html",
+  $aliases_json
+  "ViewerCertificate": $viewer_cert,
   "Origins": {"Quantity": 1, "Items": [{
     "Id": "$ORIGIN_ID",
     "DomainName": "$ORIGIN_DOMAIN",
@@ -128,3 +143,8 @@ echo "bucket policy on $SITE_BUCKET: set (only $dist_id can read)"
 echo
 echo "Done. Public URL (once the distribution finishes deploying, ~15 min):"
 echo "  https://$dist_domain"
+cert_arn="$(aws ssm get-parameter --name /wcpred/acm-cert-arn \
+  --query Parameter.Value --output text 2>/dev/null || true)"
+if [ -n "$cert_arn" ] && [ "$cert_arn" != "None" ]; then
+  echo "  https://wc-pred.com  (CNAME @ + www -> $dist_domain at the registrar, DNS-only)"
+fi

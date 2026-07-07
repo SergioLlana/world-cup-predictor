@@ -122,5 +122,6 @@ CmdStan (its live-fit fallbacks answer 503 there). dc/elo always fit live.
 `webapp-public-deploy-plan.md` · `next-steps.md` (July 2026 review; all six
 proposals implemented 2026-07-03, outcomes inline) · `aws-migration-plan.md`
 (static site on S3+CloudFront + Fargate pipeline; **live** 2026-07-06 at
-<https://d1h6wbyne03264.cloudfront.net> — runs manually via
-`scripts/aws/run_pipeline.sh`, phases 0-5 done; operating notes in README).
+<https://wc-pred.com> — Cloudflare-registered domain, ACM cert in us-east-1;
+runs manually via `scripts/aws/run_pipeline.sh`, phases 0-5 done; operating
+notes in README).

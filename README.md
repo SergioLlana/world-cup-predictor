@@ -131,8 +131,11 @@ calendar instead of the Penka-optimised pick. All three engines are served
 WCPRED_PUBLIC=1 uvicorn webapp.server:app --port 8027
 ```
 
-The live public site is **<https://d1h6wbyne03264.cloudfront.net>** — a fully
-**static** export on S3 + CloudFront (no server, no cold starts).
+The live public site is **<https://wc-pred.com>** (also `www`, served through
+CloudFront `d1h6wbyne03264.cloudfront.net`) — a fully **static** export on
+S3 + CloudFront (no server, no cold starts). The domain is registered at
+Cloudflare (DNS-only CNAMEs to the distribution) with a free ACM cert in
+`us-east-1`; the CloudFront URL keeps working in parallel.
 `scripts/export_static.py` freezes the public app to `build/site/`, and
 `scripts/aws/publish_site.sh` mirrors it to the `wcpred-site` bucket and
 invalidates CloudFront. A daily pipeline on **ECS Fargate** does the whole thing
