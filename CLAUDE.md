@@ -18,22 +18,15 @@ scripts/generate_rankings.sh     # date-stamped model rankings (--as-of, --engin
 scripts/run_webapp.sh            # local dashboard on :8026 (needs `.[web]` extra)
 scripts/smoke.sh                 # ~1 min CLI smoke: run after touching cli.py/
                                  # backtest.py/the engines, before committing
-
-wcpred predict   --approach odds --odds data/input/odds.csv --days 3
-wcpred groups    --approach odds --odds data/input/odds.csv   # MC group standings
-wcpred simulate  --approach odds --odds data/input/odds.csv   # full bracket → champion
-wcpred ratings   --top 20
-wcpred backtest  --tournament all     # regression check: ~566 Penka pts / 290 matches
-                                      # (90'-scores convention since 103f5e1; was ~594)
-wcpred tune                           # hyperparameter grid search (no xG)
-wcpred tune --elo-engine              # coordinate-tune the Elo engine
 ```
 
-`--engine {dc,elo,bayes}` works on every subcommand (default `dc`). `--bridge-audit`
-adds the inter-confederation calibration table to `backtest`. The Bayesian engine
-needs the `.[bayes]` extra + a one-off CmdStan install and is static-only. Its
-posterior draws are cached under `data/models/` (gitignored), so only the first
-fit per training-set/config samples MCMC; repeats load in <1 s bit-identically.
+Subcommands (`predict`/`groups`/`simulate`/`ratings`/`backtest`/`tune`) and their
+flags are in the README and `--help`. `--engine {dc,elo,bayes}` works on every
+subcommand (default `dc`); `--bridge-audit` adds the inter-confederation
+calibration table to `backtest`. The Bayesian engine needs the `.[bayes]` extra +
+a one-off CmdStan install and is static-only. Its posterior draws are cached under
+`data/models/` (gitignored), so only the first fit per training-set/config samples
+MCMC; repeats load in <1 s bit-identically.
 
 ## Architecture (`wcpred/`)
 
@@ -91,7 +84,8 @@ CmdStan (its live-fit fallbacks answer 503 there). dc/elo always fit live.
   so the whole series shares the 90' convention (pre-fix originals remain in git
   history).
 - **No test suite.** `wcpred backtest --tournament all` is the regression check
-  after touching the model. Tune on RPS/log-loss (low variance); use points to
+  after touching the model (~566 Penka pts / 290 matches; 90'-scores convention
+  since `103f5e1`, was ~594). Tune on RPS/log-loss (low variance); use points to
   break ties.
 - **Generated files live under `data/`**, never the project root — inputs in
   `data/input/`, and `--out` routed to `PREDICTIONS_DIR`/`GROUPS_DIR`/`SIM_DIR`/
@@ -116,6 +110,8 @@ CmdStan (its live-fit fallbacks answer 503 there). dc/elo always fit live.
   `docs/known-limitations.md`, `docs/connectivity.md`.
 
 ## Documentation map (`docs/`)
+
+Read the matching doc before working on that area.
 
 `models-explained.md` · `elo-engine.md` · `bayesian-engine.md` · `pick-strategy.md`
 · `data-sources.md` · `known-limitations.md` · `connectivity.md` ·
