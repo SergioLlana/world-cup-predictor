@@ -17,5 +17,14 @@ wcpred/stan/*
 # Cached bayes posteriors (config.BAYES_CACHE_DIR): regenerable, local only
 data/models/
 
+# Date-stamped snapshots: since the AWS migration (fase 5) the versioned
+# wcpred-data S3 bucket is the source of truth, not git. Pre-migration history
+# stays in git; pull the current data with scripts/aws/pull_data.sh.
+data/predictions/
+data/groups/
+data/simulations/
+data/rankings/
+data/matrices/
+
 .DS_Store
 docs/.obsidian/

@@ -1,0 +1,45 @@
+# Pipeline image for the scheduled wcpred run (docs/aws-migration-plan.md fase 3).
+# Unlike the Render web Dockerfile (which only serves the app), this image runs
+# the whole daily job: refresh data, regenerate every engine (dc/elo/bayes,
+# MCMC included), export the static site and publish to S3 + CloudFront.
+#
+# Built natively for ARM64 (Fargate Graviton, ~20% cheaper) from Apple Silicon:
+#   scripts/aws/push_image.sh
+FROM python:3.11-slim
+
+# The cron and ODDS_CUTOVER (17:00) are Europe/Madrid local time.
+ENV TZ=Europe/Madrid \
+    DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1
+
+# g++/make: CmdStan compiles the Stan models. curl/ca-certificates: CmdStan
+# download + data-source fetches. tzdata: the local-time cron/cutover.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        g++ make curl ca-certificates tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install CmdStan BEFORE copying the app so this expensive layer (a from-source
+# C++ build, ~5 min) is cached independently of code changes. cores=1: compiling
+# Stan math is memory-heavy (boost templates ~2-2.5 GB per g++); a parallel
+# build OOM-kills a small Docker VM (~4 GB), so serialise it.
+RUN pip install "cmdstanpy>=1.2" \
+    && python -c "import cmdstanpy; cmdstanpy.install_cmdstan(cores=1, verbose=True)"
+
+COPY . .
+
+# .[web] powers the TestClient the exporter uses and the local re-fit paths;
+# .[bayes] pins cmdstanpy; awscli drives the S3/SSM/CloudFront steps in
+# daily_publish.sh (v1 from pip — no AWS CLI v2 wheel exists).
+RUN pip install -e ".[web,bayes]" awscli
+
+# Precompile every Stan model for THIS image's arch. compile="force" guarantees
+# a fresh Linux build even if a stale exe ever slips past .dockerignore — so the
+# daily run only pays MCMC sampling, never the C++ compile.
+RUN python -c "import cmdstanpy, glob; [cmdstanpy.CmdStanModel(stan_file=f, compile='force') for f in sorted(glob.glob('wcpred/stan/*.stan'))]"
+
+# No profile in the container: env.sh reads the task role instead.
+ENV WCPRED_AWS_PROFILE=""
+
+ENTRYPOINT ["scripts/daily_publish.sh"]

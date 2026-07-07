@@ -95,7 +95,11 @@ CmdStan (its live-fit fallbacks answer 503 there). dc/elo always fit live.
   break ties.
 - **Generated files live under `data/`**, never the project root — inputs in
   `data/input/`, and `--out` routed to `PREDICTIONS_DIR`/`GROUPS_DIR`/`SIM_DIR`/
-  `RANKINGS_DIR` by `cli.resolve_out`. Paths are set in `config.py`.
+  `RANKINGS_DIR` by `cli.resolve_out`. Paths are set in `config.py`. Since the AWS
+  migration these date-stamped snapshot dirs are **gitignored** — the versioned
+  `wcpred-data` S3 bucket is the source of truth (pull with `scripts/aws/pull_data.sh`);
+  the pre-migration snapshots remain in git history, and the regenerability rule
+  above now leans on S3 versioning for the record going forward.
 - **Team names** must match the martj42 dataset exactly (`United States`,
   `South Korea`, `Czech Republic`, `Ivory Coast`, `Turkey`).
 - **Score matrices** are `P[home_goals, away_goals]` over a `0..MAX_GOALS` grid.
@@ -117,4 +121,7 @@ CmdStan (its live-fit fallbacks answer 503 there). dc/elo always fit live.
 · `data-sources.md` · `known-limitations.md` · `connectivity.md` ·
 `webapp-public-deploy-plan.md` · `next-steps.md` (July 2026 review; all six
 proposals implemented 2026-07-03, outcomes inline) · `aws-migration-plan.md`
-(static site on S3+CloudFront + scheduled Fargate pipeline; not started).
+(static site on S3+CloudFront + Fargate pipeline; **live** 2026-07-06 at
+<https://wc-pred.com> — Cloudflare-registered domain, ACM cert in us-east-1;
+runs manually via `scripts/aws/run_pipeline.sh`, phases 0-5 done; operating
+notes in README).

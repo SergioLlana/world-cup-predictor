@@ -1,7 +1,0 @@
-date,home,away,stage,P_1,P_X,P_2,pick,expected_points,pick_outcome,expected_points_outcome,pick_mode,odds_used
-2026-07-06,Portugal,Spain,r32_r16,0.235,0.263,0.502,0-1,2.303,0-1,2.303,1-1,True
-2026-07-06,United States,Belgium,r32_r16,0.377,0.274,0.349,1-0,1.795,1-0,1.795,1-1,True
-2026-07-06,Argentina,Egypt,r32_r16,0.692,0.203,0.105,1-0,2.962,2-0,2.921,2-0,True
-2026-07-06,Switzerland,Colombia,r32_r16,0.275,0.31,0.415,0-1,2.12,0-1,2.12,1-1,True
-2026-07-09,France,Morocco,qf_plus,0.602,0.247,0.151,1-0,4.094,1-0,4.094,1-0,True
-2026-07-11,Norway,England,qf_plus,0.243,0.267,0.49,0-1,3.356,0-1,3.356,1-1,True

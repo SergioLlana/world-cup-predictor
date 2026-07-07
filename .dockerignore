@@ -1,0 +1,17 @@
+# The pipeline pulls data/ fresh from S3 (pull_data.sh), so it must not be baked
+# into the image; the rest is local-only cruft.
+.git
+.venv
+venv
+build/
+data/
+# Locally-compiled Stan binaries are macOS Mach-O; if copied in, cmdstanpy sees
+# them as up-to-date and skips recompiling, leaving non-Linux exes. Keep sources
+# only — the image recompiles them for its own arch.
+wcpred/stan/*
+!wcpred/stan/*.stan
+**/__pycache__/
+*.pyc
+.DS_Store
+.pytest_cache/
+*.egg-info/

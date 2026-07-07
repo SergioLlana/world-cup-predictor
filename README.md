@@ -121,25 +121,43 @@ so manual `generate_predictions.sh`/`generate_rankings.sh` runs show up on reloa
 
 ### Public deployment
 
-The same app runs in a locked-down **public mode** for a hosted, read-only
-instance: set `WCPRED_PUBLIC=1` and the server drops `POST /api/refresh` (403),
-the Connectivity tab/endpoint (404) and the `bayes` engine; the frontend reads
-`meta.public` and hides the *Refresh data* button and the Connectivity tab. The
-score-matrix modal and the Rankings still work (live `dc`/`elo` re-fits, cached).
-You update the public data the same way you do locally — regenerate the CSVs with
-the scripts, commit them and push (the date-stamped CSVs under `data/` are in
-git).
-
-Recommended host: **[Render](https://render.com)** via the committed
-`render.yaml` blueprint (native Python service, `WCPRED_PUBLIC=1`). Connect the
-GitHub repo once; every push auto-deploys. The free dyno sleeps after ~15 min
-idle (~50 s cold start); bump to a paid plan for always-on. A `Dockerfile` is
-included as a fallback for hosts that build from one (Fly.io, Railway with
-Docker). To preview public mode locally:
+The same app runs in a locked-down **public mode**: set `WCPRED_PUBLIC=1` and the
+server drops `POST /api/refresh` (403) and the Connectivity tab/endpoint (404),
+hides the *Refresh data* button, and shows the most-likely scoreline in the
+calendar instead of the Penka-optimised pick. All three engines are served
+(`bayes` from precomputed matrices). To preview public mode locally:
 
 ```bash
 WCPRED_PUBLIC=1 uvicorn webapp.server:app --port 8027
 ```
+
+The live public site is **<https://wc-pred.com>** (also `www`, served through
+CloudFront `d1h6wbyne03264.cloudfront.net`) — a fully **static** export on
+S3 + CloudFront (no server, no cold starts). The domain is registered at
+Cloudflare (DNS-only CNAMEs to the distribution) with a free ACM cert in
+`us-east-1`; the CloudFront URL keeps working in parallel.
+`scripts/export_static.py` freezes the public app to `build/site/`, and
+`scripts/aws/publish_site.sh` mirrors it to the `wcpred-site` bucket and
+invalidates CloudFront. A daily pipeline on **ECS Fargate** does the whole thing
+unattended — pull data, refresh sources, regenerate dc/elo/bayes (MCMC included),
+export and publish. See [`docs/aws-migration-plan.md`](docs/aws-migration-plan.md)
+for the architecture.
+
+**Operating the pipeline** (region `eu-south-2`, CLI profile `wcpred`):
+
+- **Trigger a run** once martj42 has the day's results — it's manual, not a fixed
+  cron, because the results don't land at a set time:
+  ```bash
+  scripts/aws/run_pipeline.sh          # launch the Fargate task
+  scripts/aws/run_pipeline.sh --wait   # …and block until it finishes
+  ```
+- **Follow / alert**: `aws logs tail /wcpred/pipeline --follow`; a failed run
+  emails an SNS alert. The opt-in daily schedule is toggled with
+  `scripts/aws/30_schedule.sh --enable` / `--disable`.
+- **Local development**: pull the current data from S3 with
+  `scripts/aws/pull_data.sh`, then work as usual. The date-stamped CSVs under
+  `data/` are no longer committed to git — S3 (versioned) is the source of truth;
+  the pre-migration history stays in git.
 
 ## Commands
 

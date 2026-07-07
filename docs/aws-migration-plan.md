@@ -13,6 +13,11 @@ Decisiones: web **100% estática** (S3 + CloudFront, sin servidor), pipeline en
 **EventBridge Scheduler → ECS Fargate**, infraestructura con **scripts AWS CLI**
 idempotentes en `scripts/aws/`.
 
+**Estado**: fases 0-1 con scripts listos (`scripts/aws/env.sh`, `00_setup.sh`,
+`push_data.sh`, `pull_data.sh`), pendientes de ejecutar cuando exista el perfil
+CLI `wcpred` (cuenta AWS + `aws configure --profile wcpred`). Fases 2-5 sin
+empezar.
+
 ## Por qué estática (y alternativas descartadas)
 
 El modo público (`WCPRED_PUBLIC=1`) ya es **solo lectura**: refresh bloqueado,
@@ -114,20 +119,29 @@ EN/ES), comparando algunos JSON contra el API local en modo público.
   S3 hace el MCMC incremental (~2 min solo el primer fit del día).
 - ECR: repo `wcpred-pipeline` + `scripts/aws/push_image.sh`.
 
-## Fase 4 — Programación y alertas
+## Fase 4 — Programación y alertas — HECHA (2026-07-06)
 
 - Cluster ECS (solo Fargate, sin instancias), task definition **2 vCPU / 8 GB**
   (holgura para las 4 cadenas MCMC; el run diario completo se estima en
-  15-25 min).
-- **EventBridge Scheduler**: `cron(0 8 * * ? *)` zona Europe/Madrid → RunTask.
-  Misma franja matinal que el hábito actual, coherente con los snapshots de odds.
+  15-25 min), runtime **ARM64** para casar con la imagen Graviton.
+- **Disparo manual, no cron.** martj42 no publica los resultados a hora fija, así
+  que un cron matinal correría a menudo antes de que estuvieran los marcadores.
+  El día a día es `scripts/aws/run_pipeline.sh` (resuelve la red del VPC por
+  defecto, IP pública sin NAT, y hace `ecs run-task`; `--wait` bloquea hasta el
+  exit code). El **EventBridge Scheduler** (`cron(0 8 * * ? *)`, Europe/Madrid)
+  se crea **DISABLED** y es opt-in con `30_schedule.sh --enable` (`--disable`
+  para pausarlo de nuevo).
 - IAM mínimo: task role = S3 rw en los 2 buckets + `cloudfront:CreateInvalidation`
-  + lectura del parámetro SSM; execution role = ECR pull + CloudWatch Logs.
-- **Alerta de fallo**: regla EventBridge sobre "ECS Task State Change" con
-  `exitCode != 0` → SNS → email. Sin ella un pipeline roto pasa desapercibido
-  hasta ver la web desactualizada.
-- `scripts/aws/30_schedule.sh` crea/actualiza todo; el schedule se puede
-  desactivar con un flag cuando acabe el Mundial (19-07).
+  (acotado a la distribución) + `ssm:GetParameter` de las 2 claves; execution
+  role = `AmazonECSTaskExecutionRolePolicy` (ECR pull + Logs); scheduler role =
+  `ecs:RunTask` + `iam:PassRole` de los otros dos.
+- **Alerta de fallo**: regla EventBridge sobre "ECS Task State Change" del grupo
+  `family:wcpred-pipeline` con `exitCode != 0` (o `TaskFailedToStart`) → SNS →
+  email (input transformer con un mensaje corto). Salta igual venga el task del
+  run manual o del schedule. Sin ella un pipeline roto pasa desapercibido hasta
+  ver la web desactualizada.
+- `scripts/aws/30_schedule.sh` crea/actualiza toda la infra (idempotente,
+  `--alert-email` para suscribir el email); `run_pipeline.sh` lanza cada run.
 
 ## Fase 5 — Retirada de Render y salida de datos de git
 
