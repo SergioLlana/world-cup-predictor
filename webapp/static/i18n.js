@@ -60,7 +60,7 @@ const I18N = {
     "pos.1": "1st", "pos.2": "2nd", "pos.3": "3rd", "pos.4": "4th",
 
     // ---- snapshot note ----
-    "snapshot.predictions": (p) => `predictions from ${p.date}`,
+    "snapshot.predictions": (p) => `predictions from ${p.date} · ${p.phase}`,
     "snapshot.none": "no predictions generated yet",
 
     // ---- sim columns ----
@@ -111,6 +111,11 @@ const I18N = {
     "round.p3": "Third place",
     "round.f": "Final",
     "round.ko": "Knockouts",
+    // ---- tournament milestones (snapshot picker + evolution charts) ----
+    "phase.pre": "Before the tournament",
+    "ms.j1": "Matchday 1", "ms.j2": "Matchday 2", "ms.j3": "Matchday 3",
+    "ms.r32": "Last 32", "ms.r16": "Last 16", "ms.qf": "Quarters",
+    "ms.sf": "Semis", "ms.p3": "3rd place", "ms.f": "Final",
     "badge.exact": "Exact",
     "badge.outcome": "1X2 ✓",
     "badge.miss": "Miss",
@@ -329,7 +334,7 @@ odds ──→ margin-free 1X2 ────────────────�
     "pos.1": "1º", "pos.2": "2º", "pos.3": "3º", "pos.4": "4º",
 
     // ---- snapshot note ----
-    "snapshot.predictions": (p) => `predicciones del ${p.date}`,
+    "snapshot.predictions": (p) => `predicciones del ${p.date} · ${p.phase}`,
     "snapshot.none": "sin predicciones generadas todavía",
 
     // ---- sim columns ----
@@ -380,6 +385,11 @@ odds ──→ margin-free 1X2 ────────────────�
     "round.p3": "Tercer puesto",
     "round.f": "Final",
     "round.ko": "Eliminatorias",
+    // ---- hitos del torneo (selector de día + gráficas de evolución) ----
+    "phase.pre": "Antes del torneo",
+    "ms.j1": "Jornada 1", "ms.j2": "Jornada 2", "ms.j3": "Jornada 3",
+    "ms.r32": "Dieciseisavos", "ms.r16": "Octavos", "ms.qf": "Cuartos",
+    "ms.sf": "Semifinales", "ms.p3": "3.er puesto", "ms.f": "Final",
     "badge.exact": "Exacta",
     "badge.outcome": "1X2 ✓",
     "badge.miss": "Fallo",

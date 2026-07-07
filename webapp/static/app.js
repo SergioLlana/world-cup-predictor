@@ -155,6 +155,60 @@ function pickSnapshot(snapshots, date) {
   return best || snapshots[0];
 }
 
+// hitos del torneo: fecha del primer partido de cada ronda según el calendario
+// (j1…f, en orden). Agrupan el selector de día por fase y marcan las gráficas.
+function roundStarts() {
+  const first = {};
+  (state.matches || []).forEach((m) => {
+    if (!first[m.round_id] || m.date < first[m.round_id]) first[m.round_id] = m.date;
+  });
+  return ROUND_ORDER.filter((rid) => rid !== "ko" && first[rid])
+    .map((rid) => ({ rid, date: first[rid] }));
+}
+
+// fase del torneo en una fecha: la última ronda ya empezada (null = pre-torneo)
+function phaseOf(date, starts = roundStarts()) {
+  let cur = null;
+  for (const s of starts) if (s.date <= date) cur = s;
+  return cur;
+}
+
+// texto de la nota del snapshot: fecha + fase del torneo en la que cae
+function snapshotNoteText(date) {
+  if (!date) return t("snapshot.none");
+  const ph = phaseOf(date);
+  return t("snapshot.predictions", {
+    date: fmtDay(date),
+    phase: ph ? roundName(ph.rid) : t("phase.pre"),
+  });
+}
+
+// marcas de hito sobre el eje X de una gráfica de evolución: línea vertical
+// discontinua en el primer snapshot de cada ronda + etiqueta compacta encima
+// (dos filas alternas; si tampoco cabe, queda la línea sin etiqueta)
+function milestoneMarks(snaps, x, yTop, yBot) {
+  const n = snaps.length;
+  if (n < 2) return "";
+  const byIdx = new Map();   // índice de snapshot → última ronda que empieza ahí
+  roundStarts().forEach((s) => {
+    if (s.date <= snaps[0].date || s.date > snaps[n - 1].date) return;
+    byIdx.set(snaps.findIndex((sn) => sn.date >= s.date), s.rid);
+  });
+  let out = "", endA = -Infinity, endB = -Infinity;
+  [...byIdx.entries()].sort((a, b) => a[0] - b[0]).forEach(([i, rid]) => {
+    const cx = x(i);
+    out += `<line x1="${cx}" y1="${yTop}" x2="${cx}" y2="${yBot}" stroke="#b9c2c2" stroke-dasharray="3 3"/>`;
+    const label = t("ms." + rid);
+    const half = label.length * 3.2 + 4;    // media anchura estimada a 10.5px
+    let ly = null;
+    if (cx - half >= endA) { ly = yTop - 18; endA = cx + half; }
+    else if (cx - half >= endB) { ly = yTop - 6; endB = cx + half; }
+    if (ly != null)
+      out += `<text x="${cx}" y="${ly}" text-anchor="middle" font-size="10.5" fill="#4f5a5e">${label}</text>`;
+  });
+  return out;
+}
+
 // ------------------------------------------------------------- data load
 
 async function loadData(ap = state.approach, eng = state.engine) {
@@ -224,14 +278,24 @@ function updateEngineNote() {
 function buildSnapshotSelect() {
   const dates = (state.meta.snapshots.simulations[state.approach] || {})[state.engine] || [];
   const sel = $("#snapshot-select");
-  sel.innerHTML = dates.map((d) => `<option value="${d}">${fmtShort(d)}</option>`).join("");
+  // opciones agrupadas por fase del torneo (pre-torneo, jornadas, eliminatorias)
+  const starts = roundStarts();
+  let html = "", lastLabel = null;
+  dates.forEach((d) => {
+    const ph = phaseOf(d, starts);
+    const label = ph ? roundName(ph.rid) : t("phase.pre");
+    if (label !== lastLabel) {
+      html += (lastLabel !== null ? "</optgroup>" : "") + `<optgroup label="${label}">`;
+      lastLabel = label;
+    }
+    html += `<option value="${d}">${fmtShort(d)}</option>`;
+  });
+  sel.innerHTML = html + (lastLabel !== null ? "</optgroup>" : "");
   const wanted = state.snapshotDate && dates.includes(state.snapshotDate)
     ? state.snapshotDate : dates[dates.length - 1];
   if (wanted) sel.value = wanted;
   state.snapshotDate = wanted || null;
-  $("#snapshot-note").textContent = wanted
-    ? t("snapshot.predictions", { date: fmtDay(wanted) })
-    : t("snapshot.none");
+  $("#snapshot-note").textContent = snapshotNoteText(wanted);
 }
 
 // ----------------------------------------------------------- ¿Quién gana?
@@ -352,7 +416,8 @@ function renderEvolution() {
     }),
   }));
 
-  const W = 920, H = 430, mL = 46, mR = 120, mT = 16, mB = 40;
+  // mT deja sitio a las etiquetas de hito del torneo (milestoneMarks)
+  const W = 920, H = 430, mL = 46, mR = 120, mT = 44, mB = 40;
   const n = snaps.length;
   const maxV = Math.max(0.02, ...series.flatMap((s) => s.values.filter((v) => v != null))) * 1.15;
   const x = (i) => n === 1 ? (mL + W - mR) / 2 : mL + (i * (W - mL - mR)) / (n - 1);
@@ -419,7 +484,7 @@ function renderEvolution() {
         selected: selected.size, oneDay: n === 1,
       })}</span>
     </div>
-    <svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${xaxis}${lines}</svg>
+    <svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${xaxis}${milestoneMarks(snaps, x, mT, H - mB)}${lines}</svg>
     ${selectableLegend(ordered, selected, colorOf)}`;
 
   $("#evo-metric").addEventListener("change", (e) => {
@@ -893,7 +958,8 @@ function rankEvolutionBlock(snaps, hasElo) {
     values: snaps.map((_, j) => valAt(j, team)),
   }));
 
-  const W = 920, H = 430, mL = 54, mR = 150, mT = 16, mB = 40;
+  // mT deja sitio a las etiquetas de hito del torneo (milestoneMarks)
+  const W = 920, H = 430, mL = 54, mR = 150, mT = 44, mB = 40;
   const x = (i) => n === 1 ? (mL + W - mR) / 2 : mL + (i * (W - mL - mR)) / (n - 1);
   const allV = series.flatMap((s) => s.values.filter((v) => v != null));
   let lo, hi;
@@ -972,7 +1038,7 @@ function rankEvolutionBlock(snaps, hasElo) {
           oneDay: n === 1, n, isRank,
         })}</span>
       </div>
-      <svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${xaxis}${lines}</svg>
+      <svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${xaxis}${milestoneMarks(snaps, x, mT, H - mB)}${lines}</svg>
       ${selectableLegend(ordered, selected, colorOf)}
     </div>`;
   return { html, selected };
@@ -1197,7 +1263,7 @@ function setupUI() {
 
   $("#snapshot-select").addEventListener("change", (e) => {
     state.snapshotDate = e.target.value;
-    $("#snapshot-note").textContent = t("snapshot.predictions", { date: fmtDay(e.target.value) });
+    $("#snapshot-note").textContent = snapshotNoteText(e.target.value);
     render();
   });
 
