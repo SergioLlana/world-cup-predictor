@@ -23,9 +23,11 @@ WORKDIR /app
 # Install CmdStan BEFORE copying the app so this expensive layer (a from-source
 # C++ build, ~5 min) is cached independently of code changes. cores=1: compiling
 # Stan math is memory-heavy (boost templates ~2-2.5 GB per g++); a parallel
-# build OOM-kills a small Docker VM (~4 GB), so serialise it.
+# build OOM-kills a small Docker VM (~4 GB), so serialise it. install_cmdstan
+# returns False on a failed download instead of raising, so assert it — else a
+# broken install gets cached as a "good" layer and only step 7 fails.
 RUN pip install "cmdstanpy>=1.2" \
-    && python -c "import cmdstanpy; cmdstanpy.install_cmdstan(cores=1, verbose=True)"
+    && python -c "import cmdstanpy; assert cmdstanpy.install_cmdstan(cores=1, verbose=True)"
 
 COPY . .
 
