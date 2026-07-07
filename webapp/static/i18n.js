@@ -179,15 +179,9 @@ const I18N = {
     "rank.intro": (p) => `Strength of each team per the <b>${p.engine}</b> engine, sorted by ${p.sort} (${p.source}). The <b>rating</b> is attack − defence: the higher, the better. ${p.hasElo ? "The <b>Elo score</b> is the engine's own (eloratings.net rule). " : ""}The <b>average opponent</b> is the mean rating (weighted by training weight) of the teams it has played: a measure of its average schedule difficulty. Use the <b>Engine</b> selector in the header to switch model.`,
     "rank.sort_elo": "Elo score",
     "rank.sort_rating": "rating (attack − defence)",
-    "rank.source_live": (p) => `live fit as of ${p.date} (generate snapshots with <code>scripts/generate_rankings.sh</code> to chart the evolution)`,
+    "rank.source_live": (p) => `live fit as of ${p.date}`,
     "rank.source_snap": (p) => `snapshot of ${p.date}`,
     "rank.class_h3": (p) => `Standings ${p.live ? "(live)" : "of " + p.date}`,
-    "rank.evo_h3": "Ranking evolution",
-    "rank.evo_note": (p) => `The ${p.total} teams (in grey) by «${p.metric}»; the ${p.selected} chosen ones highlighted. Click a flag in the legend to highlight or remove it. ${p.oneDay ? "Only one day generated: the line will grow with each new snapshot." : p.n + " snapshots."}${p.isRank ? " Inverted axis: 1st on top." : ""}`,
-    "rank.m.rating": "Rating (attack − defence)",
-    "rank.m.elo": "Elo score",
-    "rank.m.rank": "Ranking position",
-    "rank.m.opp": "Opponent difficulty",
 
     // ---- documentation tab ----
     "docs.html": () => `
@@ -453,15 +447,9 @@ odds ──→ margin-free 1X2 ────────────────�
     "rank.intro": (p) => `Fuerza de cada selección según el motor <b>${p.engine}</b>, ordenada por ${p.sort} (${p.source}). El <b>rating</b> es ataque − defensa: cuanto mayor, mejor. ${p.hasElo ? "La <b>puntuación Elo</b> es la del propio motor (regla de eloratings.net). " : ""}El <b>rival medio</b> es el rating medio (ponderado por el peso de entrenamiento) de los equipos contra los que ha jugado: una medida de la dificultad media de sus partidos. Usa el selector de <b>Motor</b> de la cabecera para cambiar de modelo.`,
     "rank.sort_elo": "puntuación Elo",
     "rank.sort_rating": "rating (ataque − defensa)",
-    "rank.source_live": (p) => `ajuste en vivo a ${p.date} (genera snapshots con <code>scripts/generate_rankings.sh</code> para ver la evolución)`,
+    "rank.source_live": (p) => `ajuste en vivo a ${p.date}`,
     "rank.source_snap": (p) => `snapshot del ${p.date}`,
     "rank.class_h3": (p) => `Ranking ${p.live ? "(en vivo)" : "del " + p.date}`,
-    "rank.evo_h3": "Evolución del ranking",
-    "rank.evo_note": (p) => `Las ${p.total} selecciones (en gris) por «${p.metric}»; resaltadas las ${p.selected} elegidas. Clic en una bandera de la leyenda para resaltarla o quitarla. ${p.oneDay ? "Solo hay un día generado: la línea crecerá con cada nuevo snapshot." : p.n + " snapshots."}${p.isRank ? " Eje invertido: el 1.º arriba." : ""}`,
-    "rank.m.rating": "Rating (ataque − defensa)",
-    "rank.m.elo": "Puntuación Elo",
-    "rank.m.rank": "Posición en el ranking",
-    "rank.m.opp": "Dificultad de rivales",
 
     // ---- documentation tab ----
     "docs.html": () => `

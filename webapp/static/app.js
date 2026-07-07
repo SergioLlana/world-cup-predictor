@@ -18,9 +18,7 @@ const state = {
   connSelected: null,                  // equipo con el desglose abierto
   rankings: {},                        // por motor: {snapshots:[...], live:data|null}
   rankLoading: false,
-  rankMetric: "rating",                // métrica de la gráfica de evolución
   evoSelected: null,                   // Set de equipos resaltados (null = top por defecto)
-  rankSelected: null,                  // idem para la gráfica de rankings
 };
 
 // Etiqueta legible de un motor / estrategia (traducidas en i18n.js).
@@ -385,7 +383,7 @@ function selectableLegend(teamsOrdered, selected, colorOf) {
   return `<div class="evo-legend selectable">${clear}${chips}</div>`;
 }
 
-// conecta los clics de la leyenda; selKey es "evoSelected" o "rankSelected"
+// conecta los clics de la leyenda; selKey es la clave de state con el Set
 function wireLegend(el, selected, selKey, rerender) {
   el.querySelectorAll(".team-toggle").forEach((n) =>
     n.addEventListener("click", () => {
@@ -838,14 +836,6 @@ async function loadRankings() {
   renderRankings();
 }
 
-// métricas de la gráfica de evolución (la de Elo solo si el motor la tiene)
-function rankMetrics(hasElo) {
-  const m = [["rating", "rank.m.rating"]];
-  if (hasElo) m.push(["elo", "rank.m.elo"]);
-  m.push(["rank", "rank.m.rank"], ["opp_rating", "rank.m.opp"]);
-  return m;
-}
-
 function renderRankings() {
   if (!state.meta) return;
   const el = $("#tab-rankings");
@@ -854,9 +844,9 @@ function renderRankings() {
 
   const engLabel = engineLabel(state.engine);
   const snaps = data.snapshots;
-  // tabla: el último snapshot disponible (la evolución se ve en la gráfica), o
-  // el ajuste en vivo si aún no se ha generado ninguno. La fecha de rankings es
-  // independiente del selector «Día» (atado a las simulaciones).
+  // tabla: el último snapshot disponible, o el ajuste en vivo si aún no se ha
+  // generado ninguno. La fecha de rankings es independiente del selector «Día»
+  // (atado a las simulaciones).
   let rows, asOf, fromLive = false;
   if (snaps.length) {
     const snap = snaps[snaps.length - 1];
@@ -889,12 +879,9 @@ function renderRankings() {
     ? t("rank.source_live", { date: fmtDay(asOf) })
     : t("rank.source_snap", { date: fmtDay(asOf) });
 
-  const evoBlock = snaps.length ? rankEvolutionBlock(snaps, hasElo) : null;
-
   el.innerHTML = `
     <h2 class="section">${t("rank.title", { engine: engLabel })}</h2>
     <p class="note">${t("rank.intro", { engine: engLabel, sort: sortLabel, source, hasElo })}</p>
-    ${evoBlock ? evoBlock.html : ""}
     <div class="card" style="overflow-x:auto">
       <h3 class="conn-h3">${t("rank.class_h3", { live: fromLive, date: fmtShort(asOf) })}</h3>
       <table class="probs">
@@ -908,140 +895,6 @@ function renderRankings() {
         <tbody>${tbody}</tbody>
       </table>
     </div>`;
-
-  const sel = $("#rank-metric");
-  if (sel) sel.addEventListener("change", (e) => {
-    state.rankMetric = e.target.value;
-    renderRankings();
-  });
-  if (evoBlock) wireLegend(el, evoBlock.selected, "rankSelected", renderRankings);
-}
-
-// bloque de la gráfica de evolución: selector de métrica + SVG + leyenda.
-// Devuelve {html, selected} para que renderRankings conecte los clics.
-function rankEvolutionBlock(snaps, hasElo) {
-  const metrics = rankMetrics(hasElo);
-  let metric = state.rankMetric;
-  if (!metrics.some(([k]) => k === metric)) metric = state.rankMetric = "rating";
-  const isRank = metric === "rank";
-  const n = snaps.length;
-  const rankKey = hasElo ? "elo" : "rating";
-
-  // filas normalizadas y posición (por rating/elo) de cada snapshot, una sola vez
-  const snapRows = snaps.map((s) => s.rows.map(normRankRow));
-  const snapRank = snapRows.map((rows) => {
-    const ord = [...rows].sort((a, b) => b[rankKey] - a[rankKey]);
-    const pos = {}; ord.forEach((r, i) => (pos[r.team] = i + 1));
-    return pos;
-  });
-
-  // valor por equipo en un snapshot dado
-  const valAt = (j, team) => {
-    if (isRank) return snapRank[j][team] ?? null;
-    const r = snapRows[j].find((x) => x.team === team);
-    return r && r[metric] != null ? r[metric] : null;
-  };
-
-  // solo las 48 del Mundial (el modelo puntúa muchas más, pero el ranking es del
-  // torneo), ordenadas por la métrica elegida en el último snapshot. La posición
-  // de "rank" sigue siendo la global (sobre todas las selecciones del snapshot).
-  const lastIdx = n - 1;
-  const ordered = [...snapRows[lastIdx]]
-    .map((r) => r.team)
-    .filter((tm) => state.meta.teams[tm])
-    .sort((a, b) => isRank ? (snapRank[lastIdx][a] - snapRank[lastIdx][b])
-                           : (valAt(lastIdx, b) - valAt(lastIdx, a)));
-  const selected = state.rankSelected || new Set(ordered.slice(0, EVO_DEFAULT_N));
-  const colorOf = evoColors(ordered.filter((tm) => selected.has(tm)));
-  const series = ordered.map((team) => ({
-    team, sel: selected.has(team), color: selected.has(team) ? colorOf[team] : EVO_GRAY,
-    values: snaps.map((_, j) => valAt(j, team)),
-  }));
-
-  // mT deja sitio a las etiquetas de hito del torneo (milestoneMarks)
-  const W = 920, H = 430, mL = 54, mR = 150, mT = 44, mB = 40;
-  const x = (i) => n === 1 ? (mL + W - mR) / 2 : mL + (i * (W - mL - mR)) / (n - 1);
-  const allV = series.flatMap((s) => s.values.filter((v) => v != null));
-  let lo, hi;
-  if (isRank) { lo = 1; hi = Math.max(2, ...allV); }
-  else {
-    lo = Math.min(...allV); hi = Math.max(...allV);
-    const pad = (hi - lo) * 0.1 || 0.1; lo -= pad; hi += pad;
-  }
-  // t en [0,1] con 0 = arriba (rating/elo: mayor arriba; posición: 1 arriba)
-  const y = (v) => mT + (isRank ? (v - 1) / (hi - 1) : (hi - v) / (hi - lo)) * (H - mT - mB);
-
-  let grid = "";
-  if (isRank) {
-    const rstep = hi > 12 ? Math.max(1, Math.round(niceStep(hi - 1))) : 1;
-    for (let v = 1; v <= hi; v += rstep)
-      grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e9eded"/>
-               <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#4f5a5e">${v}</text>`;
-  } else {
-    const step = niceStep(hi - lo);
-    const dec = step < 0.1 ? 2 : step < 1 ? 1 : 0;
-    for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step)
-      grid += `<line x1="${mL}" y1="${y(v)}" x2="${W - mR}" y2="${y(v)}" stroke="#e9eded"/>
-               <text x="${mL - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#4f5a5e">${v.toFixed(dec)}</text>`;
-  }
-  const every = Math.max(1, Math.ceil(n / 12));
-  let xaxis = "";
-  snaps.forEach((s, i) => {
-    if (i % every === 0 || i === n - 1)
-      xaxis += `<text x="${x(i)}" y="${H - mB + 18}" text-anchor="middle" font-size="11" fill="#4f5a5e">${fmtShort(s.date)}</text>`;
-  });
-
-  const fmtV = (v) => isRank ? `#${v}` : metric === "elo" ? Math.round(v) : v.toFixed(2);
-  let lines = "";
-  // fondo: selecciones no resaltadas, en gris fino y sin puntos
-  series.filter((s) => !s.sel).forEach((s) => {
-    const pts = s.values.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean);
-    if (pts.length > 1)
-      lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${EVO_GRAY}" stroke-width="1.2" opacity="0.7"/>`;
-  });
-  // primer plano: las resaltadas, en color y con puntos
-  const fg = series.filter((s) => s.sel);
-  fg.forEach((s) => {
-    const pts = s.values.map((v, i) => (v == null ? null : `${x(i)},${y(v)}`)).filter(Boolean);
-    if (pts.length > 1)
-      lines += `<polyline points="${pts.join(" ")}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
-    s.values.forEach((v, i) => {
-      if (v != null) lines += `<circle cx="${x(i)}" cy="${y(v)}" r="3" fill="${s.color}"/>`;
-    });
-  });
-  // etiquetas finales sin solaparse
-  const labels = fg
-    .filter((s) => s.values[n - 1] != null)
-    .map((s) => ({ s, v: s.values[n - 1], ly: y(s.values[n - 1]) }))
-    .sort((a, b) => a.ly - b.ly);
-  labels.forEach((l, i) => {
-    if (i > 0 && l.ly < labels[i - 1].ly + 15) l.ly = labels[i - 1].ly + 15;
-  });
-  labels.forEach((l) => {
-    const yEnd = y(l.v);
-    if (Math.abs(l.ly - yEnd) > 4)
-      lines += `<line x1="${x(n - 1) + 4}" y1="${yEnd}" x2="${x(n - 1) + 18}" y2="${l.ly - 4}" stroke="${l.s.color}" stroke-width="1" opacity=".6"/>`;
-    lines += `<text x="${x(n - 1) + 21}" y="${l.ly}" font-size="11.5" font-weight="600" fill="#1f2529">${teamName(l.s.team)} ${fmtV(l.v)}</text>`;
-  });
-
-  const metricLabel = t(metrics.find(([k]) => k === metric)[1]);
-  const html = `
-    <div class="card">
-      <h3 class="conn-h3">${t("rank.evo_h3")}</h3>
-      <div class="evo-controls">
-        <label>${t("label.metric")}
-          <select id="rank-metric">${metrics.map(([k, l]) =>
-            `<option value="${k}"${k === metric ? " selected" : ""}>${t(l)}</option>`).join("")}</select>
-        </label>
-        <span class="note">${t("rank.evo_note", {
-          total: ordered.length, metric: metricLabel, selected: selected.size,
-          oneDay: n === 1, n, isRank,
-        })}</span>
-      </div>
-      <svg class="evo-svg" viewBox="0 0 ${W} ${H}">${grid}${xaxis}${milestoneMarks(snaps, x, mT, H - mB)}${lines}</svg>
-      ${selectableLegend(ordered, selected, colorOf)}
-    </div>`;
-  return { html, selected };
 }
 
 // ----------------------------------------------------------- documentación
