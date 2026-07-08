@@ -8,6 +8,10 @@ Run from the project root:
 
 The API never caches: every request re-reads the CSVs, so a refresh (or a
 manual `generate_predictions.sh` run) is picked up on the next page load.
+
+Set WCPRED_SYNC_S3=1 (e.g. `scripts/run_webapp.sh --s3`) to pull the canonical
+`data/` tree down from the wcpred-data S3 bucket on startup, so the dashboard
+shows what the AWS pipeline published without a manual `pull_data.sh` first.
 """
 import datetime
 import glob
@@ -37,11 +41,18 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC_DIR = os.path.join(ROOT, "webapp", "static")
 GENERATE_SH = os.path.join(ROOT, "scripts", "generate_predictions.sh")
 GENERATE_RANKINGS_SH = os.path.join(ROOT, "scripts", "generate_rankings.sh")
+PULL_SH = os.path.join(ROOT, "scripts", "aws", "pull_data.sh")
 
 # Public deployment mode. Set WCPRED_PUBLIC=1 on the hosted instance to lock it
 # down: no data refresh, no Connectivity tab. Locally the var is unset, so the
 # full app runs. The frontend reads `meta.public` to hide the matching UI.
 PUBLIC = bool(os.getenv("WCPRED_PUBLIC"))
+
+# Pull the canonical data/ tree from the wcpred-data S3 bucket on startup (and
+# on demand via POST /api/pull) so the local dashboard serves what the AWS
+# pipeline published. Off by default (offline dev still works); never on the
+# hosted deploy, which ships its own data. See docs/aws-migration-plan.md.
+SYNC_S3 = bool(os.getenv("WCPRED_SYNC_S3")) and not PUBLIC
 
 # Approach label in the CSV filenames -> what the UI's odds toggle selects.
 APPROACHES = ("odds", "history")
@@ -132,6 +143,38 @@ KNOCKOUT_START = KNOCKOUT_ROUNDS[0][0]
 WC_START = "2026-06-01"
 
 app = FastAPI(title="wcpred web")
+
+# ----------------------------------------------------------------- S3 sync
+
+
+def _pull_from_s3():
+    """Sync s3://wcpred-data/data/ into the local data/ tree via
+    scripts/aws/pull_data.sh. Best-effort: on failure (no AWS creds, offline)
+    log and carry on with whatever local snapshots already exist, so the app
+    never fails to start just because S3 is unreachable."""
+    print("[wcpred] syncing data/ from S3 …", flush=True)
+    try:
+        proc = subprocess.run([PULL_SH], cwd=ROOT, text=True,
+                              capture_output=True, timeout=600)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"[wcpred] S3 sync skipped: {exc}", flush=True)
+        return False
+    out = ((proc.stdout or "") + (proc.stderr or "")).rstrip()
+    if out:
+        print(out, flush=True)
+    if proc.returncode != 0:
+        print(f"[wcpred] S3 sync failed (exit {proc.returncode}); "
+              "serving existing local data.", flush=True)
+        return False
+    print("[wcpred] S3 sync complete.", flush=True)
+    return True
+
+
+@app.on_event("startup")
+def _startup_sync():
+    if SYNC_S3:
+        _pull_from_s3()
+
 
 # ---------------------------------------------------------------- snapshots
 
@@ -676,6 +719,17 @@ def refresh(payload: dict = None):
 
     threading.Thread(target=runner, daemon=True).start()
     return {"started": True}
+
+
+@app.post("/api/pull")
+def pull():
+    """Re-sync data/ from S3 on demand (the same pull the startup hook runs).
+    Blocking, but FastAPI runs sync handlers in a threadpool so it doesn't
+    stall other requests. Disabled on the public deploy."""
+    if PUBLIC:
+        raise HTTPException(403, "deshabilitado en la versión pública")
+    ok = _pull_from_s3()
+    return {"pulled": ok}
 
 
 @app.get("/api/refresh/status")
