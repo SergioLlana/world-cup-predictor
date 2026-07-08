@@ -23,8 +23,9 @@ import sys
 import unicodedata
 
 # Public mode must be set before importing the app: server.PUBLIC is read at
-# import time (it hides Connectivity, disables refresh, switches the calendar to
-# pick_mode — exactly the deploy we are freezing).
+# import time (it disables refresh and switches the calendar to pick_mode —
+# exactly the deploy we are freezing). Connectivity is frozen to a static file
+# below, so it stays available on the hosted site.
 os.environ["WCPRED_PUBLIC"] = "1"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -100,6 +101,10 @@ def export(out_dir):
             write_json(out_dir, f"api/groups_{ap}_{eng}.json", srv.groups(ap, eng))
             write_json(out_dir, f"api/sims_{ap}_{eng}.json", srv.sims(ap, eng))
             n += 3
+
+    # Connectivity is model-only (pinned to dc, no approach/engine): one file.
+    write_json(out_dir, "api/connectivity.json", srv.connectivity())
+    n += 1
 
     for eng in srv.ENGINES:
         write_json(out_dir, f"api/rankings_history_{eng}.json",

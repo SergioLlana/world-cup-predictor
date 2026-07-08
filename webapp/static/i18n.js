@@ -149,7 +149,7 @@ const I18N = {
     // ---- init ----
     "init.error": (p) => `Error loading data: ${p.msg}. Is the server running from the project root?`,
 
-    // ---- connectivity tab (local only) ----
+    // ---- connectivity tab ----
     "conn.loading": "Computing connectivity… (the first time it fits the model and takes a few seconds)",
     "conn.error": (p) => `Error computing connectivity: ${p.msg}`,
     "conn.title": "Who anchors whom? Connectivity between confederations",

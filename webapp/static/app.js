@@ -59,6 +59,7 @@ function staticPath(url) {
   if (p === "/api/sims") return `api/sims_${ap}_${eng}.json`;
   if (p === "/api/rankings/history") return `api/rankings_history_${eng}.json`;
   if (p === "/api/rankings") return `api/rankings_${eng}.json`;
+  if (p === "/api/connectivity") return "api/connectivity.json";
   if (p === "/api/matrix")
     return `api/matrix/${q.get("date")}_${slug(q.get("home"))}_${slug(q.get("away"))}` +
            `_${ap}_${eng}.json`;
@@ -243,13 +244,11 @@ async function reloadAll() {
 }
 
 // Versión pública (WCPRED_PUBLIC en el servidor → meta.public): sin botón de
-// actualizar datos ni pestaña de Conectividad.
+// actualizar datos (no hay servidor que refresque en el sitio estático). La
+// pestaña de Conectividad sí se conserva: se congela a api/connectivity.json.
 function applyPublicMode() {
   if (!state.meta || !state.meta.public) return;
   $("#refresh-btn")?.remove();
-  document.querySelector('.tab[data-tab="connectivity"]')?.remove();
-  $("#tab-connectivity")?.remove();
-  if (state.tab === "connectivity") activateTab("champion");
   // El calendario público muestra el marcador más probable (pick_mode), no un
   // pick de estrategia, así que el toggle ev/outcome no aplica: se oculta.
   $("#strategy-toggle")?.closest("label")?.remove();

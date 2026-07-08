@@ -44,8 +44,9 @@ GENERATE_RANKINGS_SH = os.path.join(ROOT, "scripts", "generate_rankings.sh")
 PULL_SH = os.path.join(ROOT, "scripts", "aws", "pull_data.sh")
 
 # Public deployment mode. Set WCPRED_PUBLIC=1 on the hosted instance to lock it
-# down: no data refresh, no Connectivity tab. Locally the var is unset, so the
-# full app runs. The frontend reads `meta.public` to hide the matching UI.
+# down: no data refresh (Connectivity is still served, frozen to a static file
+# by export_static.py). Locally the var is unset, so the full app runs. The
+# frontend reads `meta.public` to hide the matching UI.
 PUBLIC = bool(os.getenv("WCPRED_PUBLIC"))
 
 # Pull the canonical data/ tree from the wcpred-data S3 bucket on startup (and
@@ -555,8 +556,6 @@ def _connectivity(as_of, results_mtime):
 
 @app.get("/api/connectivity")
 def connectivity():
-    if PUBLIC:
-        raise HTTPException(404, "no disponible en la versión pública")
     as_of = datetime.date.today().isoformat()
     return _connectivity(as_of, os.path.getmtime(os.path.join(ROOT, RESULTS_PATH)))
 
