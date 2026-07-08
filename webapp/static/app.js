@@ -522,26 +522,36 @@ function renderGroups() {
 
 const ROUND_ORDER = ["j1", "j2", "j3", "r32", "r16", "qf", "sf", "p3", "f", "ko"];
 
-// predicción vigente para un partido: el snapshot de picks más reciente cuya
-// fecha sea <= la del partido (lo que se habría pronosticado ese día)
+// Da la vuelta a una predicción cuyo local/visitante están invertidos respecto
+// al feed: hay que voltear las probabilidades y AMBOS marcadores antes de elegir
+// cuál mostrar (pickOf lee pick/pick_outcome ya invertidos).
+function flipPrediction(row, snapDate) {
+  const flip = (s) => s ? s.split("-").reverse().join("-") : s;
+  return {
+    ...row, P_1: row.P_2, P_2: row.P_1,
+    pick: flip(row.pick), pick_outcome: flip(row.pick_outcome),
+    pick_mode: flip(row.pick_mode),
+    snapDate,
+  };
+}
+
+// predicción vigente para un partido: se busca en los snapshots dados el mismo
+// día o antes (lo que se habría pronosticado en esa jornada), del más reciente
+// al más antiguo. Recorrer varios snapshots —no solo el que elige pickSnapshot—
+// recupera una predicción cuyo fixture cambió de fecha después de emitirse: p. ej.
+// un partido reprogramado del 6 al 7 de julio conserva el pick del snapshot del
+// 6, aunque el calendario lo fije ahora el 7 y ese día ya no lo tuviera como
+// fixture. La clave es la pareja (home, away), única por partido del torneo.
 function predictionFor(match) {
-  const snap = pickSnapshot(curCache().picks, match.date);
-  if (!snap) return null;
-  let row = snap.rows.find((r) => r.home === match.home && r.away === match.away && r.date === match.date)
-         || snap.rows.find((r) => r.home === match.home && r.away === match.away);
-  if (row) return { ...row, snapDate: snap.date };
-  row = snap.rows.find((r) => r.home === match.away && r.away === match.home);
-  if (row) {
-    // Partido con local/visitante invertidos respecto al feed: hay que dar la
-    // vuelta a las probabilidades y a AMBOS marcadores antes de elegir cuál
-    // mostrar (pickOf lee pick/pick_outcome ya invertidos).
-    const flip = (s) => s ? s.split("-").reverse().join("-") : s;
-    return {
-      ...row, P_1: row.P_2, P_2: row.P_1,
-      pick: flip(row.pick), pick_outcome: flip(row.pick_outcome),
-      pick_mode: flip(row.pick_mode),
-      snapDate: snap.date,
-    };
+  const snaps = curCache().picks;
+  if (!snaps || !snaps.length) return null;
+  const eligible = match.date ? snaps.filter((s) => s.date <= match.date) : snaps;
+  for (let i = eligible.length - 1; i >= 0; i--) {
+    const rows = eligible[i].rows;
+    const row = rows.find((r) => r.home === match.home && r.away === match.away);
+    if (row) return { ...row, snapDate: eligible[i].date };
+    const rev = rows.find((r) => r.home === match.away && r.away === match.home);
+    if (rev) return flipPrediction(rev, eligible[i].date);
   }
   return null;
 }
