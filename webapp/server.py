@@ -308,7 +308,11 @@ def matches():
     # picks are scored on) and keeps the real outcome in *_ft/shootout_winner.
     df = load_results(os.path.join(ROOT, RESULTS_PATH))
     df["date"] = df["date"].dt.strftime("%Y-%m-%d")
-    df = df[(df["tournament"] == "FIFA World Cup") & (df["date"] >= WC_START)]
+    # A knockout round enters the dataset with its venue set but the teams as NA
+    # until the feeding round is played; skip those until they have two teams
+    # (same rule as data.upcoming_world_cup, and NaN is not valid JSON anyway).
+    df = df[(df["tournament"] == "FIFA World Cup") & (df["date"] >= WC_START)
+            & df["home_team"].notna() & df["away_team"].notna()]
     df = df.sort_values("date").reset_index(drop=True)
 
     # Group-stage matchday: nth fixture of that group (0-1 -> J1, 2-3 -> J2 ...).
