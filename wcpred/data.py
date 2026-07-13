@@ -264,9 +264,15 @@ def upcoming_world_cup(df, from_date, to_date=None):
     an `--as-of = from_date` run. Matches that by now have a real result are
     still included (the result itself is ignored): the as-of cutoff alone
     decides what is known, so past snapshots can be regenerated retroactively
-    without leaking what happened on or after that date."""
+    without leaking what happened on or after that date.
+
+    Rows whose teams are still undecided are dropped: once a knockout round is
+    scheduled, the dataset lists its matches with the venue set but the teams
+    as NA until the feeding round is played. They are not predictable targets,
+    and the bracket simulation fills those slots itself."""
     wc = df[(df["tournament"] == "FIFA World Cup")
-            & (df["date"] >= from_date)]
+            & (df["date"] >= from_date)
+            & df["home_team"].notna() & df["away_team"].notna()]
     if to_date:
         wc = wc[wc["date"] <= to_date]
     return wc.sort_values("date").reset_index(drop=True)
