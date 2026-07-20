@@ -34,3 +34,4 @@ data/tuning/
 
 .DS_Store
 docs/.obsidian/
+.tokensave
