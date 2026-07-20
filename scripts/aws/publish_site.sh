@@ -27,11 +27,23 @@ DIST_PARAM="/wcpred/cloudfront-distribution-id"
 echo ">>> export_static.py"
 python scripts/export_static.py --out "$SITE_DIR"
 
-# 2. Mirror to the site bucket. --delete: the site is a full rebuild each time,
-#    so stale files (e.g. a fixture that changed slug) must not linger. api/ is
-#    JSON with default (no) content-type from sync — fine, CloudFront serves it.
+# 2. Mirror to the site bucket, in two passes so the cache headers match how
+#    each kind of file changes (without headers, browsers heuristically cache
+#    the JSON and keep serving a stale snapshot after a publish — the calendar
+#    and "who wins" then lag behind the data). --delete on the first pass: the
+#    site is a full rebuild each time, so stale files (e.g. a fixture that
+#    changed slug) must not linger.
 echo ">>> s3 sync -> s3://$SITE_BUCKET/"
-aws s3 sync "$SITE_DIR/" "s3://$SITE_BUCKET/" --delete $DRY
+# Static assets rarely change: cache a week, revalidate after. --exclude keeps
+# these two out of --delete's reach too, so pass 2 owns them.
+aws s3 sync "$SITE_DIR/" "s3://$SITE_BUCKET/" --delete \
+  --exclude "*.json" --exclude "index.html" \
+  --cache-control "public, max-age=604800" $DRY
+# index.html + the api/ JSON change every publish: always revalidate so a new
+# snapshot is picked up at once (ETag makes the revalidation a cheap 304).
+aws s3 sync "$SITE_DIR/" "s3://$SITE_BUCKET/" \
+  --exclude "*" --include "*.json" --include "index.html" \
+  --cache-control "no-cache" $DRY
 
 if [ -n "$DRY" ]; then
   echo "(dry-run: skipping CloudFront invalidation)"
